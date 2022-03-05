@@ -63,9 +63,12 @@ func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService) *He
 }
 
 func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.ClusterConfig) *client.DeployedAppList {
+	impl.logger.Debugw("Fetching application list ", "clusterId", config.ClusterId, "clusterName", config.ClusterName)
+
 	deployedApp := &client.DeployedAppList{ClusterId: config.GetClusterId()}
 	restConfig, err := k8sUtils.GetRestConfig(config)
 	if err != nil {
+		impl.logger.Errorw("Error in building rest config ", "clusterId", config.ClusterId, "err", err)
 		deployedApp.Errored = true
 		deployedApp.ErrorMsg = err.Error()
 		return deployedApp
@@ -78,12 +81,16 @@ func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.Clus
 
 	helmAppClient, err := helmClient.NewClientFromRestConf(opt)
 	if err != nil {
+		impl.logger.Errorw("Error in building client from rest config ", "clusterId", config.ClusterId, "err", err)
 		deployedApp.Errored = true
 		deployedApp.ErrorMsg = err.Error()
 		return deployedApp
 	}
+
+	impl.logger.Debug("Fetching application list from helm")
 	releases, err := helmAppClient.ListAllReleases()
 	if err != nil {
+		impl.logger.Errorw("Error in getting releases list ", "clusterId", config.ClusterId, "err", err)
 		deployedApp.Errored = true
 		deployedApp.ErrorMsg = err.Error()
 		return deployedApp

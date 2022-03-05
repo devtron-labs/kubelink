@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"github.com/devtron-labs/kubelink/bean"
 	"github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/internal/lock"
@@ -32,24 +31,22 @@ func NewApplicationServiceServerImpl(logger *zap.SugaredLogger, chartRepositoryL
 }
 
 func (impl *ApplicationServiceServerImpl) ListApplications(req *client.AppListRequest, res client.ApplicationService_ListApplicationsServer) error {
-	impl.Logger.Infow("app list req")
+	impl.Logger.Info("List Application Request")
 	clusterConfigs := req.GetClusters()
 	eg := new(errgroup.Group)
 	for _, config := range clusterConfigs {
 		clusterConfig := *config
 		eg.Go(func() error {
 			apps := impl.HelmAppService.GetApplicationListForCluster(&clusterConfig)
-			fmt.Println(apps.String())
 			err := res.Send(apps)
-			fmt.Println(err)
 			return err
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		fmt.Println(err)
+		impl.Logger.Error("Error in fetching application list")
 		return err
 	}
-	impl.Logger.Infow("list app done")
+	impl.Logger.Info("List Application Request successfully done")
 	return nil
 }
 

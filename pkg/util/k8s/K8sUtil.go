@@ -18,7 +18,6 @@
 package k8sUtils
 
 import (
-	"fmt"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -62,7 +61,6 @@ func GetRestConfig(config *client.ClusterConfig) (restConfig *rest.Config, err e
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("using InClusterConfig")
 		return restConfig, err
 	} else {
 		restConfig = &rest.Config{Host: config.ApiServerUrl, BearerToken: config.Token, TLSClientConfig: rest.TLSClientConfig{Insecure: true}}
