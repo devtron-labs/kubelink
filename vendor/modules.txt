@@ -162,6 +162,9 @@ github.com/google/gofuzz
 github.com/google/shlex
 # github.com/google/uuid v1.2.0
 github.com/google/uuid
+# github.com/google/wire v0.5.0
+## explicit
+github.com/google/wire
 # github.com/googleapis/gnostic v0.5.5
 github.com/googleapis/gnostic/compiler
 github.com/googleapis/gnostic/extensions

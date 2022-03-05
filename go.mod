@@ -6,6 +6,7 @@ require (
 	github.com/argoproj/gitops-engine v0.4.1
 	github.com/evanphx/json-patch v4.11.0+incompatible
 	github.com/golang/protobuf v1.5.2
+	github.com/google/wire v0.5.0
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/zap v1.20.0
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/devtron-labs/kubelink/bean"
 	"github.com/devtron-labs/kubelink/grpc"
-	"github.com/devtron-labs/kubelink/internal"
+	"github.com/devtron-labs/kubelink/internal/lock"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -13,30 +13,32 @@ import (
 
 type ApplicationServiceServerImpl struct {
 	client.UnimplementedApplicationServiceServer
-	appService            AppService
-	logger                *zap.SugaredLogger
-	chartRepositoryLocker *internal.ChartRepositoryLocker
+	Logger                *zap.SugaredLogger
+	ChartRepositoryLocker *lock.ChartRepositoryLocker
+	HelmAppService        HelmAppService
 }
 
-func (impl *ApplicationServiceServerImpl) mustEmbedUnimplementedApplicationServiceServer() {
+func (impl *ApplicationServiceServerImpl) MustEmbedUnimplementedApplicationServiceServer() {
 	panic("implement me")
 }
 
-func NewApplicationServiceServerImpl(logger *zap.SugaredLogger, chartRepositoryLocker *internal.ChartRepositoryLocker) *ApplicationServiceServerImpl {
+func NewApplicationServiceServerImpl(logger *zap.SugaredLogger, chartRepositoryLocker *lock.ChartRepositoryLocker,
+	HelmAppService HelmAppService) *ApplicationServiceServerImpl {
 	return &ApplicationServiceServerImpl{
-		logger:                logger,
-		chartRepositoryLocker: chartRepositoryLocker,
+		Logger:                logger,
+		ChartRepositoryLocker: chartRepositoryLocker,
+		HelmAppService:        HelmAppService,
 	}
 }
 
 func (impl *ApplicationServiceServerImpl) ListApplications(req *client.AppListRequest, res client.ApplicationService_ListApplicationsServer) error {
-	impl.logger.Infow("app list req")
+	impl.Logger.Infow("app list req")
 	clusterConfigs := req.GetClusters()
 	eg := new(errgroup.Group)
 	for _, config := range clusterConfigs {
 		clusterConfig := *config
 		eg.Go(func() error {
-			apps := impl.appService.GetApplicationListForCluster(&clusterConfig)
+			apps := impl.HelmAppService.GetApplicationListForCluster(&clusterConfig)
 			fmt.Println(apps.String())
 			err := res.Send(apps)
 			fmt.Println(err)
@@ -47,78 +49,78 @@ func (impl *ApplicationServiceServerImpl) ListApplications(req *client.AppListRe
 		fmt.Println(err)
 		return err
 	}
-	impl.logger.Infow("list app done")
+	impl.Logger.Infow("list app done")
 	return nil
 }
 
 func (impl *ApplicationServiceServerImpl) GetAppDetail(ctxt context.Context, req *client.AppDetailRequest) (*client.AppDetail, error) {
-	impl.logger.Infow("get app detail", "release", req.ReleaseName, "ns", req.Namespace)
-	helmAppDetail, err := BuildAppDetail(req)
+	impl.Logger.Infow("get app detail", "release", req.ReleaseName, "ns", req.Namespace)
+	helmAppDetail, err := impl.HelmAppService.BuildAppDetail(req)
 	if err != nil {
 		return nil, err
 	}
 	res := impl.AppDetailAdaptor(helmAppDetail)
-	impl.logger.Infow("appdetail", "detail", res)
+	impl.Logger.Infow("appdetail", "detail", res)
 	return res, nil
 }
 
 func (impl *ApplicationServiceServerImpl) Hibernate(ctx context.Context, in *client.HibernateRequest) (*client.HibernateResponse, error) {
-	impl.logger.Infow("hibernate req")
-	res, err := Hibernate(ctx, in.ClusterConfig, in.ObjectIdentifier)
+	impl.Logger.Infow("hibernate req")
+	res, err := impl.HelmAppService.Hibernate(ctx, in.ClusterConfig, in.ObjectIdentifier)
 	return res, err
 }
 
 func (impl *ApplicationServiceServerImpl) UnHibernate(ctx context.Context, in *client.HibernateRequest) (*client.HibernateResponse, error) {
-	impl.logger.Infow("unhibernate req")
-	res, err := UnHibernate(ctx, in.ClusterConfig, in.GetObjectIdentifier())
+	impl.Logger.Infow("unhibernate req")
+	res, err := impl.HelmAppService.UnHibernate(ctx, in.ClusterConfig, in.GetObjectIdentifier())
 	return res, err
 }
 
 func (impl *ApplicationServiceServerImpl) GetDeploymentHistory(ctxt context.Context, in *client.AppDetailRequest) (*client.HelmAppDeploymentHistory, error) {
-	impl.logger.Infow("deployment history")
-	res, err := GetDeploymentHistory(in)
-	impl.logger.Infow("deployment history res", "res", res)
+	impl.Logger.Infow("deployment history")
+	res, err := impl.HelmAppService.GetDeploymentHistory(in)
+	impl.Logger.Infow("deployment history res", "res", res)
 
 	return res, err
 }
 
 func (impl *ApplicationServiceServerImpl) GetValuesYaml(ctx context.Context, in *client.AppDetailRequest) (*client.ReleaseInfo, error) {
-	impl.logger.Infow("Get app values")
-	return GetHelmAppValues(in)
+	impl.Logger.Infow("Get app values")
+	return impl.HelmAppService.GetHelmAppValues(in)
 }
 
 func (impl *ApplicationServiceServerImpl) GetDesiredManifest(ctx context.Context, in *client.ObjectRequest) (*client.DesiredManifestResponse, error) {
-	impl.logger.Infow("Get desired manifest request")
-	return GetDesiredManifest(in)
+	impl.Logger.Infow("Get desired manifest request")
+	return impl.HelmAppService.GetDesiredManifest(in)
 }
 
 func (impl *ApplicationServiceServerImpl) UninstallRelease(ctx context.Context, in *client.ReleaseIdentifier) (*client.UninstallReleaseResponse, error) {
-	impl.logger.Infow("uninstall release request")
-	return UninstallRelease(in)
+	impl.Logger.Infow("uninstall release request")
+	return impl.HelmAppService.UninstallRelease(in)
 }
 
 func (impl *ApplicationServiceServerImpl) UpgradeRelease(ctx context.Context, in *client.UpgradeReleaseRequest) (*client.UpgradeReleaseResponse, error) {
-	impl.logger.Infow("upgrade release request")
-	return UpgradeRelease(ctx, in)
+	impl.Logger.Infow("upgrade release request")
+	return impl.HelmAppService.UpgradeRelease(ctx, in)
 }
 
 func (impl *ApplicationServiceServerImpl) GetDeploymentDetail(ctx context.Context, in *client.DeploymentDetailRequest) (*client.DeploymentDetailResponse, error) {
-	impl.logger.Infow("get deployment detail request")
-	return GetDeploymentDetail(in)
+	impl.Logger.Infow("get deployment detail request")
+	return impl.HelmAppService.GetDeploymentDetail(in)
 }
 
 func (impl *ApplicationServiceServerImpl) InstallRelease(ctx context.Context, in *client.InstallReleaseRequest) (*client.InstallReleaseResponse, error) {
-	impl.logger.Infow("install release request")
-	impl.chartRepositoryLocker.Lock(in.ChartRepository.Name)
-	defer impl.chartRepositoryLocker.Unlock(in.ChartRepository.Name)
-	return InstallRelease(ctx, in)
+	impl.Logger.Infow("install release request")
+	impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
+	defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
+	return impl.HelmAppService.InstallRelease(ctx, in)
 }
 
 func (impl *ApplicationServiceServerImpl) UpgradeReleaseWithChartInfo(ctx context.Context, in *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error) {
-	impl.logger.Infow("upgrade release with chart info request")
-	impl.chartRepositoryLocker.Lock(in.ChartRepository.Name)
-	defer impl.chartRepositoryLocker.Unlock(in.ChartRepository.Name)
-	return UpgradeReleaseWithChartInfo(ctx, in)
+	impl.Logger.Infow("upgrade release with chart info request")
+	impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
+	defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
+	return impl.HelmAppService.UpgradeReleaseWithChartInfo(ctx, in)
 }
 
 func resourceRefResult(resourceRefs []*bean.ResourceRef) (resourceRefResults []*client.ResourceRef) {

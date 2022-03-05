@@ -14,6 +14,7 @@ import (
 	gitops_engine "github.com/devtron-labs/kubelink/pkg/util/gitops-engine"
 	k8sUtils "github.com/devtron-labs/kubelink/pkg/util/k8s"
 	jsonpatch "github.com/evanphx/json-patch"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
@@ -34,14 +35,89 @@ const (
 	hibernatePatch             = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
 )
 
-func BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error) {
+type HelmAppService interface {
+	GetApplicationListForCluster(config *client.ClusterConfig) *client.DeployedAppList
+	BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error)
+	GetHelmAppValues(req *client.AppDetailRequest) (*client.ReleaseInfo, error)
+	Hibernate(ctx context.Context, clusterConfig *client.ClusterConfig, requests []*client.ObjectIdentifier) (*client.HibernateResponse, error)
+	UnHibernate(ctx context.Context, clusterConfig *client.ClusterConfig, requests []*client.ObjectIdentifier) (*client.HibernateResponse, error)
+	GetDeploymentHistory(req *client.AppDetailRequest) (*client.HelmAppDeploymentHistory, error)
+	GetDesiredManifest(req *client.ObjectRequest) (*client.DesiredManifestResponse, error)
+	UninstallRelease(releaseIdentifier *client.ReleaseIdentifier) (*client.UninstallReleaseResponse, error)
+	UpgradeRelease(ctx context.Context, request *client.UpgradeReleaseRequest) (*client.UpgradeReleaseResponse, error)
+	GetDeploymentDetail(request *client.DeploymentDetailRequest) (*client.DeploymentDetailResponse, error)
+	InstallRelease(ctx context.Context, request *client.InstallReleaseRequest) (*client.InstallReleaseResponse, error)
+	UpgradeReleaseWithChartInfo(ctx context.Context, request *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error)
+}
+
+type HelmAppServiceImpl struct {
+	logger     *zap.SugaredLogger
+	k8sService K8sService
+}
+
+func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService) *HelmAppServiceImpl {
+	return &HelmAppServiceImpl{
+		logger: logger,
+		k8sService: k8sService,
+	}
+}
+
+func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.ClusterConfig) *client.DeployedAppList {
+	deployedApp := &client.DeployedAppList{ClusterId: config.GetClusterId()}
+	restConfig, err := k8sUtils.GetRestConfig(config)
+	if err != nil {
+		deployedApp.Errored = true
+		deployedApp.ErrorMsg = err.Error()
+		return deployedApp
+	}
+	opt := &helmClient.RestConfClientOptions{
+		Options: &helmClient.Options{
+		},
+		RestConfig: restConfig,
+	}
+
+	helmAppClient, err := helmClient.NewClientFromRestConf(opt)
+	if err != nil {
+		deployedApp.Errored = true
+		deployedApp.ErrorMsg = err.Error()
+		return deployedApp
+	}
+	releases, err := helmAppClient.ListAllReleases()
+	if err != nil {
+		deployedApp.Errored = true
+		deployedApp.ErrorMsg = err.Error()
+		return deployedApp
+	}
+
+	var deployedApps []*client.DeployedAppDetail
+	for _, items := range releases {
+		appDetail := &client.DeployedAppDetail{
+			AppId:        util.GetAppId(config.ClusterId, items),
+			AppName:      items.Name,
+			ChartName:    items.Chart.Name(),
+			ChartAvatar:  items.Chart.Metadata.Icon,
+			LastDeployed: timestamppb.New(items.Info.LastDeployed.Time),
+			EnvironmentDetail: &client.EnvironmentDetails{
+				ClusterName: config.ClusterName,
+				ClusterId:   config.ClusterId,
+				Namespace:   items.Namespace,
+			},
+		}
+		deployedApps = append(deployedApps, appDetail)
+	}
+	deployedApp.DeployedAppDetail = deployedApps
+	return deployedApp
+}
+
+
+func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error) {
 
 	helmRelease, err := getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
 		return nil, err
 	}
 
-	resourceTreeResponse, err := buildResourceTree(req, helmRelease)
+	resourceTreeResponse, err := impl.buildResourceTree(req, helmRelease)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +145,7 @@ func BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error) {
 	return appDetail, nil
 }
 
-func GetHelmAppValues(req *client.AppDetailRequest) (*client.ReleaseInfo, error) {
+func (impl HelmAppServiceImpl) GetHelmAppValues(req *client.AppDetailRequest) (*client.ReleaseInfo, error) {
 
 	helmRelease, err := getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
@@ -87,7 +163,7 @@ func GetHelmAppValues(req *client.AppDetailRequest) (*client.ReleaseInfo, error)
 	}
 
 	appDetail := &client.DeployedAppDetail{
-		AppId:        GatAppId(req.ClusterConfig.ClusterId, helmRelease),
+		AppId:        util.GetAppId(req.ClusterConfig.ClusterId, helmRelease),
 		AppName:      helmRelease.Name,
 		ChartName:    helmRelease.Chart.Name(),
 		ChartAvatar:  helmRelease.Chart.Metadata.Icon,
@@ -104,7 +180,7 @@ func GetHelmAppValues(req *client.AppDetailRequest) (*client.ReleaseInfo, error)
 
 }
 
-func Hibernate(ctx context.Context, clusterConfig *client.ClusterConfig, requests []*client.ObjectIdentifier) (*client.HibernateResponse, error) {
+func (impl HelmAppServiceImpl) Hibernate(ctx context.Context, clusterConfig *client.ClusterConfig, requests []*client.ObjectIdentifier) (*client.HibernateResponse, error) {
 	resp := &client.HibernateResponse{}
 	conf, err := k8sUtils.GetRestConfig(clusterConfig)
 	if err != nil {
@@ -123,7 +199,7 @@ func Hibernate(ctx context.Context, clusterConfig *client.ClusterConfig, request
 			Kind:    request.Kind,
 			Version: request.Version,
 		}
-		liveManifest, gvr, err := k8sUtils.GetLiveManifest(conf, request.Namespace, gvk, request.Name)
+		liveManifest, gvr, err := impl.k8sService.GetLiveManifest(conf, request.Namespace, gvk, request.Name)
 		if err != nil {
 			status.Success = false
 			status.ErrorMsg = err.Error()
@@ -155,7 +231,7 @@ func Hibernate(ctx context.Context, clusterConfig *client.ClusterConfig, request
 			Patch:                fmt.Sprintf(hibernatePatch, 0, hibernateReplicaAnnotation, strconv.Itoa(int(replicas))),
 			PatchType:            string(types.JSONPatchType),
 		}
-		err = k8sUtils.PatchResource(context.Background(), conf, patchRequest)
+		err = impl.k8sService.PatchResource(context.Background(), conf, patchRequest)
 		if err != nil {
 			status.Success = false
 			status.ErrorMsg = "replicas not found in manifest"
@@ -166,7 +242,7 @@ func Hibernate(ctx context.Context, clusterConfig *client.ClusterConfig, request
 	return resp, nil
 }
 
-func UnHibernate(ctx context.Context, clusterConfig *client.ClusterConfig, requests []*client.ObjectIdentifier) (*client.HibernateResponse, error) {
+func (impl HelmAppServiceImpl) UnHibernate(ctx context.Context, clusterConfig *client.ClusterConfig, requests []*client.ObjectIdentifier) (*client.HibernateResponse, error) {
 	resp := &client.HibernateResponse{}
 
 	conf, err := k8sUtils.GetRestConfig(clusterConfig)
@@ -186,7 +262,7 @@ func UnHibernate(ctx context.Context, clusterConfig *client.ClusterConfig, reque
 			Kind:    request.Kind,
 			Version: request.Version,
 		}
-		liveManifest, gvr, err := k8sUtils.GetLiveManifest(conf, request.Namespace, gvk, request.Name)
+		liveManifest, gvr, err := impl.k8sService.GetLiveManifest(conf, request.Namespace, gvk, request.Name)
 		if err != nil {
 			status.Success = false
 			status.ErrorMsg = err.Error()
@@ -214,7 +290,7 @@ func UnHibernate(ctx context.Context, clusterConfig *client.ClusterConfig, reque
 			Patch:                fmt.Sprintf(hibernatePatch, originalReplicaCount, hibernateReplicaAnnotation, "0"),
 			PatchType:            string(types.JSONPatchType),
 		}
-		err = k8sUtils.PatchResource(context.Background(), conf, patchRequest)
+		err = impl.k8sService.PatchResource(context.Background(), conf, patchRequest)
 		if err != nil {
 			status.Success = false
 			status.ErrorMsg = err.Error()
@@ -225,7 +301,7 @@ func UnHibernate(ctx context.Context, clusterConfig *client.ClusterConfig, reque
 	return resp, nil
 }
 
-func GetDeploymentHistory(req *client.AppDetailRequest) (*client.HelmAppDeploymentHistory, error) {
+func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest) (*client.HelmAppDeploymentHistory, error) {
 	helmReleases, err := getHelmReleaseHistory(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
 		return nil, err
@@ -259,7 +335,7 @@ func GetDeploymentHistory(req *client.AppDetailRequest) (*client.HelmAppDeployme
 	return &client.HelmAppDeploymentHistory{DeploymentHistory: helmAppDeployments}, nil
 }
 
-func GetDesiredManifest(req *client.ObjectRequest) (*client.DesiredManifestResponse, error) {
+func (impl HelmAppServiceImpl) GetDesiredManifest(req *client.ObjectRequest) (*client.DesiredManifestResponse, error) {
 	objectIdentifier := req.ObjectIdentifier
 	helmRelease, err := getHelmRelease(req.ClusterConfig, req.ReleaseNamespace, req.ReleaseName)
 	if err != nil {
@@ -291,7 +367,7 @@ func GetDesiredManifest(req *client.ObjectRequest) (*client.DesiredManifestRespo
 	return desiredManifestResponse, nil
 }
 
-func UninstallRelease(releaseIdentifier *client.ReleaseIdentifier) (*client.UninstallReleaseResponse, error) {
+func (impl HelmAppServiceImpl) UninstallRelease(releaseIdentifier *client.ReleaseIdentifier) (*client.UninstallReleaseResponse, error) {
 	conf, err := k8sUtils.GetRestConfig(releaseIdentifier.ClusterConfig)
 	if err != nil {
 		return nil, err
@@ -320,7 +396,7 @@ func UninstallRelease(releaseIdentifier *client.ReleaseIdentifier) (*client.Unin
 	return uninstallReleaseResponse, nil
 }
 
-func UpgradeRelease(ctx context.Context, request *client.UpgradeReleaseRequest) (*client.UpgradeReleaseResponse, error) {
+func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *client.UpgradeReleaseRequest) (*client.UpgradeReleaseResponse, error) {
 	releaseIdentifier := request.ReleaseIdentifier
 	conf, err := k8sUtils.GetRestConfig(releaseIdentifier.ClusterConfig)
 	if err != nil {
@@ -361,7 +437,7 @@ func UpgradeRelease(ctx context.Context, request *client.UpgradeReleaseRequest) 
 	return upgradeReleaseResponse, nil
 }
 
-func GetDeploymentDetail(request *client.DeploymentDetailRequest) (*client.DeploymentDetailResponse, error) {
+func (impl HelmAppServiceImpl) GetDeploymentDetail(request *client.DeploymentDetailRequest) (*client.DeploymentDetailResponse, error) {
 	releaseIdentifier := request.ReleaseIdentifier
 	helmReleases, err := getHelmReleaseHistory(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName)
 	if err != nil {
@@ -384,7 +460,7 @@ func GetDeploymentDetail(request *client.DeploymentDetailRequest) (*client.Deplo
 	return resp, nil
 }
 
-func InstallRelease(ctx context.Context, request *client.InstallReleaseRequest) (*client.InstallReleaseResponse, error) {
+func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *client.InstallReleaseRequest) (*client.InstallReleaseResponse, error) {
 	releaseIdentifier := request.ReleaseIdentifier
 	conf, err := k8sUtils.GetRestConfig(releaseIdentifier.ClusterConfig)
 	if err != nil {
@@ -446,7 +522,7 @@ func InstallRelease(ctx context.Context, request *client.InstallReleaseRequest) 
 
 }
 
-func UpgradeReleaseWithChartInfo(ctx context.Context, request *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error) {
+func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, request *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error) {
 	releaseIdentifier := request.ReleaseIdentifier
 	conf, err := k8sUtils.GetRestConfig(releaseIdentifier.ClusterConfig)
 	if err != nil {
@@ -608,7 +684,7 @@ func buildReleaseInfoBasicData(helmRelease *release.Release) (*client.ReleaseInf
 	return res, nil
 }
 
-func buildResourceTree(appDetailRequest *client.AppDetailRequest, release *release.Release) (*bean.ResourceTreeResponse, error) {
+func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDetailRequest, release *release.Release) (*bean.ResourceTreeResponse, error) {
 	conf, err := k8sUtils.GetRestConfig(appDetailRequest.ClusterConfig)
 	if err != nil {
 		return nil, err
@@ -618,12 +694,12 @@ func buildResourceTree(appDetailRequest *client.AppDetailRequest, release *relea
 		return nil, err
 	}
 	// get live manifests from kubernetes
-	desiredOrLiveManifests, err := getDesiredOrLiveManifests(conf, manifests, appDetailRequest.Namespace)
+	desiredOrLiveManifests, err := impl.getDesiredOrLiveManifests(conf, manifests, appDetailRequest.Namespace)
 	if err != nil {
 		return nil, err
 	}
 	// build resource nodes
-	nodes, err := buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
+	nodes, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -641,7 +717,7 @@ func buildResourceTree(appDetailRequest *client.AppDetailRequest, release *relea
 	return resourceTreeResponse, nil
 }
 
-func getDesiredOrLiveManifests(restConfig *rest.Config, desiredManifests []unstructured.Unstructured, releaseNamespace string) ([]*bean.DesiredOrLiveManifest, error) {
+func (impl HelmAppServiceImpl) getDesiredOrLiveManifests(restConfig *rest.Config, desiredManifests []unstructured.Unstructured, releaseNamespace string) ([]*bean.DesiredOrLiveManifest, error) {
 
 	var desiredOrLiveManifests []*bean.DesiredOrLiveManifest
 	for _, desiredManifest := range desiredManifests {
@@ -652,7 +728,7 @@ func getDesiredOrLiveManifests(restConfig *rest.Config, desiredManifests []unstr
 			_namespace = releaseNamespace
 		}
 
-		liveManifest, _, err := k8sUtils.GetLiveManifest(restConfig, _namespace, &gvk, desiredManifest.GetName())
+		liveManifest, _, err := impl.k8sService.GetLiveManifest(restConfig, _namespace, &gvk, desiredManifest.GetName())
 		desiredOrLiveManifest := &bean.DesiredOrLiveManifest{}
 
 		if err != nil {
@@ -674,7 +750,7 @@ func getDesiredOrLiveManifests(restConfig *rest.Config, desiredManifests []unstr
 	return desiredOrLiveManifests, nil
 }
 
-func buildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef) ([]*bean.ResourceNode, error) {
+func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef) ([]*bean.ResourceNode, error) {
 	var nodes []*bean.ResourceNode
 	for _, desiredOrLiveManifest := range desiredOrLiveManifests {
 		manifest := desiredOrLiveManifest.Manifest
@@ -687,8 +763,8 @@ func buildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredO
 
 		resourceRef := buildResourceRef(gvk, *manifest, _namespace)
 
-		if k8sUtils.CanHaveChild(gvk) {
-			children, err := k8sUtils.GetChildObjects(restConfig, _namespace, gvk, manifest.GetName(), manifest.GetAPIVersion())
+		if impl.k8sService.CanHaveChild(gvk) {
+			children, err := impl.k8sService.GetChildObjects(restConfig, _namespace, gvk, manifest.GetName(), manifest.GetAPIVersion())
 			if err != nil {
 				return nil, err
 			}
@@ -698,7 +774,7 @@ func buildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredO
 					Manifest: child,
 				})
 			}
-			childNodes, err := buildNodes(restConfig, desiredOrLiveManifestsChildren, releaseNamespace, resourceRef)
+			childNodes, err := impl.buildNodes(restConfig, desiredOrLiveManifestsChildren, releaseNamespace, resourceRef)
 			if err != nil {
 				return nil, err
 			}
