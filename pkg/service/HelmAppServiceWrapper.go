@@ -43,81 +43,159 @@ func (impl *ApplicationServiceServerImpl) ListApplications(req *client.AppListRe
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		impl.Logger.Error("Error in fetching application list")
+		impl.Logger.Errorw("Error in fetching application list", "err", err)
 		return err
 	}
-	impl.Logger.Info("List Application Request successfully done")
+	impl.Logger.Info("List Application Request served")
 	return nil
 }
 
 func (impl *ApplicationServiceServerImpl) GetAppDetail(ctxt context.Context, req *client.AppDetailRequest) (*client.AppDetail, error) {
-	impl.Logger.Infow("get app detail", "release", req.ReleaseName, "ns", req.Namespace)
+	impl.Logger.Infow("App detail request", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
+		"namespace", req.Namespace)
+
 	helmAppDetail, err := impl.HelmAppService.BuildAppDetail(req)
 	if err != nil {
+		impl.Logger.Errorw("Error in getting app detail", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
+			"namespace", req.Namespace, "err", err)
 		return nil, err
 	}
 	res := impl.AppDetailAdaptor(helmAppDetail)
-	impl.Logger.Infow("appdetail", "detail", res)
+	impl.Logger.Info("App Detail Request served")
 	return res, nil
 }
 
 func (impl *ApplicationServiceServerImpl) Hibernate(ctx context.Context, in *client.HibernateRequest) (*client.HibernateResponse, error) {
-	impl.Logger.Infow("hibernate req")
+	impl.Logger.Info("Hibernate request")
 	res, err := impl.HelmAppService.Hibernate(ctx, in.ClusterConfig, in.ObjectIdentifier)
+	if err != nil {
+		impl.Logger.Errorw("Error in Hibernating", "err", err)
+	}
+	impl.Logger.Info("Hibernate request served")
 	return res, err
 }
 
 func (impl *ApplicationServiceServerImpl) UnHibernate(ctx context.Context, in *client.HibernateRequest) (*client.HibernateResponse, error) {
-	impl.Logger.Infow("unhibernate req")
+	impl.Logger.Info("UnHibernate request")
 	res, err := impl.HelmAppService.UnHibernate(ctx, in.ClusterConfig, in.GetObjectIdentifier())
+	if err != nil {
+		impl.Logger.Errorw("Error in UnHibernating", "err", err)
+	}
+	impl.Logger.Info("UnHibernate request served")
 	return res, err
 }
 
 func (impl *ApplicationServiceServerImpl) GetDeploymentHistory(ctxt context.Context, in *client.AppDetailRequest) (*client.HelmAppDeploymentHistory, error) {
-	impl.Logger.Infow("deployment history")
-	res, err := impl.HelmAppService.GetDeploymentHistory(in)
-	impl.Logger.Infow("deployment history res", "res", res)
+	impl.Logger.Infow("Deployment history request", "clusterName", in.ClusterConfig.ClusterName, "releaseName", in.ReleaseName,
+		"namespace", in.Namespace)
 
+	res, err := impl.HelmAppService.GetDeploymentHistory(in)
+	if err != nil {
+		impl.Logger.Errorw("Error in Deployment history request", "err", err)
+	}
+	impl.Logger.Info("Deployment history request request served")
 	return res, err
 }
 
 func (impl *ApplicationServiceServerImpl) GetValuesYaml(ctx context.Context, in *client.AppDetailRequest) (*client.ReleaseInfo, error) {
-	impl.Logger.Infow("Get app values")
-	return impl.HelmAppService.GetHelmAppValues(in)
+	impl.Logger.Infow("Values Yaml request", "clusterName", in.ClusterConfig.ClusterName, "releaseName", in.ReleaseName,
+		"namespace", in.Namespace)
+
+	res, err := impl.HelmAppService.GetHelmAppValues(in)
+	if err != nil {
+		impl.Logger.Errorw("Error in Values Yaml request", "err", err)
+	}
+	impl.Logger.Info("Values Yaml request served")
+	return res, err
 }
 
 func (impl *ApplicationServiceServerImpl) GetDesiredManifest(ctx context.Context, in *client.ObjectRequest) (*client.DesiredManifestResponse, error) {
-	impl.Logger.Infow("Get desired manifest request")
-	return impl.HelmAppService.GetDesiredManifest(in)
+	impl.Logger.Infow("Desired Manifest request", "clusterName", in.ClusterConfig.ClusterName, "releaseName", in.ReleaseName,
+		"namespace", in.ReleaseNamespace, "objectName", in.ObjectIdentifier.Name)
+
+	res, err := impl.HelmAppService.GetDesiredManifest(in)
+	if err != nil {
+		impl.Logger.Errorw("Error in Desired Manifest request", "err", err)
+	}
+	impl.Logger.Info("Desired Manifest request served")
+
+	return res, err
 }
 
 func (impl *ApplicationServiceServerImpl) UninstallRelease(ctx context.Context, in *client.ReleaseIdentifier) (*client.UninstallReleaseResponse, error) {
-	impl.Logger.Infow("uninstall release request")
-	return impl.HelmAppService.UninstallRelease(in)
+	impl.Logger.Infow("Uninstall release request", "clusterName", in.ClusterConfig.ClusterName, "releaseName", in.ReleaseName,
+		"namespace", in.ReleaseNamespace)
+
+	res, err := impl.HelmAppService.UninstallRelease(in)
+	if err != nil {
+		impl.Logger.Errorw("Error in Uninstall release request", "err", err)
+	}
+	impl.Logger.Info("Uninstall release request served")
+
+	return res, err
 }
 
 func (impl *ApplicationServiceServerImpl) UpgradeRelease(ctx context.Context, in *client.UpgradeReleaseRequest) (*client.UpgradeReleaseResponse, error) {
-	impl.Logger.Infow("upgrade release request")
-	return impl.HelmAppService.UpgradeRelease(ctx, in)
+	releaseIdentifier := in.ReleaseIdentifier
+	impl.Logger.Infow("Upgrade release request", "clusterName", releaseIdentifier.ClusterConfig.ClusterName, "releaseName", releaseIdentifier.ReleaseName,
+		"namespace", releaseIdentifier.ReleaseNamespace)
+
+	res, err := impl.HelmAppService.UpgradeRelease(ctx, in)
+	if err != nil {
+		impl.Logger.Errorw("Error in Upgrade release request", "err", err)
+	}
+	impl.Logger.Info("Upgrade release request served")
+
+	return res, err
 }
 
 func (impl *ApplicationServiceServerImpl) GetDeploymentDetail(ctx context.Context, in *client.DeploymentDetailRequest) (*client.DeploymentDetailResponse, error) {
-	impl.Logger.Infow("get deployment detail request")
-	return impl.HelmAppService.GetDeploymentDetail(in)
+	releaseIdentifier := in.ReleaseIdentifier
+	impl.Logger.Infow("Deployment detail request", "clusterName", releaseIdentifier.ClusterConfig.ClusterName, "releaseName", releaseIdentifier.ReleaseName,
+		"namespace", releaseIdentifier.ReleaseNamespace, "deploymentVersion", in.DeploymentVersion)
+
+	res, err := impl.HelmAppService.GetDeploymentDetail(in)
+	if err != nil {
+		impl.Logger.Errorw("Error in Deployment detail request", "err", err)
+	}
+	impl.Logger.Info("Deployment detail request served")
+
+	return res, err
 }
 
 func (impl *ApplicationServiceServerImpl) InstallRelease(ctx context.Context, in *client.InstallReleaseRequest) (*client.InstallReleaseResponse, error) {
-	impl.Logger.Infow("install release request")
+	releaseIdentifier := in.ReleaseIdentifier
+	impl.Logger.Infow("Install release request", "clusterName", releaseIdentifier.ClusterConfig.ClusterName, "releaseName", releaseIdentifier.ReleaseName,
+		"namespace", releaseIdentifier.ReleaseNamespace)
+
 	impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
 	defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
-	return impl.HelmAppService.InstallRelease(ctx, in)
+
+	res, err := impl.HelmAppService.InstallRelease(ctx, in)
+	if err != nil {
+		impl.Logger.Errorw("Error in Install release request", "err", err)
+	}
+	impl.Logger.Info("Install release request served")
+
+	return res, err
 }
 
 func (impl *ApplicationServiceServerImpl) UpgradeReleaseWithChartInfo(ctx context.Context, in *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error) {
-	impl.Logger.Infow("upgrade release with chart info request")
+	releaseIdentifier := in.ReleaseIdentifier
+	impl.Logger.Infow("Upgrade release with chart Info request", "clusterName", releaseIdentifier.ClusterConfig.ClusterName, "releaseName", releaseIdentifier.ReleaseName,
+		"namespace", releaseIdentifier.ReleaseNamespace)
+
 	impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
 	defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
-	return impl.HelmAppService.UpgradeReleaseWithChartInfo(ctx, in)
+
+
+	res, err := impl.HelmAppService.UpgradeReleaseWithChartInfo(ctx, in)
+	if err != nil {
+		impl.Logger.Errorw("Error in Upgrade release request with Chart Info", "err", err)
+	}
+	impl.Logger.Info("Upgrade release with chart Info request served")
+
+	return res, err
 }
 
 func resourceRefResult(resourceRefs []*bean.ResourceRef) (resourceRefResults []*client.ResourceRef) {

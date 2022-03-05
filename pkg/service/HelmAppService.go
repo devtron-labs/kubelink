@@ -118,14 +118,15 @@ func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.Clus
 
 
 func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error) {
-
 	helmRelease, err := getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
+		impl.logger.Errorw("Error in getting helm release ", "err", err)
 		return nil, err
 	}
 
 	resourceTreeResponse, err := impl.buildResourceTree(req, helmRelease)
 	if err != nil {
+		impl.logger.Errorw("Error in building resource tree ", "err", err)
 		return nil, err
 	}
 
@@ -156,6 +157,7 @@ func (impl HelmAppServiceImpl) GetHelmAppValues(req *client.AppDetailRequest) (*
 
 	helmRelease, err := getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
+		impl.logger.Errorw("Error in getting helm release ", "err", err)
 		return nil, err
 	}
 
@@ -166,6 +168,7 @@ func (impl HelmAppServiceImpl) GetHelmAppValues(req *client.AppDetailRequest) (*
 
 	releaseInfo, err := buildReleaseInfoBasicData(helmRelease)
 	if err != nil {
+		impl.logger.Errorw("Error in building release info basic data ", "err", err)
 		return nil, err
 	}
 
@@ -191,6 +194,7 @@ func (impl HelmAppServiceImpl) Hibernate(ctx context.Context, clusterConfig *cli
 	resp := &client.HibernateResponse{}
 	conf, err := k8sUtils.GetRestConfig(clusterConfig)
 	if err != nil {
+		impl.logger.Errorw("Error in getting rest config ", "err", err)
 		return resp, err
 	}
 	for _, request := range requests {
@@ -208,12 +212,12 @@ func (impl HelmAppServiceImpl) Hibernate(ctx context.Context, clusterConfig *cli
 		}
 		liveManifest, gvr, err := impl.k8sService.GetLiveManifest(conf, request.Namespace, gvk, request.Name)
 		if err != nil {
+			impl.logger.Errorw("Error in getting live manifest ", "err", err)
 			status.Success = false
 			status.ErrorMsg = err.Error()
 			continue
 		}
 		if liveManifest == nil {
-
 			status.Success = false
 			status.ErrorMsg = "manifest not found"
 			continue
@@ -240,6 +244,7 @@ func (impl HelmAppServiceImpl) Hibernate(ctx context.Context, clusterConfig *cli
 		}
 		err = impl.k8sService.PatchResource(context.Background(), conf, patchRequest)
 		if err != nil {
+			impl.logger.Errorw("Error in patching resource ", "err", err)
 			status.Success = false
 			status.ErrorMsg = "replicas not found in manifest"
 			continue
@@ -254,6 +259,7 @@ func (impl HelmAppServiceImpl) UnHibernate(ctx context.Context, clusterConfig *c
 
 	conf, err := k8sUtils.GetRestConfig(clusterConfig)
 	if err != nil {
+		impl.logger.Errorw("Error in getting rest config ", "err", err)
 		return resp, err
 	}
 	for _, request := range requests {
@@ -271,6 +277,7 @@ func (impl HelmAppServiceImpl) UnHibernate(ctx context.Context, clusterConfig *c
 		}
 		liveManifest, gvr, err := impl.k8sService.GetLiveManifest(conf, request.Namespace, gvk, request.Name)
 		if err != nil {
+			impl.logger.Errorw("Error in getting live manifest ", "err", err)
 			status.Success = false
 			status.ErrorMsg = err.Error()
 			continue
@@ -299,6 +306,7 @@ func (impl HelmAppServiceImpl) UnHibernate(ctx context.Context, clusterConfig *c
 		}
 		err = impl.k8sService.PatchResource(context.Background(), conf, patchRequest)
 		if err != nil {
+			impl.logger.Errorw("Error in patching resource ", "err", err)
 			status.Success = false
 			status.ErrorMsg = err.Error()
 			continue
@@ -311,6 +319,7 @@ func (impl HelmAppServiceImpl) UnHibernate(ctx context.Context, clusterConfig *c
 func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest) (*client.HelmAppDeploymentHistory, error) {
 	helmReleases, err := getHelmReleaseHistory(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
+		impl.logger.Errorw("Error in getting helm release history ", "err", err)
 		return nil, err
 	}
 	var helmAppDeployments []*client.HelmAppDeploymentDetail
@@ -346,6 +355,7 @@ func (impl HelmAppServiceImpl) GetDesiredManifest(req *client.ObjectRequest) (*c
 	objectIdentifier := req.ObjectIdentifier
 	helmRelease, err := getHelmRelease(req.ClusterConfig, req.ReleaseNamespace, req.ReleaseName)
 	if err != nil {
+		impl.logger.Errorw("Error in getting helm release ", "err", err)
 		return nil, err
 	}
 
@@ -377,6 +387,7 @@ func (impl HelmAppServiceImpl) GetDesiredManifest(req *client.ObjectRequest) (*c
 func (impl HelmAppServiceImpl) UninstallRelease(releaseIdentifier *client.ReleaseIdentifier) (*client.UninstallReleaseResponse, error) {
 	conf, err := k8sUtils.GetRestConfig(releaseIdentifier.ClusterConfig)
 	if err != nil {
+		impl.logger.Errorw("Error in getting rest config ", "err", err)
 		return nil, err
 	}
 	opt := &helmClient.RestConfClientOptions{
@@ -393,6 +404,7 @@ func (impl HelmAppServiceImpl) UninstallRelease(releaseIdentifier *client.Releas
 
 	err = helmClient.UninstallReleaseByName(releaseIdentifier.ReleaseName)
 	if err != nil {
+		impl.logger.Errorw("Error in uninstall release ", "err", err)
 		return nil, err
 	}
 
@@ -407,6 +419,7 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 	releaseIdentifier := request.ReleaseIdentifier
 	conf, err := k8sUtils.GetRestConfig(releaseIdentifier.ClusterConfig)
 	if err != nil {
+		impl.logger.Errorw("Error in getting rest config ", "err", err)
 		return nil, err
 	}
 	opt := &helmClient.RestConfClientOptions{
@@ -423,6 +436,7 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 
 	helmRelease, err := getHelmRelease(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName)
 	if err != nil {
+		impl.logger.Errorw("Error in getting helm release ", "err", err)
 		return nil, err
 	}
 
@@ -434,6 +448,7 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 
 	_, err = helmClientObj.UpgradeRelease(context.Background(), helmRelease.Chart, updateChartSpec)
 	if err != nil {
+		impl.logger.Errorw("Error in upgrade release ", "err", err)
 		return nil, err
 	}
 
@@ -448,6 +463,7 @@ func (impl HelmAppServiceImpl) GetDeploymentDetail(request *client.DeploymentDet
 	releaseIdentifier := request.ReleaseIdentifier
 	helmReleases, err := getHelmReleaseHistory(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName)
 	if err != nil {
+		impl.logger.Errorw("Error in getting helm release history ", "err", err)
 		return nil, err
 	}
 
@@ -456,6 +472,7 @@ func (impl HelmAppServiceImpl) GetDeploymentDetail(request *client.DeploymentDet
 		if request.DeploymentVersion == int32(helmRelease.Version) {
 			releaseInfo, err := buildReleaseInfoBasicData(helmRelease)
 			if err != nil {
+				impl.logger.Errorw("Error in building release info basic data ", "err", err)
 				return nil, err
 			}
 			resp.Manifest = helmRelease.Manifest
@@ -471,6 +488,7 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 	releaseIdentifier := request.ReleaseIdentifier
 	conf, err := k8sUtils.GetRestConfig(releaseIdentifier.ClusterConfig)
 	if err != nil {
+		impl.logger.Errorw("Error in getting rest config ", "err", err)
 		return nil, err
 	}
 	opt := &helmClient.RestConfClientOptions{
@@ -500,6 +518,7 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 
 	err = helmClientObj.AddOrUpdateChartRepo(chartRepo)
 	if err != nil {
+		impl.logger.Errorw("Error in add/update chart repo ", "err", err)
 		return nil, err
 	}
 	// Add or update chart repo ends
@@ -517,6 +536,7 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 	}
 	_, err = helmClientObj.InstallChart(context.Background(), chartSpec)
 	if err != nil {
+		impl.logger.Errorw("Error in install release ", "err", err)
 		return nil, err
 	}
 	// Install release ends
@@ -533,6 +553,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 	releaseIdentifier := request.ReleaseIdentifier
 	conf, err := k8sUtils.GetRestConfig(releaseIdentifier.ClusterConfig)
 	if err != nil {
+		impl.logger.Errorw("Error in getting rest config ", "err", err)
 		return nil, err
 	}
 	opt := &helmClient.RestConfClientOptions{
@@ -562,6 +583,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 
 	err = helmClientObj.AddOrUpdateChartRepo(chartRepo)
 	if err != nil {
+		impl.logger.Errorw("Error in add/update chart repo ", "err", err)
 		return nil, err
 	}
 	// Add or update chart repo ends
@@ -578,6 +600,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 	}
 	_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
 	if err != nil {
+		impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
 		return nil, err
 	}
 	// Update release ends

@@ -32,6 +32,9 @@ github.com/argoproj/gitops-engine/pkg/utils/tracing
 github.com/asaskevich/govalidator
 # github.com/beorn7/perks v1.0.1
 github.com/beorn7/perks/quantile
+# github.com/caarlos0/env v3.5.0+incompatible
+## explicit
+github.com/caarlos0/env
 # github.com/cespare/xxhash/v2 v2.1.1
 github.com/cespare/xxhash/v2
 # github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5

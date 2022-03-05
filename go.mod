@@ -19,6 +19,7 @@ require (
 	k8s.io/client-go v0.22.2
 	k8s.io/kubernetes v1.22.2 // indirect
 	sigs.k8s.io/yaml v1.2.0
+	github.com/caarlos0/env v3.5.0+incompatible
 )
 
 replace (

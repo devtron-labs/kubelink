@@ -47,6 +47,8 @@ func (impl K8sServiceImpl) CanHaveChild(gvk schema.GroupVersionKind) bool {
 }
 
 func (impl K8sServiceImpl) GetLiveManifest(restConfig *rest.Config, namespace string, gvk *schema.GroupVersionKind, name string) (*unstructured.Unstructured, *schema.GroupVersionResource, error) {
+	impl.logger.Debugw("Getting live manifest ", "namespace", namespace, "gvk", gvk, "name", name)
+
 	gvr, scope, err := impl.getGvrAndScopeFromGvk(gvk, restConfig)
 	if err != nil {
 		return nil, nil, err
@@ -66,6 +68,7 @@ func (impl K8sServiceImpl) GetLiveManifest(restConfig *rest.Config, namespace st
 }
 
 func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace string, parentGvk schema.GroupVersionKind, parentName string, parentApiVersion string) ([]*unstructured.Unstructured, error) {
+	impl.logger.Debugw("Getting child objects ", "namespace", namespace, "parentGvk", parentGvk, "parentName", parentName, "parentApiVersion", parentApiVersion)
 
 	gvrAndScopes, ok := k8sUtils.GetGvkVsChildGvrAndScope()[parentGvk]
 	if !ok {
@@ -110,6 +113,8 @@ func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace st
 
 
 func (impl K8sServiceImpl) PatchResource(ctx context.Context, restConfig *rest.Config, r *bean.KubernetesResourcePatchRequest) error {
+	impl.logger.Debugw("Patching resource ", "namespace", r.Namespace, "name", r.Name)
+
 	client, err := dynamicClient.NewForConfig(restConfig)
 	if err != nil {
 		return err
