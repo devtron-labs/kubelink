@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
@@ -48,6 +47,7 @@ type HelmAppService interface {
 	GetDeploymentDetail(request *client.DeploymentDetailRequest) (*client.DeploymentDetailResponse, error)
 	InstallRelease(ctx context.Context, request *client.InstallReleaseRequest) (*client.InstallReleaseResponse, error)
 	UpgradeReleaseWithChartInfo(ctx context.Context, request *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error)
+	IsReleaseInstalled(ctx context.Context, releaseIdentifier *client.ReleaseIdentifier) (bool, error)
 }
 
 type HelmAppServiceImpl struct {
@@ -132,7 +132,7 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 
 	appDetail := &bean.AppDetail{
 		ResourceTreeResponse: resourceTreeResponse,
-		ApplicationStatus:    buildAppHealthStatus(resourceTreeResponse.Nodes),
+		ApplicationStatus:    util.BuildAppHealthStatus(resourceTreeResponse.Nodes),
 		LastDeployed:         helmRelease.Info.LastDeployed.Time,
 		ChartMetadata: &bean.ChartMetadata{
 			ChartName:    helmRelease.Chart.Name(),
@@ -141,7 +141,7 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 		ReleaseStatus: &bean.ReleaseStatus{
 			Status:      string(helmRelease.Info.Status),
 			Description: helmRelease.Info.Description,
-			Message:     getMessageFromReleaseStatus(helmRelease.Info.Status),
+			Message:     util.GetMessageFromReleaseStatus(helmRelease.Info.Status),
 		},
 		EnvironmentDetails: &client.EnvironmentDetails{
 			ClusterName: req.ClusterConfig.ClusterName,
@@ -385,19 +385,7 @@ func (impl HelmAppServiceImpl) GetDesiredManifest(req *client.ObjectRequest) (*c
 }
 
 func (impl HelmAppServiceImpl) UninstallRelease(releaseIdentifier *client.ReleaseIdentifier) (*client.UninstallReleaseResponse, error) {
-	conf, err := k8sUtils.GetRestConfig(releaseIdentifier.ClusterConfig)
-	if err != nil {
-		impl.logger.Errorw("Error in getting rest config ", "err", err)
-		return nil, err
-	}
-	opt := &helmClient.RestConfClientOptions{
-		Options: &helmClient.Options{
-			Namespace: releaseIdentifier.ReleaseNamespace,
-		},
-		RestConfig: conf,
-	}
-
-	helmClient, err := helmClient.NewClientFromRestConf(opt)
+	helmClient, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	if err != nil {
 		return nil, err
 	}
@@ -417,19 +405,7 @@ func (impl HelmAppServiceImpl) UninstallRelease(releaseIdentifier *client.Releas
 
 func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *client.UpgradeReleaseRequest) (*client.UpgradeReleaseResponse, error) {
 	releaseIdentifier := request.ReleaseIdentifier
-	conf, err := k8sUtils.GetRestConfig(releaseIdentifier.ClusterConfig)
-	if err != nil {
-		impl.logger.Errorw("Error in getting rest config ", "err", err)
-		return nil, err
-	}
-	opt := &helmClient.RestConfClientOptions{
-		Options: &helmClient.Options{
-			Namespace: releaseIdentifier.ReleaseNamespace,
-		},
-		RestConfig: conf,
-	}
-
-	helmClientObj, err := helmClient.NewClientFromRestConf(opt)
+	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	if err != nil {
 		return nil, err
 	}
@@ -486,19 +462,7 @@ func (impl HelmAppServiceImpl) GetDeploymentDetail(request *client.DeploymentDet
 
 func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *client.InstallReleaseRequest) (*client.InstallReleaseResponse, error) {
 	releaseIdentifier := request.ReleaseIdentifier
-	conf, err := k8sUtils.GetRestConfig(releaseIdentifier.ClusterConfig)
-	if err != nil {
-		impl.logger.Errorw("Error in getting rest config ", "err", err)
-		return nil, err
-	}
-	opt := &helmClient.RestConfClientOptions{
-		Options: &helmClient.Options{
-			Namespace: releaseIdentifier.ReleaseNamespace,
-		},
-		RestConfig: conf,
-	}
-
-	helmClientObj, err := helmClient.NewClientFromRestConf(opt)
+	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	if err != nil {
 		return nil, err
 	}
@@ -551,19 +515,7 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 
 func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, request *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error) {
 	releaseIdentifier := request.ReleaseIdentifier
-	conf, err := k8sUtils.GetRestConfig(releaseIdentifier.ClusterConfig)
-	if err != nil {
-		impl.logger.Errorw("Error in getting rest config ", "err", err)
-		return nil, err
-	}
-	opt := &helmClient.RestConfClientOptions{
-		Options: &helmClient.Options{
-			Namespace: releaseIdentifier.ReleaseNamespace,
-		},
-		RestConfig: conf,
-	}
-
-	helmClientObj, err := helmClient.NewClientFromRestConf(opt)
+	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	if err != nil {
 		return nil, err
 	}
@@ -612,6 +564,22 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 	return upgradeReleaseResponse, nil
 
 }
+
+func (impl HelmAppServiceImpl) IsReleaseInstalled(ctx context.Context, releaseIdentifier *client.ReleaseIdentifier) (bool, error) {
+	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
+	if err != nil {
+		return false, err
+	}
+
+	isInstalled, err := helmClientObj.IsReleaseInstalled(ctx, releaseIdentifier.ReleaseName, releaseIdentifier.ReleaseNamespace)
+	if err != nil {
+		impl.logger.Errorw("Error in checking if the release is installed", "err", err)
+		return false, err
+	}
+
+	return isInstalled, err
+}
+
 
 func getHelmRelease(clusterConfig *client.ClusterConfig, namespace string, releaseName string) (*release.Release, error) {
 	conf, err := k8sUtils.GetRestConfig(clusterConfig)
@@ -963,9 +931,7 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 						isNew = controlRevision.GetLabels()["controller-revision-hash"] == pod.GetLabels()["controller-revision-hash"]
 					}
 				}
-
 			}
-
 		}
 
 		// set containers and initContainers names
@@ -1011,46 +977,24 @@ func getMatchingNodes(nodes []*bean.ResourceNode, kind string) []*bean.ResourceN
 	return nodesRes
 }
 
-// app health is worst of the nodes health
-func buildAppHealthStatus(nodes []*bean.ResourceNode) *bean.HealthStatusCode {
-	appHealthStatus := bean.HealthStatusHealthy
 
-	for _, node := range nodes {
-		nodeHealth := node.Health
-		if nodeHealth == nil {
-			continue
-		}
-		if health.IsWorse(health.HealthStatusCode(appHealthStatus), health.HealthStatusCode(nodeHealth.Status)) {
-			appHealthStatus = nodeHealth.Status
-		}
+func (impl HelmAppServiceImpl) getHelmClient(clusterConfig *client.ClusterConfig, releaseNamespace string) (helmClient.Client, error) {
+	conf, err := k8sUtils.GetRestConfig(clusterConfig)
+	if err != nil {
+		impl.logger.Errorw("Error in getting rest config ", "err", err)
+		return nil, err
+	}
+	opt := &helmClient.RestConfClientOptions{
+		Options: &helmClient.Options{
+			Namespace: releaseNamespace,
+		},
+		RestConfig: conf,
 	}
 
-	return &appHealthStatus
-}
-
-func getMessageFromReleaseStatus(releaseStatus release.Status) string {
-	switch releaseStatus {
-	case release.StatusUnknown:
-		return "The release is in an uncertain state"
-	case release.StatusDeployed:
-		return "The release has been pushed to Kubernetes"
-	case release.StatusUninstalled:
-		return "The release has been uninstalled from Kubernetes"
-	case release.StatusSuperseded:
-		return "The release object is outdated and a newer one exists"
-	case release.StatusFailed:
-		return "The release was not successfully deployed"
-	case release.StatusUninstalling:
-		return "The release uninstall operation is underway"
-	case release.StatusPendingInstall:
-		return "The release install operation is underway"
-	case release.StatusPendingUpgrade:
-		return "The release upgrade operation is underway"
-	case release.StatusPendingRollback:
-		return "The release rollback operation is underway"
-	default:
-		fmt.Println("un handled release status", releaseStatus)
+	helmClientObj, err := helmClient.NewClientFromRestConf(opt)
+	if err != nil {
+		impl.logger.Errorw("Error in building client from rest config ", "err", err)
+		return nil, err
 	}
-
-	return ""
+	return helmClientObj, nil
 }

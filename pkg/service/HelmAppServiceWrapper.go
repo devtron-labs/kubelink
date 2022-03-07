@@ -198,6 +198,22 @@ func (impl *ApplicationServiceServerImpl) UpgradeReleaseWithChartInfo(ctx contex
 	return res, err
 }
 
+func (impl *ApplicationServiceServerImpl) IsReleaseInstalled(ctx context.Context, releaseIdentifier *client.ReleaseIdentifier) (*client.BooleanResponse, error) {
+	impl.Logger.Infow("IsReleaseInstalled request", "clusterName", releaseIdentifier.ClusterConfig.ClusterName, "releaseName", releaseIdentifier.ReleaseName,
+		"namespace", releaseIdentifier.ReleaseNamespace)
+
+	isInstalled, err := impl.HelmAppService.IsReleaseInstalled(ctx, releaseIdentifier)
+	if err != nil {
+		impl.Logger.Errorw("Error in IsReleaseInstalled request", "err", err)
+	}
+	impl.Logger.Info("IsReleaseInstalled request served")
+
+	res := &client.BooleanResponse{
+		Result: isInstalled,
+	}
+	return res, err
+}
+
 func resourceRefResult(resourceRefs []*bean.ResourceRef) (resourceRefResults []*client.ResourceRef) {
 	for _, resourceRef := range resourceRefs {
 		resourceRefResult := &client.ResourceRef{
