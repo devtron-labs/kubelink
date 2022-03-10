@@ -422,6 +422,7 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 		ValuesYaml:  request.ValuesYaml,
 	}
 
+	impl.logger.Debug("Upgrading release")
 	_, err = helmClientObj.UpgradeRelease(context.Background(), helmRelease.Chart, updateChartSpec)
 	if err != nil {
 		impl.logger.Errorw("Error in upgrade release ", "err", err)
@@ -480,6 +481,7 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 		InsecureSkipTLSverify: true,
 	}
 
+	impl.logger.Debug("Adding/Updating Chart repo")
 	err = helmClientObj.AddOrUpdateChartRepo(chartRepo)
 	if err != nil {
 		impl.logger.Errorw("Error in add/update chart repo ", "err", err)
@@ -498,6 +500,8 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 		UpgradeCRDs:      true,
 		CreateNamespace:  true,
 	}
+
+	impl.logger.Debug("Installing release")
 	_, err = helmClientObj.InstallChart(context.Background(), chartSpec)
 	if err != nil {
 		impl.logger.Errorw("Error in install release ", "err", err)
@@ -533,6 +537,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		InsecureSkipTLSverify: true,
 	}
 
+	impl.logger.Debug("Adding/Updating Chart repo")
 	err = helmClientObj.AddOrUpdateChartRepo(chartRepo)
 	if err != nil {
 		impl.logger.Errorw("Error in add/update chart repo ", "err", err)
@@ -550,6 +555,8 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		DependencyUpdate: true,
 		UpgradeCRDs:      true,
 	}
+
+	impl.logger.Debug("Upgrading release with chart info")
 	_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
 	if err != nil {
 		impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
