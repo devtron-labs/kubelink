@@ -201,6 +201,12 @@ func (c *HelmClient) IsReleaseInstalled(ctx context.Context, releaseName string,
 	return installed, err
 }
 
+// RollbackRelease rollbacks a release to a specific version.
+// Specifying '0' as the value for 'version' will result in a rollback to the previous release version.
+func (c *HelmClient) RollbackRelease(spec *ChartSpec, version int) error {
+	return c.rollbackRelease(spec, version)
+}
+
 // listDeployedReleases lists all deployed helm releases.
 func (c *HelmClient) listDeployedReleases() ([]*release.Release, error) {
 	listClient := action.NewList(c.ActionConfig)
@@ -453,4 +459,28 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec) (*release.Rel
 	}
 
 	return rel, nil
+}
+
+// rollbackRelease rolls back a release matching the ChartSpec 'spec' to a specific version.
+// Specifying version = 0 will roll back a release to the latest revision.
+func (c *HelmClient) rollbackRelease(spec *ChartSpec, version int) error {
+	client := action.NewRollback(c.ActionConfig)
+
+	mergeRollbackOptions(spec, client)
+
+	client.Version = version
+
+	return client.Run(spec.ReleaseName)
+}
+
+// mergeRollbackOptions merges values of the provided chart to helm rollback options used by the client.
+func mergeRollbackOptions(chartSpec *ChartSpec, rollbackOptions *action.Rollback) {
+	rollbackOptions.DisableHooks = chartSpec.DisableHooks
+	rollbackOptions.DryRun = chartSpec.DryRun
+	rollbackOptions.Timeout = chartSpec.Timeout
+	rollbackOptions.CleanupOnFail = chartSpec.CleanupOnFail
+	rollbackOptions.Force = chartSpec.Force
+	rollbackOptions.MaxHistory = chartSpec.MaxHistory
+	rollbackOptions.Recreate = chartSpec.Recreate
+	rollbackOptions.Wait = chartSpec.Wait
 }
