@@ -20,4 +20,5 @@ type Client interface {
 	AddOrUpdateChartRepo(entry repo.Entry) error
 	InstallChart(ctx context.Context, spec *ChartSpec) (*release.Release, error)
 	UpgradeReleaseWithChartInfo(ctx context.Context, spec *ChartSpec) (*release.Release, error)
+	IsReleaseInstalled(ctx context.Context, releaseName string, releaseNamespace string) (bool, error)
 }

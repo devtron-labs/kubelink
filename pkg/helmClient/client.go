@@ -177,7 +177,7 @@ func (c *HelmClient) AddOrUpdateChartRepo(entry repo.Entry) error {
 // InstallChart installs the provided chart and returns the corresponding release.
 // Namespace and other context is provided via the helmclient.Options struct when instantiating a client.
 func (c *HelmClient) InstallChart(ctx context.Context, spec *ChartSpec) (*release.Release, error) {
-	installed, err := c.chartIsInstalled(spec)
+	installed, err := c.chartIsInstalled(spec.ReleaseName, spec.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -194,6 +194,11 @@ func (c *HelmClient) InstallChart(ctx context.Context, spec *ChartSpec) (*releas
 // Namespace and other context is provided via the helmclient.Options struct when instantiating a client.
 func (c *HelmClient) UpgradeReleaseWithChartInfo(ctx context.Context, spec *ChartSpec) (*release.Release, error) {
 	return c.upgradeWithChartInfo(ctx, spec)
+}
+
+func (c *HelmClient) IsReleaseInstalled(ctx context.Context, releaseName string, releaseNamespace string) (bool, error) {
+	installed, err := c.chartIsInstalled(releaseName, releaseNamespace)
+	return installed, err
 }
 
 // listDeployedReleases lists all deployed helm releases.
@@ -379,14 +384,14 @@ func getValuesMap(spec *ChartSpec) (map[string]interface{}, error) {
 // chartIsInstalled checks whether a chart is already installed
 // in a namespace or not based on the provided chart spec.
 // Note that this function only considers the contained chart name and namespace.
-func (c *HelmClient) chartIsInstalled(spec *ChartSpec) (bool, error) {
+func (c *HelmClient) chartIsInstalled(releaseName string, releaseNamespace string) (bool, error) {
 	releases, err := c.listDeployedReleases()
 	if err != nil {
 		return false, err
 	}
 
 	for _, r := range releases {
-		if r.Name == spec.ReleaseName && r.Namespace == spec.Namespace {
+		if r.Name == releaseName && r.Namespace == releaseNamespace {
 			return true, nil
 		}
 	}
