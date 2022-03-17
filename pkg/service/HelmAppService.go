@@ -501,7 +501,7 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 		CreateNamespace:  true,
 	}
 
-	impl.logger.Debug("Installing release")
+	impl.logger.Debugw("Installing release", "name", releaseIdentifier.ReleaseName, "namespace", releaseIdentifier.ReleaseNamespace)
 	_, err = helmClientObj.InstallChart(context.Background(), chartSpec)
 	if err != nil {
 		impl.logger.Errorw("Error in install release ", "err", err)
