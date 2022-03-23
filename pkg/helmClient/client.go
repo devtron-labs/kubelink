@@ -247,7 +247,7 @@ func (c *HelmClient) uninstallReleaseByName(name string) error {
 // Optionally lints the chart if the linting flag is set.
 func (c *HelmClient) upgrade(ctx context.Context, helmChart *chart.Chart, updatedChartSpec *ChartSpec) (*release.Release, error) {
 	client := action.NewUpgrade(c.ActionConfig)
-	mergeUpgradeOptions(updatedChartSpec, client)
+	copyUpgradeOptions(updatedChartSpec, client)
 
 	if client.Version == "" {
 		client.Version = ">0.0.0-0"
@@ -276,7 +276,7 @@ func (c *HelmClient) upgrade(ctx context.Context, helmChart *chart.Chart, update
 // Optionally lints the chart if the linting flag is set.
 func (c *HelmClient) upgradeWithChartInfo(ctx context.Context, spec *ChartSpec) (*release.Release, error) {
 	client := action.NewUpgrade(c.ActionConfig)
-	mergeUpgradeOptions(spec, client)
+	copyUpgradeOptions(spec, client)
 
 	if client.Version == "" {
 		client.Version = ">0.0.0-0"
@@ -306,8 +306,8 @@ func (c *HelmClient) upgradeWithChartInfo(ctx context.Context, spec *ChartSpec) 
 	return release, nil
 }
 
-// mergeUpgradeOptions merges values of the provided chart to helm upgrade options used by the client.
-func mergeUpgradeOptions(chartSpec *ChartSpec, upgradeOptions *action.Upgrade) {
+// copyUpgradeOptions merges values of the provided chart to helm upgrade options used by the client.
+func copyUpgradeOptions(chartSpec *ChartSpec, upgradeOptions *action.Upgrade) {
 	upgradeOptions.Version = chartSpec.Version
 	upgradeOptions.Namespace = chartSpec.Namespace
 	upgradeOptions.Timeout = chartSpec.Timeout
@@ -324,8 +324,8 @@ func mergeUpgradeOptions(chartSpec *ChartSpec, upgradeOptions *action.Upgrade) {
 	upgradeOptions.SubNotes = chartSpec.SubNotes
 }
 
-// mergeInstallOptions merges values of the provided chart to helm install options used by the client.
-func mergeInstallOptions(chartSpec *ChartSpec, installOptions *action.Install) {
+// copyInstallOptions merges values of the provided chart to helm install options used by the client.
+func copyInstallOptions(chartSpec *ChartSpec, installOptions *action.Install) {
 	installOptions.CreateNamespace = chartSpec.CreateNamespace
 	installOptions.DisableHooks = chartSpec.DisableHooks
 	installOptions.Replace = chartSpec.Replace
@@ -409,7 +409,7 @@ func (c *HelmClient) chartIsInstalled(releaseName string, releaseNamespace strin
 // Optionally lints the chart if the linting flag is set.
 func (c *HelmClient) install(ctx context.Context, spec *ChartSpec) (*release.Release, error) {
 	client := action.NewInstall(c.ActionConfig)
-	mergeInstallOptions(spec, client)
+	copyInstallOptions(spec, client)
 
 	if client.Version == "" {
 		client.Version = ">0.0.0-0"
@@ -466,15 +466,15 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec) (*release.Rel
 func (c *HelmClient) rollbackRelease(spec *ChartSpec, version int) error {
 	client := action.NewRollback(c.ActionConfig)
 
-	mergeRollbackOptions(spec, client)
+	copyRollbackOptions(spec, client)
 
 	client.Version = version
 
 	return client.Run(spec.ReleaseName)
 }
 
-// mergeRollbackOptions merges values of the provided chart to helm rollback options used by the client.
-func mergeRollbackOptions(chartSpec *ChartSpec, rollbackOptions *action.Rollback) {
+// copyRollbackOptions merges values of the provided chart to helm rollback options used by the client.
+func copyRollbackOptions(chartSpec *ChartSpec, rollbackOptions *action.Rollback) {
 	rollbackOptions.DisableHooks = chartSpec.DisableHooks
 	rollbackOptions.DryRun = chartSpec.DryRun
 	rollbackOptions.Timeout = chartSpec.Timeout
