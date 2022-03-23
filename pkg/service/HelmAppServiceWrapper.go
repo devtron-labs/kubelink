@@ -214,6 +214,23 @@ func (impl *ApplicationServiceServerImpl) IsReleaseInstalled(ctx context.Context
 	return res, err
 }
 
+func (impl *ApplicationServiceServerImpl) RollbackRelease(ctx context.Context, in *client.RollbackReleaseRequest) (*client.BooleanResponse, error) {
+	releaseIdentifier := in.ReleaseIdentifier
+	impl.Logger.Infow("Rollback release request", "clusterName", releaseIdentifier.ClusterConfig.ClusterName, "releaseName", releaseIdentifier.ReleaseName,
+		"namespace", releaseIdentifier.ReleaseNamespace, "version", in.Version)
+
+	success, err := impl.HelmAppService.RollbackRelease(in)
+	if err != nil {
+		impl.Logger.Errorw("Error in Rollback release request", "err", err)
+	}
+	impl.Logger.Info("Rollback release request served")
+
+	res := &client.BooleanResponse{
+		Result: success,
+	}
+	return res, err
+}
+
 func resourceRefResult(resourceRefs []*bean.ResourceRef) (resourceRefResults []*client.ResourceRef) {
 	for _, resourceRef := range resourceRefs {
 		resourceRefResult := &client.ResourceRef{

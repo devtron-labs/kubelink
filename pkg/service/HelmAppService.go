@@ -48,6 +48,7 @@ type HelmAppService interface {
 	InstallRelease(ctx context.Context, request *client.InstallReleaseRequest) (*client.InstallReleaseResponse, error)
 	UpgradeReleaseWithChartInfo(ctx context.Context, request *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error)
 	IsReleaseInstalled(ctx context.Context, releaseIdentifier *client.ReleaseIdentifier) (bool, error)
+	RollbackRelease(request *client.RollbackReleaseRequest) (bool, error)
 }
 
 type HelmAppServiceImpl struct {
@@ -57,7 +58,7 @@ type HelmAppServiceImpl struct {
 
 func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService) *HelmAppServiceImpl {
 	return &HelmAppServiceImpl{
-		logger: logger,
+		logger:     logger,
 		k8sService: k8sService,
 	}
 }
@@ -115,7 +116,6 @@ func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.Clus
 	deployedApp.DeployedAppDetail = deployedApps
 	return deployedApp
 }
-
 
 func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error) {
 	helmRelease, err := getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
@@ -587,6 +587,30 @@ func (impl HelmAppServiceImpl) IsReleaseInstalled(ctx context.Context, releaseId
 	return isInstalled, err
 }
 
+func (impl HelmAppServiceImpl) RollbackRelease(request *client.RollbackReleaseRequest) (bool, error) {
+	releaseIdentifier := request.ReleaseIdentifier
+	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
+	if err != nil {
+		return false, err
+	}
+
+	// Rollback release starts
+	chartSpec := &helmClient.ChartSpec{
+		ReleaseName:   releaseIdentifier.ReleaseName,
+		Namespace:     releaseIdentifier.ReleaseNamespace,
+		CleanupOnFail: true, // allow deletion of new resources created in this rollback when rollback fails
+		MaxHistory:    0, // limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
+	}
+
+	impl.logger.Debug("Rollback release starts")
+	err = helmClientObj.RollbackRelease(chartSpec, int(request.Version))
+	if err != nil {
+		impl.logger.Errorw("Error in Rollback release", "err", err)
+		return false, err
+	}
+
+	return true, nil
+}
 
 func getHelmRelease(clusterConfig *client.ClusterConfig, namespace string, releaseName string) (*release.Release, error) {
 	conf, err := k8sUtils.GetRestConfig(clusterConfig)
@@ -983,7 +1007,6 @@ func getMatchingNodes(nodes []*bean.ResourceNode, kind string) []*bean.ResourceN
 	}
 	return nodesRes
 }
-
 
 func (impl HelmAppServiceImpl) getHelmClient(clusterConfig *client.ClusterConfig, releaseNamespace string) (helmClient.Client, error) {
 	conf, err := k8sUtils.GetRestConfig(clusterConfig)
