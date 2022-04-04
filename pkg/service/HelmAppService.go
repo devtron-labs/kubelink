@@ -271,7 +271,6 @@ func (impl HelmAppServiceImpl) ScaleObjects(ctx context.Context, clusterConfig *
 	return response, nil
 }
 
-
 func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest) (*client.HelmAppDeploymentHistory, error) {
 	helmReleases, err := getHelmReleaseHistory(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
@@ -819,12 +818,12 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 					node.IsHibernated = true
 				}
 			}
-			if !node.IsHibernated {
-				_, found, _ := unstructured.NestedInt64(node.Manifest.UnstructuredContent(), "spec", "replicas")
-				if found {
-					node.CanBeHibernated = true
-				}
+
+			_, found, _ := unstructured.NestedInt64(node.Manifest.UnstructuredContent(), "spec", "replicas")
+			if found {
+				node.CanBeHibernated = true
 			}
+
 		}
 		// hibernate set ends
 
