@@ -38,8 +38,7 @@ type HelmAppService interface {
 	GetApplicationListForCluster(config *client.ClusterConfig) *client.DeployedAppList
 	BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error)
 	GetHelmAppValues(req *client.AppDetailRequest) (*client.ReleaseInfo, error)
-	Hibernate(ctx context.Context, clusterConfig *client.ClusterConfig, requests []*client.ObjectIdentifier) (*client.HibernateResponse, error)
-	UnHibernate(ctx context.Context, clusterConfig *client.ClusterConfig, requests []*client.ObjectIdentifier) (*client.HibernateResponse, error)
+	ScaleObjects(ctx context.Context, clusterConfig *client.ClusterConfig, requests []*client.ObjectIdentifier, scaleDown bool) (*client.HibernateResponse, error)
 	GetDeploymentHistory(req *client.AppDetailRequest) (*client.HelmAppDeploymentHistory, error)
 	GetDesiredManifest(req *client.ObjectRequest) (*client.DesiredManifestResponse, error)
 	UninstallRelease(releaseIdentifier *client.ReleaseIdentifier) (*client.UninstallReleaseResponse, error)
@@ -190,131 +189,88 @@ func (impl HelmAppServiceImpl) GetHelmAppValues(req *client.AppDetailRequest) (*
 
 }
 
-func (impl HelmAppServiceImpl) Hibernate(ctx context.Context, clusterConfig *client.ClusterConfig, requests []*client.ObjectIdentifier) (*client.HibernateResponse, error) {
-	resp := &client.HibernateResponse{}
+func (impl HelmAppServiceImpl) ScaleObjects(ctx context.Context, clusterConfig *client.ClusterConfig, objects []*client.ObjectIdentifier, scaleDown bool) (*client.HibernateResponse, error) {
+	response := &client.HibernateResponse{}
 	conf, err := k8sUtils.GetRestConfig(clusterConfig)
 	if err != nil {
 		impl.logger.Errorw("Error in getting rest config ", "err", err)
-		return resp, err
+		return nil, err
 	}
-	for _, request := range requests {
-		status := &client.HibernateStatus{
-			TargetObject: request,
-			Success:      false,
-			ErrorMsg:     "",
+
+	// iterate through objects
+	for _, object := range objects {
+
+		// append object's status in response
+		hibernateStatus := &client.HibernateStatus{
+			TargetObject: object,
 		}
-		resp.Status = append(resp.Status, status)
-		// get live manifest
+		response.Status = append(response.Status, hibernateStatus)
+
+		// STEP-1 - get live manifest
 		gvk := &schema.GroupVersionKind{
-			Group:   request.Group,
-			Kind:    request.Kind,
-			Version: request.Version,
+			Group:   object.Group,
+			Kind:    object.Kind,
+			Version: object.Version,
 		}
-		liveManifest, gvr, err := impl.k8sService.GetLiveManifest(conf, request.Namespace, gvk, request.Name)
+		liveManifest, _, err := impl.k8sService.GetLiveManifest(conf, object.Namespace, gvk, object.Name)
 		if err != nil {
 			impl.logger.Errorw("Error in getting live manifest ", "err", err)
-			status.Success = false
-			status.ErrorMsg = err.Error()
+			hibernateStatus.ErrorMsg = err.Error()
 			continue
 		}
 		if liveManifest == nil {
-			status.Success = false
-			status.ErrorMsg = "manifest not found"
+			hibernateStatus.ErrorMsg = "manifest not found"
 			continue
 		}
-		replicas, found, err := unstructured.NestedInt64(liveManifest.UnstructuredContent(), "spec", "replicas")
-		if err != nil {
-			status.Success = false
-			status.ErrorMsg = err.Error()
-			continue
-		}
-		if !found {
-			status.Success = false
-			status.ErrorMsg = "replicas not found in manifest"
-			continue
+		// STEP-1 ends
+
+		// initialise patch request bean
+		patchRequest := &bean.KubernetesResourcePatchRequest{
+			Name:      object.Name,
+			Namespace: object.Namespace,
+			Gvk:       gvk,
+			PatchType: string(types.JSONPatchType),
 		}
 
-		// patch resource
-		patchRequest := &bean.KubernetesResourcePatchRequest{
-			Name:                 request.Name,
-			Namespace:            request.Namespace,
-			GroupVersionResource: *gvr,
-			Patch:                fmt.Sprintf(hibernatePatch, 0, hibernateReplicaAnnotation, strconv.Itoa(int(replicas))),
-			PatchType:            string(types.JSONPatchType),
+		// STEP-2  for scaleDown - get replicas from live manifest, for scaleUp - get original count from annotation
+		// and update patch in bean accordingly
+		if scaleDown {
+			replicas, found, err := unstructured.NestedInt64(liveManifest.UnstructuredContent(), "spec", "replicas")
+			if err != nil {
+				hibernateStatus.ErrorMsg = err.Error()
+				continue
+			}
+			if !found {
+				hibernateStatus.ErrorMsg = "replicas not found in manifest"
+				continue
+			}
+			patchRequest.Patch = fmt.Sprintf(hibernatePatch, 0, hibernateReplicaAnnotation, strconv.Itoa(int(replicas)))
+		} else {
+			originalReplicaCount, err := strconv.Atoi(liveManifest.GetAnnotations()[hibernateReplicaAnnotation])
+			if err != nil {
+				hibernateStatus.ErrorMsg = err.Error()
+				continue
+			}
+			patchRequest.Patch = fmt.Sprintf(hibernatePatch, originalReplicaCount, hibernateReplicaAnnotation, "0")
 		}
+		// STEP-2 ends
+
+		// STEP-3 patch resource
 		err = impl.k8sService.PatchResource(context.Background(), conf, patchRequest)
 		if err != nil {
 			impl.logger.Errorw("Error in patching resource ", "err", err)
-			status.Success = false
-			status.ErrorMsg = "replicas not found in manifest"
+			hibernateStatus.ErrorMsg = err.Error()
 			continue
 		}
-		status.Success = true
+		// STEP-3 ends
+
+		// otherwise success true
+		hibernateStatus.Success = true
 	}
-	return resp, nil
+
+	return response, nil
 }
 
-func (impl HelmAppServiceImpl) UnHibernate(ctx context.Context, clusterConfig *client.ClusterConfig, requests []*client.ObjectIdentifier) (*client.HibernateResponse, error) {
-	resp := &client.HibernateResponse{}
-
-	conf, err := k8sUtils.GetRestConfig(clusterConfig)
-	if err != nil {
-		impl.logger.Errorw("Error in getting rest config ", "err", err)
-		return resp, err
-	}
-	for _, request := range requests {
-		status := &client.HibernateStatus{
-			TargetObject: request,
-			Success:      false,
-			ErrorMsg:     "",
-		}
-		resp.Status = append(resp.Status, status)
-		// get live manifest
-		gvk := &schema.GroupVersionKind{
-			Group:   request.Group,
-			Kind:    request.Kind,
-			Version: request.Version,
-		}
-		liveManifest, gvr, err := impl.k8sService.GetLiveManifest(conf, request.Namespace, gvk, request.Name)
-		if err != nil {
-			impl.logger.Errorw("Error in getting live manifest ", "err", err)
-			status.Success = false
-			status.ErrorMsg = err.Error()
-			continue
-		}
-
-		if liveManifest == nil {
-			status.Success = false
-			status.ErrorMsg = "manifest not found"
-			continue
-		}
-
-		originalReplicaCount, err := strconv.Atoi(liveManifest.GetAnnotations()[hibernateReplicaAnnotation])
-		if err != nil {
-			status.Success = false
-			status.ErrorMsg = err.Error()
-			continue
-		}
-
-		// patch resource
-		patchRequest := &bean.KubernetesResourcePatchRequest{
-			Name:                 request.Name,
-			Namespace:            request.Namespace,
-			GroupVersionResource: *gvr,
-			Patch:                fmt.Sprintf(hibernatePatch, originalReplicaCount, hibernateReplicaAnnotation, "0"),
-			PatchType:            string(types.JSONPatchType),
-		}
-		err = impl.k8sService.PatchResource(context.Background(), conf, patchRequest)
-		if err != nil {
-			impl.logger.Errorw("Error in patching resource ", "err", err)
-			status.Success = false
-			status.ErrorMsg = err.Error()
-			continue
-		}
-		status.Success = true
-	}
-	return resp, nil
-}
 
 func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest) (*client.HelmAppDeploymentHistory, error) {
 	helmReleases, err := getHelmReleaseHistory(req.ClusterConfig, req.Namespace, req.ReleaseName)
@@ -599,7 +555,7 @@ func (impl HelmAppServiceImpl) RollbackRelease(request *client.RollbackReleaseRe
 		ReleaseName:   releaseIdentifier.ReleaseName,
 		Namespace:     releaseIdentifier.ReleaseNamespace,
 		CleanupOnFail: true, // allow deletion of new resources created in this rollback when rollback fails
-		MaxHistory:    0, // limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
+		MaxHistory:    0,    // limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
 	}
 
 	impl.logger.Debug("Rollback release starts")
