@@ -818,8 +818,10 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 		if parentResourceRef == nil {
 			annotations := node.Manifest.GetAnnotations()
 			if annotations != nil {
-				if _, ok := annotations[hibernateReplicaAnnotation]; ok {
-					node.IsHibernated = true
+				if val, ok := annotations[hibernateReplicaAnnotation]; ok {
+					if val != "0" {
+						node.IsHibernated = true
+					}
 				}
 			}
 
