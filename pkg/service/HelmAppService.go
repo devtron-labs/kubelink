@@ -255,6 +255,10 @@ func (impl HelmAppServiceImpl) ScaleObjects(ctx context.Context, clusterConfig *
 				hibernateStatus.ErrorMsg = err.Error()
 				continue
 			}
+			if originalReplicaCount == 0 {
+				hibernateStatus.ErrorMsg = "object is already scaled up"
+				continue
+			}
 			patchRequest.Patch = fmt.Sprintf(hibernatePatch, originalReplicaCount, hibernateReplicaAnnotation, "0")
 		}
 		// STEP-2 ends
