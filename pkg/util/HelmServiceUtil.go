@@ -12,7 +12,6 @@ func GetAppId(clusterId int32, release *release.Release) string {
 	return fmt.Sprintf("%d|%s|%s", clusterId, release.Namespace, release.Name)
 }
 
-
 func GetMessageFromReleaseStatus(releaseStatus release.Status) string {
 	switch releaseStatus {
 	case release.StatusUnknown:
@@ -41,16 +40,37 @@ func GetMessageFromReleaseStatus(releaseStatus release.Status) string {
 }
 
 // app health is worst of the nodes health
+// or if app status is healthy then check for hibernation status
 func BuildAppHealthStatus(nodes []*bean.ResourceNode) *bean.HealthStatusCode {
 	appHealthStatus := bean.HealthStatusHealthy
+	isAppFullyHibernated := true
+	var isAppPartiallyHibernated bool
+	var isAnyNodeCanByHibernated bool
 
 	for _, node := range nodes {
 		nodeHealth := node.Health
+		if node.CanBeHibernated {
+			isAnyNodeCanByHibernated = true
+			if !node.IsHibernated {
+				isAppFullyHibernated = false
+			} else {
+				isAppPartiallyHibernated = true
+			}
+		}
 		if nodeHealth == nil {
 			continue
 		}
 		if health.IsWorse(health.HealthStatusCode(appHealthStatus), health.HealthStatusCode(nodeHealth.Status)) {
 			appHealthStatus = nodeHealth.Status
+		}
+	}
+
+	// override hibernate status on app level if status is healthy and hibernation done
+	if appHealthStatus == bean.HealthStatusHealthy && isAnyNodeCanByHibernated {
+		if isAppFullyHibernated {
+			appHealthStatus = bean.HealthStatusHibernated
+		} else if isAppPartiallyHibernated {
+			appHealthStatus = bean.HealthStatusPartiallyHibernated
 		}
 	}
 

@@ -115,12 +115,14 @@ type HealthStatus struct {
 type HealthStatusCode = string
 
 const (
-	HealthStatusUnknown     HealthStatusCode = "Unknown"
-	HealthStatusProgressing HealthStatusCode = "Progressing"
-	HealthStatusHealthy     HealthStatusCode = "Healthy"
-	HealthStatusSuspended   HealthStatusCode = "Suspended"
-	HealthStatusDegraded    HealthStatusCode = "Degraded"
-	HealthStatusMissing     HealthStatusCode = "Missing"
+	HealthStatusUnknown             HealthStatusCode = "Unknown"
+	HealthStatusProgressing         HealthStatusCode = "Progressing"
+	HealthStatusHealthy             HealthStatusCode = "Healthy"
+	HealthStatusSuspended           HealthStatusCode = "Suspended"
+	HealthStatusDegraded            HealthStatusCode = "Degraded"
+	HealthStatusMissing             HealthStatusCode = "Missing"
+	HealthStatusHibernated          HealthStatusCode = "Hibernated"
+	HealthStatusPartiallyHibernated HealthStatusCode = "Partially Hibernated"
 )
 
 type PodMetadata struct {
@@ -144,20 +146,13 @@ type ClusterConfig struct {
 	ClusterId    int32  `protobuf:"varint,3,opt,name=clusterId,proto3" json:"clusterId,omitempty"`
 	ClusterName  string `protobuf:"bytes,4,opt,name=clusterName,proto3" json:"clusterName,omitempty"`
 }
-type HibernateRequest struct {
-	Group     string `json:"group"  validate:"required"`
-	Kind      string `json:"kind"  validate:"required"`
-	Version   string `json:"version"  validate:"required"`
-	Name      string `json:"name"  validate:"required"`
-	Namespace string `json:"namespace" validate:"required"`
-}
 
 type KubernetesResourcePatchRequest struct {
-	Name                 string                      `protobuf:"bytes,1,req,name=name" json:"name,omitempty"`
-	Namespace            string                      `protobuf:"bytes,2,req,name=namespace" json:"namespace,omitempty"`
-	GroupVersionResource schema.GroupVersionResource `protobuf:"bytes,3,req,name=groupVersionResource" json:"groupVersionKind,omitempty"`
-	Patch                string                      `protobuf:"bytes,4,req,name=patch" json:"patch,omitempty"`
-	PatchType            string                      `protobuf:"bytes,5,req,name=patchType" json:"patchType,omitempty"`
+	Name      string
+	Namespace string
+	Gvk       *schema.GroupVersionKind
+	Patch     string
+	PatchType string
 }
 
 type HelmAppDeploymentDetail struct {

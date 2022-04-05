@@ -67,7 +67,7 @@ func (impl *ApplicationServiceServerImpl) GetAppDetail(ctxt context.Context, req
 
 func (impl *ApplicationServiceServerImpl) Hibernate(ctx context.Context, in *client.HibernateRequest) (*client.HibernateResponse, error) {
 	impl.Logger.Info("Hibernate request")
-	res, err := impl.HelmAppService.Hibernate(ctx, in.ClusterConfig, in.ObjectIdentifier)
+	res, err := impl.HelmAppService.ScaleObjects(ctx, in.ClusterConfig, in.ObjectIdentifier, true)
 	if err != nil {
 		impl.Logger.Errorw("Error in Hibernating", "err", err)
 	}
@@ -77,7 +77,7 @@ func (impl *ApplicationServiceServerImpl) Hibernate(ctx context.Context, in *cli
 
 func (impl *ApplicationServiceServerImpl) UnHibernate(ctx context.Context, in *client.HibernateRequest) (*client.HibernateResponse, error) {
 	impl.Logger.Info("UnHibernate request")
-	res, err := impl.HelmAppService.UnHibernate(ctx, in.ClusterConfig, in.GetObjectIdentifier())
+	res, err := impl.HelmAppService.ScaleObjects(ctx, in.ClusterConfig, in.GetObjectIdentifier(), false)
 	if err != nil {
 		impl.Logger.Errorw("Error in UnHibernating", "err", err)
 	}

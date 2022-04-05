@@ -111,21 +111,31 @@ func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace st
 	return manifests, nil
 }
 
-
 func (impl K8sServiceImpl) PatchResource(ctx context.Context, restConfig *rest.Config, r *bean.KubernetesResourcePatchRequest) error {
 	impl.logger.Debugw("Patching resource ", "namespace", r.Namespace, "name", r.Name)
 
-	client, err := dynamicClient.NewForConfig(restConfig)
+	dynamicClient, err := dynamicClient.NewForConfig(restConfig)
 	if err != nil {
 		return err
 	}
-	_, err = client.Resource(r.GroupVersionResource).Namespace(r.Namespace).Patch(ctx, r.Name, types.PatchType(r.PatchType), []byte(r.Patch), metav1.PatchOptions{})
+
+	gvr, scope, err := impl.getGvrAndScopeFromGvk(r.Gvk, restConfig)
 	if err != nil {
 		return err
 	}
+
+	if scope.Name() != meta.RESTScopeNameNamespace {
+		_, err = dynamicClient.Resource(*gvr).Patch(ctx, r.Name, types.PatchType(r.PatchType), []byte(r.Patch), metav1.PatchOptions{})
+	} else {
+		_, err = dynamicClient.Resource(*gvr).Namespace(r.Namespace).Patch(ctx, r.Name, types.PatchType(r.PatchType), []byte(r.Patch), metav1.PatchOptions{})
+	}
+
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
-
 
 func (impl K8sServiceImpl) getGvrAndScopeFromGvk(gvk *schema.GroupVersionKind, restConfig *rest.Config) (*schema.GroupVersionResource, meta.RESTScope, error) {
 	descoClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
