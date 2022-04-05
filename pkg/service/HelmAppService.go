@@ -244,6 +244,10 @@ func (impl HelmAppServiceImpl) ScaleObjects(ctx context.Context, clusterConfig *
 				hibernateStatus.ErrorMsg = "replicas not found in manifest"
 				continue
 			}
+			if replicas == 0 {
+				hibernateStatus.ErrorMsg = "object is already scaled down"
+				continue
+			}
 			patchRequest.Patch = fmt.Sprintf(hibernatePatch, 0, hibernateReplicaAnnotation, strconv.Itoa(int(replicas)))
 		} else {
 			originalReplicaCount, err := strconv.Atoi(liveManifest.GetAnnotations()[hibernateReplicaAnnotation])
