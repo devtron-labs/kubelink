@@ -68,6 +68,8 @@ type ChartMetadata struct {
 	Sources []string `json:"sources,omitempty"`
 	// A one-sentence description of the chart
 	Description string `json:"description,omitempty"`
+	// Contains the rendered templates/NOTES.txt if available
+	Notes string `json:"notes,omitempty"`
 }
 
 type ResourceTreeResponse struct {

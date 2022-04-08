@@ -136,6 +136,7 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 		ChartMetadata: &bean.ChartMetadata{
 			ChartName:    helmRelease.Chart.Name(),
 			ChartVersion: helmRelease.Chart.Metadata.Version,
+			Notes:        helmRelease.Info.Notes,
 		},
 		ReleaseStatus: &bean.ReleaseStatus{
 			Status:      string(helmRelease.Info.Status),
