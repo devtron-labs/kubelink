@@ -821,19 +821,24 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 
 		// hibernate set starts
 		if parentResourceRef == nil {
+
+			// set CanBeHibernated
+			replicas, found, _ := unstructured.NestedInt64(node.Manifest.UnstructuredContent(), "spec", "replicas")
+			if found {
+				node.CanBeHibernated = true
+			}
+
+			// set IsHibernated
 			annotations := node.Manifest.GetAnnotations()
 			if annotations != nil {
 				if val, ok := annotations[hibernateReplicaAnnotation]; ok {
-					if val != "0" {
+					if val != "0" && replicas == 0 {
 						node.IsHibernated = true
 					}
 				}
 			}
 
-			_, found, _ := unstructured.NestedInt64(node.Manifest.UnstructuredContent(), "spec", "replicas")
-			if found {
-				node.CanBeHibernated = true
-			}
+
 
 		}
 		// hibernate set ends
