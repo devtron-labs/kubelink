@@ -247,7 +247,7 @@ func (impl *ApplicationServiceServerImpl) TemplateChart(ctx context.Context, in 
 	res := &client.TemplateChartResponse{
 		GeneratedManifest: manifest,
 	}
-	
+
 	return res, err
 }
 

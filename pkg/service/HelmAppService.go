@@ -483,7 +483,7 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 		DryRun:           dryRun,
 	}
 
-	impl.logger.Debugw("Installing release", "name", releaseIdentifier.ReleaseName, "namespace", releaseIdentifier.ReleaseNamespace, "Dry-run", dryRun)
+	impl.logger.Debugw("Installing release", "name", releaseIdentifier.ReleaseName, "namespace", releaseIdentifier.ReleaseNamespace, "dry-run", dryRun)
 	rel, err := helmClientObj.InstallChart(context.Background(), chartSpec)
 	if err != nil {
 		impl.logger.Errorw("Error in install release ", "err", err)
