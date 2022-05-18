@@ -48,6 +48,7 @@ type HelmAppService interface {
 	UpgradeReleaseWithChartInfo(ctx context.Context, request *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error)
 	IsReleaseInstalled(ctx context.Context, releaseIdentifier *client.ReleaseIdentifier) (bool, error)
 	RollbackRelease(request *client.RollbackReleaseRequest) (bool, error)
+	TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error)
 }
 
 type HelmAppServiceImpl struct {
@@ -426,6 +427,22 @@ func (impl HelmAppServiceImpl) GetDeploymentDetail(request *client.DeploymentDet
 }
 
 func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *client.InstallReleaseRequest) (*client.InstallReleaseResponse, error) {
+	// Install release starts
+	_, err := impl.installRelease(request, false)
+	if err != nil {
+		return nil, err
+	}
+	// Install release ends
+
+	installReleaseResponse := &client.InstallReleaseResponse{
+		Success: true,
+	}
+
+	return installReleaseResponse, nil
+
+}
+
+func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequest, dryRun bool) (*release.Release, error) {
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	if err != nil {
@@ -463,22 +480,17 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 		DependencyUpdate: true,
 		UpgradeCRDs:      true,
 		CreateNamespace:  true,
+		DryRun:           dryRun,
 	}
 
-	impl.logger.Debugw("Installing release", "name", releaseIdentifier.ReleaseName, "namespace", releaseIdentifier.ReleaseNamespace)
-	_, err = helmClientObj.InstallChart(context.Background(), chartSpec)
+	impl.logger.Debugw("Installing release", "name", releaseIdentifier.ReleaseName, "namespace", releaseIdentifier.ReleaseNamespace, "Dry-run", dryRun)
+	rel, err := helmClientObj.InstallChart(context.Background(), chartSpec)
 	if err != nil {
 		impl.logger.Errorw("Error in install release ", "err", err)
 		return nil, err
 	}
 	// Install release ends
-
-	installReleaseResponse := &client.InstallReleaseResponse{
-		Success: true,
-	}
-
-	return installReleaseResponse, nil
-
+	return rel, nil
 }
 
 func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, request *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error) {
@@ -574,6 +586,21 @@ func (impl HelmAppServiceImpl) RollbackRelease(request *client.RollbackReleaseRe
 	}
 
 	return true, nil
+}
+
+// TemplateChart returns a rendered version of the provided ChartSpec 'spec' by performing a "dry-run" install.
+func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error) {
+	// Install release starts with dry-run
+	rel, err := impl.installRelease(request, true)
+	if err != nil {
+		return "", err
+	}
+	// Install release ends with dry-run
+
+	if rel == nil {
+		return "", errors.New("release is found nil")
+	}
+	return rel.Manifest, nil
 }
 
 func getHelmRelease(clusterConfig *client.ClusterConfig, namespace string, releaseName string) (*release.Release, error) {
@@ -837,8 +864,6 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 					}
 				}
 			}
-
-
 
 		}
 		// hibernate set ends
