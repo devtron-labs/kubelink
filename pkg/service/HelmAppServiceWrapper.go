@@ -230,6 +230,27 @@ func (impl *ApplicationServiceServerImpl) RollbackRelease(ctx context.Context, i
 	return res, err
 }
 
+func (impl *ApplicationServiceServerImpl) TemplateChart(ctx context.Context, in *client.InstallReleaseRequest) (*client.TemplateChartResponse, error) {
+	releaseIdentifier := in.ReleaseIdentifier
+	impl.Logger.Infow("Template chart request", "clusterName", releaseIdentifier.ClusterConfig.ClusterName, "releaseName", releaseIdentifier.ReleaseName,
+		"namespace", releaseIdentifier.ReleaseNamespace)
+
+	impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
+	defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
+
+	manifest, err := impl.HelmAppService.TemplateChart(ctx, in)
+	if err != nil {
+		impl.Logger.Errorw("Error in Template chart request", "err", err)
+	}
+	impl.Logger.Info("Template chart request served")
+
+	res := &client.TemplateChartResponse{
+		GeneratedManifest: manifest,
+	}
+
+	return res, err
+}
+
 func resourceRefResult(resourceRefs []*bean.ResourceRef) (resourceRefResults []*client.ResourceRef) {
 	for _, resourceRef := range resourceRefs {
 		resourceRefResult := &client.ResourceRef{
