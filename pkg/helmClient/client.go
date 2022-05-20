@@ -177,16 +177,18 @@ func (c *HelmClient) AddOrUpdateChartRepo(entry repo.Entry) error {
 // InstallChart installs the provided chart and returns the corresponding release.
 // Namespace and other context is provided via the helmclient.Options struct when instantiating a client.
 func (c *HelmClient) InstallChart(ctx context.Context, spec *ChartSpec) (*release.Release, error) {
-	installed, err := c.chartIsInstalled(spec.ReleaseName, spec.Namespace)
-	if err != nil {
-		return nil, err
-	}
+	// if not dry-run, then only check if the release is installed or not
+	if !spec.DryRun {
+		installed, err := c.chartIsInstalled(spec.ReleaseName, spec.Namespace)
+		if err != nil {
+			return nil, err
+		}
 
-	if installed {
-		errorMessage := fmt.Sprintf("release already exists with releaseName : %s in namespace : %s", spec.ReleaseName, spec.Namespace)
-		return nil, errors.New(errorMessage)
+		if installed {
+			errorMessage := fmt.Sprintf("release already exists with releaseName : %s in namespace : %s", spec.ReleaseName, spec.Namespace)
+			return nil, errors.New(errorMessage)
+		}
 	}
-
 	return c.install(ctx, spec)
 }
 
