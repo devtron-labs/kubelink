@@ -1,6 +1,8 @@
 package service
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -17,6 +19,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
+	"io/ioutil"
 	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	errors2 "k8s.io/apimachinery/pkg/api/errors"
@@ -25,7 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
+	"math/rand"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 )
 
@@ -49,18 +55,79 @@ type HelmAppService interface {
 	IsReleaseInstalled(ctx context.Context, releaseIdentifier *client.ReleaseIdentifier) (bool, error)
 	RollbackRelease(request *client.RollbackReleaseRequest) (bool, error)
 	TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error)
+	HelmInstallCustom(req *client.HelmInstallCustomRequest) (bool, error)
 }
 
 type HelmAppServiceImpl struct {
 	logger     *zap.SugaredLogger
 	k8sService K8sService
+	randSource rand.Source
 }
 
-func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService) *HelmAppServiceImpl {
+func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService, randSource rand.Source) *HelmAppServiceImpl {
 	return &HelmAppServiceImpl{
 		logger:     logger,
 		k8sService: k8sService,
+		randSource: randSource,
 	}
+}
+func (impl HelmAppServiceImpl) CleanDir(dir string) {
+	err := os.RemoveAll(dir)
+	if err != nil {
+		impl.logger.Warnw("error in deleting dir ", "dir", dir)
+	}
+}
+func (impl HelmAppServiceImpl) GetDir() string {
+	/* #nosec */
+	r1 := rand.New(impl.randSource).Int63()
+	return strconv.FormatInt(r1, 10)
+}
+
+func (impl HelmAppServiceImpl) HelmInstallCustom(request *client.HelmInstallCustomRequest) (bool, error) {
+	releaseIdentifier := request.ReleaseIdentifier
+	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
+	if err != nil {
+		impl.logger.Errorw("error on helm install custom", "err", err)
+		return false, err
+	}
+	var b bytes.Buffer
+	writer := gzip.NewWriter(&b)
+	_, err = writer.Write(request.Chunk.Content)
+	if err != nil {
+		impl.logger.Errorw("error on helm install custom", "err", err)
+		return false, err
+	}
+	err = writer.Close()
+	if err != nil {
+		impl.logger.Errorw("error on helm install custom", "err", err)
+		return false, err
+	}
+
+	dir := impl.GetDir()
+	referenceChartDir := filepath.Join("/tmp/charts/", dir)
+	referenceChartDir = fmt.Sprintf("%s.tgz", referenceChartDir)
+	err = ioutil.WriteFile(referenceChartDir, b.Bytes(), os.ModePerm)
+	if err != nil {
+		impl.logger.Errorw("error on helm install custom", "err", err)
+		return false, err
+	}
+	// Update release starts
+	chartSpec := &helmClient.ChartSpec{
+		ReleaseName: releaseIdentifier.ReleaseName,
+		Namespace:   releaseIdentifier.ReleaseNamespace,
+		ValuesYaml:  request.ValuesYaml,
+		ChartName:   referenceChartDir,
+	}
+
+	//	impl.logger.Debug("Upgrading release with chart info")
+	_, err = helmClientObj.InstallChart(context.Background(), chartSpec)
+	if err != nil {
+		impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
+		return false, err
+	}
+	// Update release ends
+
+	return true, nil
 }
 
 func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.ClusterConfig) *client.DeployedAppList {

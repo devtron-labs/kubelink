@@ -18,10 +18,14 @@
 package k8sUtils
 
 import (
+	"flag"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"os/user"
+	"path/filepath"
 )
 
 // constants starts
@@ -57,10 +61,21 @@ func GetGvkVsChildGvrAndScope() map[schema.GroupVersionKind][]GvrAndScope{
 
 func GetRestConfig(config *client.ClusterConfig) (restConfig *rest.Config, err error) {
 	if config.ClusterName == DEFAULT_CLUSTER && len(config.Token) == 0 {
-		restConfig, err = rest.InClusterConfig()
+		/*restConfig, err = rest.InClusterConfig()
 		if err != nil {
 			return nil, err
+		}*/
+		usr, err := user.Current()
+		if err != nil {
+			//impl.logger.Errorw("Error while getting user current env details", "error", err)
 		}
+		kubeconfig := flag.String("build-informer", filepath.Join(usr.HomeDir, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+		flag.Parse()
+		restConfig, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
+		if err != nil {
+			//impl.logger.Errorw("Error while building config from flags", "error", err)
+		}
+
 		return restConfig, err
 	} else {
 		restConfig = &rest.Config{Host: config.ApiServerUrl, BearerToken: config.Token, TLSClientConfig: rest.TLSClientConfig{Insecure: true}}
