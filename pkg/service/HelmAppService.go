@@ -33,6 +33,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 )
 
 const (
@@ -64,11 +65,11 @@ type HelmAppServiceImpl struct {
 	randSource rand.Source
 }
 
-func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService, randSource rand.Source) *HelmAppServiceImpl {
+func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService) *HelmAppServiceImpl {
 	return &HelmAppServiceImpl{
 		logger:     logger,
 		k8sService: k8sService,
-		randSource: randSource,
+		randSource: rand.NewSource(time.Now().UnixNano()),
 	}
 }
 func (impl HelmAppServiceImpl) CleanDir(dir string) {

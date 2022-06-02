@@ -30,16 +30,17 @@ func NewApplicationServiceServerImpl(logger *zap.SugaredLogger, chartRepositoryL
 	}
 }
 
-func (impl *ApplicationServiceServerImpl) HelmInstallCustom(req *client.HelmInstallCustomRequest) (error, *client.HelmInstallCustomResponse) {
+func (impl *ApplicationServiceServerImpl) HelmInstallCustom(ctx context.Context, req *client.HelmInstallCustomRequest) (*client.HelmInstallCustomResponse, error) {
 	impl.Logger.Infow("helm install request", "chartName", req.ChartName, "namespace", req.Namespace,
 		"values", req.ValuesYaml)
 	flag, err := impl.HelmAppService.HelmInstallCustom(req)
 	if err != nil {
 		impl.Logger.Errorw("Error in Values Yaml request", "err", err)
+		return nil, err
 	}
 	res := &client.HelmInstallCustomResponse{Success: flag}
 	impl.Logger.Info("List Application Request served")
-	return nil, res
+	return res, nil
 }
 
 func (impl *ApplicationServiceServerImpl) ListApplications(req *client.AppListRequest, res client.ApplicationService_ListApplicationsServer) error {
