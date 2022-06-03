@@ -112,6 +112,8 @@ func (impl HelmAppServiceImpl) HelmInstallCustom(request *client.HelmInstallCust
 		impl.logger.Errorw("error on helm install custom", "err", err)
 		return false, err
 	}
+	impl.logger.Infow("tar file write at", "referenceChartDir", referenceChartDir)
+
 	// Update release starts
 	chartSpec := &helmClient.ChartSpec{
 		ReleaseName: releaseIdentifier.ReleaseName,
@@ -1084,7 +1086,6 @@ func (impl HelmAppServiceImpl) getHelmClient(clusterConfig *client.ClusterConfig
 		},
 		RestConfig: conf,
 	}
-
 	helmClientObj, err := helmClient.NewClientFromRestConf(opt)
 	if err != nil {
 		impl.logger.Errorw("Error in building client from rest config ", "err", err)
