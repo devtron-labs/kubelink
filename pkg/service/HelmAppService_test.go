@@ -29,12 +29,12 @@ func TestHelmAppServiceImpl_HelmInstallCustom(t *testing.T) {
 		want    bool
 		wantErr bool
 	}{
-		{name: "june2-1", fields: f, args: struct {
+		{name: "june6-test-1", fields: f, args: struct {
 			request *client.HelmInstallCustomRequest
 		}{request: &client.HelmInstallCustomRequest{
 			Chunk: &client.Chunk{Content: []byte("Here is a content....")},
 			ReleaseIdentifier: &client.ReleaseIdentifier{
-				ReleaseName:      "june2-7",
+				ReleaseName:      "june6-test-1",
 				ReleaseNamespace: "test",
 				ClusterConfig: &client.ClusterConfig{ClusterName: k8sUtils.DEFAULT_CLUSTER,
 				},

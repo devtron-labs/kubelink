@@ -39,6 +39,7 @@ import (
 const (
 	hibernateReplicaAnnotation = "hibernator.devtron.ai/replicas"
 	hibernatePatch             = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
+	chartWorkingDirectory      = "/tmp/charts/"
 )
 
 type HelmAppService interface {
@@ -104,16 +105,21 @@ func (impl HelmAppServiceImpl) HelmInstallCustom(request *client.HelmInstallCust
 		return false, err
 	}
 
+	err = os.MkdirAll(chartWorkingDirectory, os.ModePerm) //hack for concurrency handling
+	if err != nil {
+		impl.logger.Errorw("err in creating dir", "err", err)
+		return false, err
+	}
 	dir := impl.GetDir()
-	referenceChartDir := filepath.Join("/tmp/charts/", dir)
+	referenceChartDir := filepath.Join(chartWorkingDirectory, dir)
 	referenceChartDir = fmt.Sprintf("%s.tgz", referenceChartDir)
+	defer impl.CleanDir(referenceChartDir)
 	err = ioutil.WriteFile(referenceChartDir, b.Bytes(), os.ModePerm)
 	if err != nil {
 		impl.logger.Errorw("error on helm install custom", "err", err)
 		return false, err
 	}
 	impl.logger.Infow("tar file write at", "referenceChartDir", referenceChartDir)
-
 	// Update release starts
 	chartSpec := &helmClient.ChartSpec{
 		ReleaseName: releaseIdentifier.ReleaseName,
