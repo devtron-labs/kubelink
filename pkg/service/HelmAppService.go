@@ -57,7 +57,7 @@ type HelmAppService interface {
 	IsReleaseInstalled(ctx context.Context, releaseIdentifier *client.ReleaseIdentifier) (bool, error)
 	RollbackRelease(request *client.RollbackReleaseRequest) (bool, error)
 	TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error)
-	HelmInstallCustom(req *client.HelmInstallCustomRequest) (bool, error)
+	InstallReleaseWithCustomChart(req *client.HelmInstallCustomRequest) (bool, error)
 }
 
 type HelmAppServiceImpl struct {
@@ -1052,7 +1052,7 @@ func (impl HelmAppServiceImpl) getHelmClient(clusterConfig *client.ClusterConfig
 	return helmClientObj, nil
 }
 
-func (impl HelmAppServiceImpl) HelmInstallCustom(request *client.HelmInstallCustomRequest) (bool, error) {
+func (impl HelmAppServiceImpl) InstallReleaseWithCustomChart(request *client.HelmInstallCustomRequest) (bool, error) {
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	if err != nil {
