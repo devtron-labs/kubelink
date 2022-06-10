@@ -67,11 +67,17 @@ type HelmAppServiceImpl struct {
 }
 
 func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService) *HelmAppServiceImpl {
-	return &HelmAppServiceImpl{
+
+	helmAppServiceImpl := &HelmAppServiceImpl{
 		logger:     logger,
 		k8sService: k8sService,
 		randSource: rand.NewSource(time.Now().UnixNano()),
 	}
+	err := os.MkdirAll(chartWorkingDirectory, os.ModePerm)
+	if err != nil {
+		helmAppServiceImpl.logger.Errorw("err in creating dir", "err", err)
+	}
+	return helmAppServiceImpl
 }
 func (impl HelmAppServiceImpl) CleanDir(dir string) {
 	err := os.RemoveAll(dir)
@@ -79,7 +85,7 @@ func (impl HelmAppServiceImpl) CleanDir(dir string) {
 		impl.logger.Warnw("error in deleting dir ", "dir", dir)
 	}
 }
-func (impl HelmAppServiceImpl) GetDir() string {
+func (impl HelmAppServiceImpl) GetRandomString() string {
 	/* #nosec */
 	r1 := rand.New(impl.randSource).Int63()
 	return strconv.FormatInt(r1, 10)
@@ -1050,33 +1056,36 @@ func (impl HelmAppServiceImpl) HelmInstallCustom(request *client.HelmInstallCust
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	if err != nil {
-		impl.logger.Errorw("error on helm install custom", "err", err)
+		impl.logger.Errorw("error on helm install custom while writing chartContent", "err", err)
 		return false, err
 	}
 	var b bytes.Buffer
 	writer := gzip.NewWriter(&b)
-	_, err = writer.Write(request.Chunk.Content)
+	_, err = writer.Write(request.ChartContent.Content)
 	if err != nil {
-		impl.logger.Errorw("error on helm install custom", "err", err)
+		impl.logger.Errorw("error on helm install custom while writing chartContent", "err", err)
 		return false, err
 	}
 	err = writer.Close()
 	if err != nil {
-		impl.logger.Errorw("error on helm install custom", "err", err)
+		impl.logger.Errorw("error on helm install custom while writing chartContent", "err", err)
 		return false, err
 	}
-	err = os.MkdirAll(chartWorkingDirectory, os.ModePerm)
-	if err != nil {
-		impl.logger.Errorw("err in creating dir", "err", err)
-		return false, err
+
+	if _, err := os.Stat(chartWorkingDirectory); os.IsNotExist(err) {
+		err := os.MkdirAll(chartWorkingDirectory, os.ModePerm)
+		if err != nil {
+			impl.logger.Errorw("err in creating dir", "err", err)
+			return false, err
+		}
 	}
-	dir := impl.GetDir()
+	dir := impl.GetRandomString()
 	referenceChartDir := filepath.Join(chartWorkingDirectory, dir)
 	referenceChartDir = fmt.Sprintf("%s.tgz", referenceChartDir)
 	defer impl.CleanDir(referenceChartDir)
 	err = ioutil.WriteFile(referenceChartDir, b.Bytes(), os.ModePerm)
 	if err != nil {
-		impl.logger.Errorw("error on helm install custom", "err", err)
+		impl.logger.Errorw("error on helm install custom while writing chartContent", "err", err)
 		return false, err
 	}
 	impl.logger.Debugw("tar file write at", "referenceChartDir", referenceChartDir)
@@ -1091,7 +1100,7 @@ func (impl HelmAppServiceImpl) HelmInstallCustom(request *client.HelmInstallCust
 	//	impl.logger.Debug("Upgrading release with chart info")
 	_, err = helmClientObj.InstallChart(context.Background(), chartSpec)
 	if err != nil {
-		impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
+		impl.logger.Errorw("Error in install chart", "err", err)
 		return false, err
 	}
 	// Update release ends

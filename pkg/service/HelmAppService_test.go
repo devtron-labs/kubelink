@@ -32,7 +32,7 @@ func TestHelmAppServiceImpl_HelmInstallCustom(t *testing.T) {
 		{name: "june6-test-1", fields: f, args: struct {
 			request *client.HelmInstallCustomRequest
 		}{request: &client.HelmInstallCustomRequest{
-			Chunk: &client.Chunk{Content: []byte("Here is a content....")},
+			ChartContent: &client.ChartContent{Content: []byte("Here is a content....")},
 			ReleaseIdentifier: &client.ReleaseIdentifier{
 				ReleaseName:      "june6-test-1",
 				ReleaseNamespace: "test",
