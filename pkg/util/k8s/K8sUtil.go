@@ -34,14 +34,16 @@ var pvGvrAndScope = GvrAndScope{Gvr: schema.GroupVersionResource{Group: "", Vers
 var pvcGvrAndScope = GvrAndScope{Gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumeclaims"}, Scope: meta.RESTScopeNameNamespace}
 
 var gvkVsChildGvrAndScope = map[schema.GroupVersionKind][]GvrAndScope{
-	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}:  append(make([]GvrAndScope, 0), replicaSetGvrAndScope),
-	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "ReplicaSet"}:  append(make([]GvrAndScope, 0), podsGvrAndScope),
-	schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "CronJob"}:    append(make([]GvrAndScope, 0), jobGvrAndScope),
-	schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}:        append(make([]GvrAndScope, 0), podsGvrAndScope),
-	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}: append(make([]GvrAndScope, 0), podsGvrAndScope),
-	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "DaemonSet"}:   append(make([]GvrAndScope, 0), podsGvrAndScope),
-	schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"}:         append(make([]GvrAndScope, 0), endpointsGvrAndScope, endpointSliceGvrAndScope),
+	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}:           append(make([]GvrAndScope, 0), replicaSetGvrAndScope),
+	schema.GroupVersionKind{Group: "argoproj.io", Version: "v1alpha1", Kind: "Rollout"}: append(make([]GvrAndScope, 0), replicaSetGvrAndScope),
+	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "ReplicaSet"}:           append(make([]GvrAndScope, 0), podsGvrAndScope),
+	schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "CronJob"}:             append(make([]GvrAndScope, 0), jobGvrAndScope),
+	schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}:                 append(make([]GvrAndScope, 0), podsGvrAndScope),
+	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}:          append(make([]GvrAndScope, 0), podsGvrAndScope),
+	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "DaemonSet"}:            append(make([]GvrAndScope, 0), podsGvrAndScope),
+	schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"}:                  append(make([]GvrAndScope, 0), endpointsGvrAndScope, endpointSliceGvrAndScope),
 }
+
 // constants end
 
 type GvrAndScope struct {
@@ -51,7 +53,7 @@ type GvrAndScope struct {
 
 const DEFAULT_CLUSTER = "default_cluster"
 
-func GetGvkVsChildGvrAndScope() map[schema.GroupVersionKind][]GvrAndScope{
+func GetGvkVsChildGvrAndScope() map[schema.GroupVersionKind][]GvrAndScope {
 	return gvkVsChildGvrAndScope
 }
 

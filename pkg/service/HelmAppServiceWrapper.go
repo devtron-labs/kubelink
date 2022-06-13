@@ -30,6 +30,17 @@ func NewApplicationServiceServerImpl(logger *zap.SugaredLogger, chartRepositoryL
 	}
 }
 
+func (impl *ApplicationServiceServerImpl) InstallReleaseWithCustomChart(ctx context.Context, req *client.HelmInstallCustomRequest) (*client.HelmInstallCustomResponse, error) {
+	impl.Logger.Infow("helm install request", "releaseIdentifier", req.ReleaseIdentifier, "values", req.ValuesYaml)
+	flag, err := impl.HelmAppService.InstallReleaseWithCustomChart(req)
+	if err != nil {
+		impl.Logger.Errorw("Error in HelmInstallCustom  request", "err", err)
+		return nil, err
+	}
+	res := &client.HelmInstallCustomResponse{Success: flag}
+	return res, nil
+}
+
 func (impl *ApplicationServiceServerImpl) ListApplications(req *client.AppListRequest, res client.ApplicationService_ListApplicationsServer) error {
 	impl.Logger.Info("List Application Request")
 	clusterConfigs := req.GetClusters()
