@@ -96,14 +96,22 @@ func extractImagesFromPodTemplate(podSpec coreV1.PodSpec) []string {
 
 func extractImagesFromRolloutTemplate(rolloutSpec map[string]interface{}) []string {
 	var dockerImages []string
-	spec := rolloutSpec["spec"].(map[string]interface{})
-	template := spec["template"].(map[string]interface{})
-	templateSpec := template["spec"].(map[string]interface{})
-	containers := templateSpec["containers"].([]interface{})
-	for _, item := range containers {
-		container := item.(map[string]interface{})
-		images := container["image"].(interface{})
-		dockerImages = append(dockerImages, images.(string))
+	if rolloutSpec != nil && rolloutSpec["spec"] != nil {
+		spec := rolloutSpec["spec"].(map[string]interface{})
+		if spec != nil && spec["template"] != nil {
+			template := spec["template"].(map[string]interface{})
+			if template != nil && template["spec"] != nil {
+				templateSpec := template["spec"].(map[string]interface{})
+				if templateSpec != nil && templateSpec["containers"] != nil {
+					containers := templateSpec["containers"].([]interface{})
+					for _, item := range containers {
+						container := item.(map[string]interface{})
+						images := container["image"].(interface{})
+						dockerImages = append(dockerImages, images.(string))
+					}
+				}
+			}
+		}
 	}
 	return dockerImages
 }
