@@ -103,8 +103,7 @@ func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.Clus
 		return deployedApp
 	}
 	opt := &helmClient.RestConfClientOptions{
-		Options: &helmClient.Options{
-		},
+		Options:    &helmClient.Options{},
 		RestConfig: restConfig,
 	}
 
@@ -714,10 +713,14 @@ func buildReleaseInfoBasicData(helmRelease *release.Release) (*client.ReleaseInf
 	if err != nil {
 		return nil, err
 	}
-	var readme string
+	var readme, schemaJson string
 	for _, file := range helmRelease.Chart.Files {
 		if file.Name == "README.md" {
 			readme = string(file.Data)
+			continue
+		}
+		if file.Name == "schema.json" {
+			schemaJson = string(file.Data)
 			continue
 		}
 	}
@@ -727,6 +730,7 @@ func buildReleaseInfoBasicData(helmRelease *release.Release) (*client.ReleaseInf
 		OverrideValues: string(overrideValuesString),
 		MergedValues:   string(mergedValuesString),
 		Readme:         readme,
+		SchemaJson:     schemaJson,
 	}
 
 	return res, nil

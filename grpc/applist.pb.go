@@ -1499,6 +1499,7 @@ type ReleaseInfo struct {
 	OverrideValues    string             `protobuf:"bytes,3,opt,name=overrideValues,proto3" json:"overrideValues,omitempty"`
 	MergedValues      string             `protobuf:"bytes,4,opt,name=mergedValues,proto3" json:"mergedValues,omitempty"`
 	Readme            string             `protobuf:"bytes,5,opt,name=readme,proto3" json:"readme,omitempty"`
+	SchemaJson        string             `protobuf:"bytes,6,opt,name=schemaJson,proto3" json:"schemaJson,omitempty"`
 }
 
 func (x *ReleaseInfo) Reset() {
