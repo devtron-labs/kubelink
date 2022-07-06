@@ -33,6 +33,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -719,7 +720,7 @@ func buildReleaseInfoBasicData(helmRelease *release.Release) (*client.ReleaseInf
 			readme = string(file.Data)
 			continue
 		}
-		if file.Name == "schema.json" {
+		if strings.Contains(file.Name, "schema.json") {
 			schemaJson = string(file.Data)
 			continue
 		}
