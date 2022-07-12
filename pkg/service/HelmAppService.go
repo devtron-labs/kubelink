@@ -718,15 +718,16 @@ func buildReleaseInfoBasicData(helmRelease *release.Release) (*client.ReleaseInf
 	for _, file := range helmRelease.Chart.Files {
 		if file.Name == "README.md" {
 			readme = string(file.Data)
-			continue
+			break
 		}
 	}
 
 	res := &client.ReleaseInfo{
-		DefaultValues:  string(defaultValString),
-		OverrideValues: string(overrideValuesString),
-		MergedValues:   string(mergedValuesString),
-		Readme:         readme,
+		DefaultValues:    string(defaultValString),
+		OverrideValues:   string(overrideValuesString),
+		MergedValues:     string(mergedValuesString),
+		Readme:           readme,
+		ValuesSchemaJson: string(helmRelease.Chart.Schema),
 	}
 
 	return res, nil
