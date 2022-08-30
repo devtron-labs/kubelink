@@ -4,22 +4,21 @@ go 1.15
 
 require (
 	github.com/argoproj/gitops-engine v0.4.1
-	github.com/evanphx/json-patch v4.11.0+incompatible
+	github.com/caarlos0/env v3.5.0+incompatible
+	github.com/evanphx/json-patch v4.12.0+incompatible
 	github.com/golang/protobuf v1.5.2
 	github.com/google/wire v0.5.0
-	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/zap v1.20.0
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 	google.golang.org/grpc v1.43.0
 	google.golang.org/protobuf v1.27.1
-	helm.sh/helm/v3 v3.7.1
-	k8s.io/api v0.22.2
-	k8s.io/apimachinery v0.22.2
-	k8s.io/cli-runtime v0.22.2
-	k8s.io/client-go v0.22.2
+	helm.sh/helm/v3 v3.9.4
+	k8s.io/api v0.24.2
+	k8s.io/apimachinery v0.24.2
+	k8s.io/cli-runtime v0.24.2
+	k8s.io/client-go v0.24.2
 	k8s.io/kubernetes v1.22.2 // indirect
-	sigs.k8s.io/yaml v1.2.0
-	github.com/caarlos0/env v3.5.0+incompatible
+	sigs.k8s.io/yaml v1.3.0
 )
 
 replace (
