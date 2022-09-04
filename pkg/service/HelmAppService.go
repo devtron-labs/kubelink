@@ -103,8 +103,7 @@ func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.Clus
 		return deployedApp
 	}
 	opt := &helmClient.RestConfClientOptions{
-		Options: &helmClient.Options{
-		},
+		Options:    &helmClient.Options{},
 		RestConfig: restConfig,
 	}
 
@@ -859,17 +858,23 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 				}
 			}
 		} else {
-			if healthCheck := gitops_engine.GetHealthCheckFunc(gvk); healthCheck != nil {
-				health, err := healthCheck(manifest)
-				if err != nil {
-					node.Health = &bean.HealthStatus{
-						Status:  bean.HealthStatusUnknown,
-						Message: err.Error(),
-					}
-				} else if health != nil {
-					node.Health = &bean.HealthStatus{
-						Status:  string(health.Status),
-						Message: health.Message,
+			if k8sUtils.IsService(gvk) && node.Name == k8sUtils.DEVTRON_SERVICE_NAME && k8sUtils.IsDevtronApp(node.NetworkingInfo.Labels) {
+				node.Health = &bean.HealthStatus{
+					Status: bean.HealthStatusHealthy,
+				}
+			} else {
+				if healthCheck := gitops_engine.GetHealthCheckFunc(gvk); healthCheck != nil {
+					health, err := healthCheck(manifest)
+					if err != nil {
+						node.Health = &bean.HealthStatus{
+							Status:  bean.HealthStatusUnknown,
+							Message: err.Error(),
+						}
+					} else if health != nil {
+						node.Health = &bean.HealthStatus{
+							Status:  string(health.Status),
+							Message: health.Message,
+						}
 					}
 				}
 			}
