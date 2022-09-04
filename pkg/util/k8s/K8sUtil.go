@@ -18,6 +18,7 @@
 package k8sUtils
 
 import (
+	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -51,7 +52,13 @@ type GvrAndScope struct {
 	Scope meta.RESTScopeName
 }
 
-const DEFAULT_CLUSTER = "default_cluster"
+const (
+	DEFAULT_CLUSTER          = "default_cluster"
+	DEVTRON_SERVICE_NAME     = "devtron-service"
+	DEVTRON_APP_LABEL_KEY    = "app"
+	DEVTRON_APP_LABEL_VALUE1 = "devtron"
+	DEVTRON_APP_LABEL_VALUE2 = "orchestrator"
+)
 
 func GetGvkVsChildGvrAndScope() map[schema.GroupVersionKind][]GvrAndScope {
 	return gvkVsChildGvrAndScope
@@ -69,4 +76,18 @@ func GetRestConfig(config *client.ClusterConfig) (restConfig *rest.Config, err e
 		return restConfig, err
 	}
 	return nil, nil
+}
+
+func IsService(gvk schema.GroupVersionKind) bool {
+	return gvk.Group == "" && gvk.Kind == kube.ServiceKind
+}
+
+func IsDevtronApp(labels map[string]string) bool {
+	isDevtronApp := false
+	if val, ok := labels[DEVTRON_APP_LABEL_KEY]; ok {
+		if val == DEVTRON_APP_LABEL_VALUE1 || val == DEVTRON_APP_LABEL_VALUE2 {
+			isDevtronApp = true
+		}
+	}
+	return isDevtronApp
 }
