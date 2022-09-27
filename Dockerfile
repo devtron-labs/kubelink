@@ -5,6 +5,7 @@ RUN apk add --update make
 RUN go get github.com/google/wire/cmd/wire
 WORKDIR /go/src/github.com/devtron-labs/kubelink
 ADD . /go/src/github.com/devtron-labs/kubelink/
+RUN rm -rf ~/.cache/go-build
 RUN GOOS=linux make
 
 FROM alpine:3.9
