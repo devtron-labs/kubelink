@@ -7,7 +7,10 @@ WORKDIR /go/src/github.com/devtron-labs/kubelink
 ADD . /go/src/github.com/devtron-labs/kubelink/
 RUN GOOS=linux make
 
-FROM alpine:3.9
-RUN apk add --no-cache ca-certificates
+FROM ubuntu
+RUN apt update
+RUN apt install ca-certificates -y
+RUN apt clean autoclean
+RUN apt autoremove -y
 COPY --from=build-env  /go/src/github.com/devtron-labs/kubelink/kubelink .
 CMD ["./kubelink"]
