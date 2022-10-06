@@ -161,9 +161,9 @@ func (c *HelmClient) AddOrUpdateChartRepo(entry repo.Entry) error {
 		return err
 	}
 
-	fmt.Println("Sleeping")
-	time.Sleep(1000 * time.Second)
-	fmt.Println("Slept")
+	fmt.Println("Sleeping1")
+	time.Sleep(60 * time.Second)
+	fmt.Println("Slept1")
 
 	/*if c.storage.Has(entry.Name) {
 		// repository name already exists
@@ -171,10 +171,19 @@ func (c *HelmClient) AddOrUpdateChartRepo(entry repo.Entry) error {
 	}*/
 
 	c.storage.Update(&entry)
+
+	fmt.Println("Sleeping2")
+	time.Sleep(60 * time.Second)
+	fmt.Println("Slept2")
+
 	err = c.storage.WriteFile(c.Settings.RepositoryConfig, 0o644)
 	if err != nil {
 		return err
 	}
+
+	fmt.Println("Sleeping3")
+	time.Sleep(60 * time.Second)
+	fmt.Println("Slept3")
 
 	return nil
 }
