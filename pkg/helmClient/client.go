@@ -4,18 +4,25 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/devtron-labs/kubelink/pkg/util"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/downloader"
 	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/helmpath"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
+	"io/ioutil"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"log"
+	"net/url"
 	"os"
+	"path"
+	"path/filepath"
 	"sigs.k8s.io/yaml"
+	"strings"
 	"time"
 )
 
@@ -156,7 +163,7 @@ func (c *HelmClient) AddOrUpdateChartRepo(entry repo.Entry) error {
 
 	chartRepo.CachePath = c.Settings.RepositoryCache
 
-	_, err = chartRepo.DownloadIndexFile()
+	_, err = DownloadIndexFile(chartRepo)
 	if err != nil {
 		return err
 	}
@@ -498,4 +505,74 @@ func copyRollbackOptions(chartSpec *ChartSpec, rollbackOptions *action.Rollback)
 	rollbackOptions.MaxHistory = chartSpec.MaxHistory
 	rollbackOptions.Recreate = chartSpec.Recreate
 	rollbackOptions.Wait = chartSpec.Wait
+}
+
+// DownloadIndexFile fetches the index from a repository.
+func DownloadIndexFile(chartRepo *repo.ChartRepository) (string, error) {
+	parsedURL, err := url.Parse(chartRepo.Config.URL)
+	if err != nil {
+		return "", err
+	}
+	parsedURL.RawPath = path.Join(parsedURL.RawPath, "index.yaml")
+	parsedURL.Path = path.Join(parsedURL.Path, "index.yaml")
+
+	indexURL := parsedURL.String()
+
+	index, err := util.GetFromUrlWithRetry(indexURL)
+
+	if err != nil {
+		return "", err
+	}
+
+	indexFile, err := loadIndex(index, chartRepo.Config.URL)
+	if err != nil {
+		return "", err
+	}
+
+	// Create the chart list file in the cache directory
+	var charts strings.Builder
+	for name := range indexFile.Entries {
+		fmt.Fprintln(&charts, name)
+	}
+	chartsFile := filepath.Join(chartRepo.CachePath, helmpath.CacheChartsFile(chartRepo.Config.Name))
+	os.MkdirAll(filepath.Dir(chartsFile), 0755)
+	ioutil.WriteFile(chartsFile, []byte(charts.String()), 0644)
+
+	// Create the index file in the cache directory
+	fname := filepath.Join(chartRepo.CachePath, helmpath.CacheIndexFile(chartRepo.Config.Name))
+	os.MkdirAll(filepath.Dir(fname), 0755)
+	return fname, ioutil.WriteFile(fname, index, 0644)
+}
+
+// loadIndex loads an index file and does minimal validity checking.
+//
+// The source parameter is only used for logging.
+// This will fail if API Version is not set (ErrNoAPIVersion) or if the unmarshal fails.
+func loadIndex(data []byte, source string) (*repo.IndexFile, error) {
+	i := &repo.IndexFile{}
+
+	if len(data) == 0 {
+		return i, repo.ErrEmptyIndexYaml
+	}
+
+	if err := yaml.UnmarshalStrict(data, i); err != nil {
+		return i, err
+	}
+
+	for name, cvs := range i.Entries {
+		for idx := len(cvs) - 1; idx >= 0; idx-- {
+			if cvs[idx].APIVersion == "" {
+				cvs[idx].APIVersion = chart.APIVersionV1
+			}
+			if err := cvs[idx].Validate(); err != nil {
+				log.Printf("skipping loading invalid entry for chart %q %q from %s: %s", name, cvs[idx].Version, source, err)
+				cvs = append(cvs[:idx], cvs[idx+1:]...)
+			}
+		}
+	}
+	i.SortEntries()
+	if i.APIVersion == "" {
+		return i, repo.ErrNoAPIVersion
+	}
+	return i, nil
 }
