@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 	"sigs.k8s.io/yaml"
 	"strings"
-	"time"
 )
 
 var storage = repo.File{}
@@ -168,9 +167,9 @@ func (c *HelmClient) AddOrUpdateChartRepo(entry repo.Entry) error {
 		return err
 	}
 
-	fmt.Println("Sleeping1")
+	/*fmt.Println("Sleeping1")
 	time.Sleep(100 * time.Second)
-	fmt.Println("Slept1")
+	fmt.Println("Slept1")*/
 
 	/*if c.storage.Has(entry.Name) {
 		// repository name already exists
@@ -529,8 +528,8 @@ func DownloadIndexFile(chartRepo *repo.ChartRepository) (string, error) {
 		return "", err
 	}
 
-	fmt.Println("sleeping after load index")
-	time.Sleep(time.Second * 60)
+	/*fmt.Println("sleeping after load index")
+	time.Sleep(time.Second * 60)*/
 
 	// Create the chart list file in the cache directory
 	var charts strings.Builder
@@ -549,8 +548,8 @@ func DownloadIndexFile(chartRepo *repo.ChartRepository) (string, error) {
 	index = nil
 	indexFile = nil
 
-	fmt.Println("sleeping after cleanup")
-	time.Sleep(time.Second * 60)
+	/*fmt.Println("sleeping after cleanup")
+	time.Sleep(time.Second * 60)*/
 
 	return fname, ioutil.WriteFile(fname, index, 0644)
 }
