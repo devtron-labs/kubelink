@@ -145,7 +145,7 @@ func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.Clus
 }
 
 func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error) {
-	helmRelease, err := getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
+	/*helmRelease, err := getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
 		impl.logger.Errorw("Error in getting helm release ", "err", err)
 		return nil, err
@@ -178,7 +178,9 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 		},
 	}
 
-	return appDetail, nil
+	return appDetail, nil*/
+
+	return nil, errors.New("some error")
 }
 
 func (impl HelmAppServiceImpl) GetHelmAppValues(req *client.AppDetailRequest) (*client.ReleaseInfo, error) {
