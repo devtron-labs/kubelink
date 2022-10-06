@@ -16,6 +16,7 @@ import (
 	"log"
 	"os"
 	"sigs.k8s.io/yaml"
+	"time"
 )
 
 var storage = repo.File{}
@@ -159,6 +160,10 @@ func (c *HelmClient) AddOrUpdateChartRepo(entry repo.Entry) error {
 	if err != nil {
 		return err
 	}
+
+	fmt.Println("Sleeping")
+	time.Sleep(1000 * time.Second)
+	fmt.Println("Slept")
 
 	/*if c.storage.Has(entry.Name) {
 		// repository name already exists
@@ -376,7 +381,6 @@ func (c *HelmClient) lint(chartPath string, values map[string]interface{}) error
 
 	return nil
 }
-
 
 func getValuesMap(spec *ChartSpec) (map[string]interface{}, error) {
 	var values map[string]interface{}

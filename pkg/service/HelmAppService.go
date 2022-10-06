@@ -497,10 +497,6 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 	}
 	// Add or update chart repo ends
 
-	fmt.Println("Sleeping")
-	time.Sleep(1000 * time.Second)
-	fmt.Println("Slept")
-
 	// Install release starts
 	chartSpec := &helmClient.ChartSpec{
 		ReleaseName:      releaseIdentifier.ReleaseName,
