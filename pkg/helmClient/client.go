@@ -165,7 +165,7 @@ func (c *HelmClient) AddOrUpdateChartRepo(entry repo.Entry) error {
 	}
 
 	fmt.Println("Sleeping1")
-	time.Sleep(60 * time.Second)
+	time.Sleep(100 * time.Second)
 	fmt.Println("Slept1")
 
 	/*if c.storage.Has(entry.Name) {
@@ -525,13 +525,16 @@ func DownloadIndexFile(chartRepo *repo.ChartRepository) (string, error) {
 	fmt.Println("Sleeping before load script")
 	time.Sleep(60 * time.Second)
 
-	_, err = loadIndex(index, chartRepo.Config.URL)
+	indexFile, err := loadIndex(index, chartRepo.Config.URL)
 	if err != nil {
 		return "", err
 	}
 
 	fmt.Println("Sleeping after load script")
 	time.Sleep(60 * time.Second)
+	index = nil
+	indexFile = nil
+	fmt.Println(indexFile)
 
 	/*// Create the chart list file in the cache directory
 	var charts strings.Builder

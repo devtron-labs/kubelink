@@ -62,17 +62,11 @@ func (impl *ApplicationServiceServerImpl) ListApplications(req *client.AppListRe
 }
 
 func (impl *ApplicationServiceServerImpl) GetAppDetail(ctxt context.Context, req *client.AppDetailRequest) (*client.AppDetail, error) {
-	impl.Logger.Infow("App detail request", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
-		"namespace", req.Namespace)
-
 	helmAppDetail, err := impl.HelmAppService.BuildAppDetail(req)
 	if err != nil {
-		impl.Logger.Errorw("Error in getting app detail", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
-			"namespace", req.Namespace, "err", err)
 		return nil, err
 	}
 	res := impl.AppDetailAdaptor(helmAppDetail)
-	impl.Logger.Info("App Detail Request served")
 	return res, nil
 }
 
