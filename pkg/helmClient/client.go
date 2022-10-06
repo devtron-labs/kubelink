@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"sigs.k8s.io/yaml"
 	"strings"
+	"time"
 )
 
 var storage = repo.File{}
@@ -433,6 +434,10 @@ func (c *HelmClient) chartIsInstalled(releaseName string, releaseNamespace strin
 // install installs the provided chart.
 // Optionally lints the chart if the linting flag is set.
 func (c *HelmClient) install(ctx context.Context, spec *ChartSpec) (*release.Release, error) {
+
+	fmt.Println("sleeping before install")
+	time.Sleep(60 * time.Second)
+
 	client := action.NewInstall(c.ActionConfig)
 	copyInstallOptions(spec, client)
 
@@ -482,6 +487,8 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec) (*release.Rel
 	if err != nil {
 		return rel, err
 	}
+
+	helmChart = nil
 
 	return rel, nil
 }
