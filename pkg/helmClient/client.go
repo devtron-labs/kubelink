@@ -544,6 +544,11 @@ func DownloadIndexFile(chartRepo *repo.ChartRepository) (string, error) {
 	fname := filepath.Join(chartRepo.CachePath, helmpath.CacheIndexFile(chartRepo.Config.Name))
 	os.MkdirAll(filepath.Dir(fname), 0755)
 
+	err = ioutil.WriteFile(fname, index, 0644)
+	if err != nil {
+		return "", err
+	}
+
 	// cleanup
 	index = nil
 	indexFile = nil
@@ -551,7 +556,7 @@ func DownloadIndexFile(chartRepo *repo.ChartRepository) (string, error) {
 	/*fmt.Println("sleeping after cleanup")
 	time.Sleep(time.Second * 60)*/
 
-	return fname, ioutil.WriteFile(fname, index, 0644)
+	return fname, nil
 }
 
 // loadIndex loads an index file and does minimal validity checking.
