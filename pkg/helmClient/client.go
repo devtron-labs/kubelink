@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"sigs.k8s.io/yaml"
 	"strings"
+	"time"
 )
 
 var storage = repo.File{}
@@ -167,9 +168,9 @@ func (c *HelmClient) AddOrUpdateChartRepo(entry repo.Entry) error {
 		return err
 	}
 
-	/*fmt.Println("Sleeping1")
+	fmt.Println("Sleeping1")
 	time.Sleep(60 * time.Second)
-	fmt.Println("Slept1")*/
+	fmt.Println("Slept1")
 
 	/*if c.storage.Has(entry.Name) {
 		// repository name already exists
