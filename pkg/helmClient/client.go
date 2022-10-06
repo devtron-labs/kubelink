@@ -514,16 +514,24 @@ func DownloadIndexFile(chartRepo *repo.ChartRepository) (string, error) {
 
 	indexURL := parsedURL.String()
 
+	fmt.Println(" indexURL :  " + indexURL)
+
 	index, err := util.GetFromUrlWithRetry(indexURL)
 
 	if err != nil {
 		return "", err
 	}
 
+	fmt.Println("Sleeping before load script")
+	time.Sleep(60 * time.Second)
+
 	_, err = loadIndex(index, chartRepo.Config.URL)
 	if err != nil {
 		return "", err
 	}
+
+	fmt.Println("Sleeping after load script")
+	time.Sleep(60 * time.Second)
 
 	/*// Create the chart list file in the cache directory
 	var charts strings.Builder
