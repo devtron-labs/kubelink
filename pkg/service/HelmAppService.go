@@ -518,6 +518,11 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 		impl.logger.Errorw("Error in install release ", "err", err)
 		return nil, err
 	}
+
+	impl.logger.Debug("deleting Chart repo")
+	deleted := helmClientObj.DeleteChartRepo(chartRepo.Name)
+	impl.logger.Debug(deleted)
+
 	// Install release ends
 	return rel, nil
 }
