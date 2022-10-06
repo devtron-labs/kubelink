@@ -194,6 +194,10 @@ func (c *HelmClient) AddOrUpdateChartRepo(entry repo.Entry) error {
 	return nil
 }
 
+func (c *HelmClient) DeleteChartRepo(repoName string) bool {
+	return c.storage.Remove(repoName)
+}
+
 // InstallChart installs the provided chart and returns the corresponding release.
 // Namespace and other context is provided via the helmclient.Options struct when instantiating a client.
 func (c *HelmClient) InstallChart(ctx context.Context, spec *ChartSpec) (*release.Release, error) {

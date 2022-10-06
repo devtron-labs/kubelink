@@ -569,6 +569,10 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 	}
 	// Update release ends
 
+	impl.logger.Debug("deleting Chart repo")
+	deleted := helmClientObj.DeleteChartRepo(chartRepo.Name)
+	impl.logger.Debug(deleted)
+
 	upgradeReleaseResponse := &client.UpgradeReleaseResponse{
 		Success: true,
 	}
