@@ -172,18 +172,31 @@ func IsCRD(obj *unstructured.Unstructured) bool {
 	return IsCRDGroupVersionKind(obj.GroupVersionKind())
 }
 
+// ServerResourceForGroupVersionKind looks up and returns the API resource from
+// the server for a given GVK scheme. If verb is set to the non-empty string,
+// it will return the API resource which supports the verb. There are some edge
+// cases, where the same GVK is represented by more than one API.
+//
 // See: https://github.com/ksonnet/ksonnet/blob/master/utils/client.go
-func ServerResourceForGroupVersionKind(disco discovery.DiscoveryInterface, gvk schema.GroupVersionKind) (*metav1.APIResource, error) {
+func ServerResourceForGroupVersionKind(disco discovery.DiscoveryInterface, gvk schema.GroupVersionKind, verb string) (*metav1.APIResource, error) {
+	// default is to return a not found for the requested resource
+	retErr := apierr.NewNotFound(schema.GroupResource{Group: gvk.Group, Resource: gvk.Kind}, "")
 	resources, err := disco.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
 	if err != nil {
 		return nil, err
 	}
 	for _, r := range resources.APIResources {
 		if r.Kind == gvk.Kind {
-			return &r, nil
+			if isSupportedVerb(&r, verb) {
+				return &r, nil
+			} else {
+				// We have a match, but the API does not support the action
+				// that was requested. Memorize this.
+				retErr = apierr.NewMethodNotSupported(schema.GroupResource{Group: gvk.Group, Resource: gvk.Kind}, verb)
+			}
 		}
 	}
-	return nil, apierr.NewNotFound(schema.GroupResource{Group: gvk.Group, Resource: gvk.Kind}, "")
+	return nil, retErr
 }
 
 var (
@@ -284,12 +297,30 @@ func newAuthInfo(restConfig *rest.Config) *clientcmdapi.AuthInfo {
 // SplitYAML splits a YAML file into unstructured objects. Returns list of all unstructured objects
 // found in the yaml. If an error occurs, returns objects that have been parsed so far too.
 func SplitYAML(yamlData []byte) ([]*unstructured.Unstructured, error) {
+	var objs []*unstructured.Unstructured
+	ymls, err := SplitYAMLToString(yamlData)
+	if err != nil {
+		return nil, err
+	}
+	for _, yml := range ymls {
+		u := &unstructured.Unstructured{}
+		if err := yaml.Unmarshal([]byte(yml), u); err != nil {
+			return objs, fmt.Errorf("failed to unmarshal manifest: %v", err)
+		}
+		objs = append(objs, u)
+	}
+	return objs, nil
+}
+
+// SplitYAMLToString splits a YAML file into strings. Returns list of yamls
+// found in the yaml. If an error occurs, returns objects that have been parsed so far too.
+func SplitYAMLToString(yamlData []byte) ([]string, error) {
 	// Similar way to what kubectl does
 	// https://github.com/kubernetes/cli-runtime/blob/master/pkg/resource/visitor.go#L573-L600
 	// Ideally k8s.io/cli-runtime/pkg/resource.Builder should be used instead of this method.
 	// E.g. Builder does list unpacking and flattening and this code does not.
 	d := kubeyaml.NewYAMLOrJSONDecoder(bytes.NewReader(yamlData), 4096)
-	var objs []*unstructured.Unstructured
+	var objs []string
 	for {
 		ext := runtime.RawExtension{}
 		if err := d.Decode(&ext); err != nil {
@@ -302,11 +333,7 @@ func SplitYAML(yamlData []byte) ([]*unstructured.Unstructured, error) {
 		if len(ext.Raw) == 0 || bytes.Equal(ext.Raw, []byte("null")) {
 			continue
 		}
-		u := &unstructured.Unstructured{}
-		if err := yaml.Unmarshal(ext.Raw, u); err != nil {
-			return objs, fmt.Errorf("failed to unmarshal manifest: %v", err)
-		}
-		objs = append(objs, u)
+		objs = append(objs, string(ext.Raw))
 	}
 	return objs, nil
 }
