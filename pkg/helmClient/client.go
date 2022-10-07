@@ -55,10 +55,14 @@ func newClient(options *Options, clientGetter genericclioptions.RESTClientGetter
 	}
 
 	actionConfig := new(action.Configuration)
+
+	helmDriver := os.Getenv("HELM_DRIVER")
+	fmt.Println("helmDriver + " + helmDriver)
+
 	err = actionConfig.Init(
 		clientGetter,
 		options.Namespace,
-		os.Getenv("HELM_DRIVER"),
+		helmDriver,
 		debugLog,
 	)
 	if err != nil {
