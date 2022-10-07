@@ -4,14 +4,12 @@
 package kio
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"sigs.k8s.io/kustomize/kyaml/errors"
-	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/kio/kioutil"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
@@ -28,9 +26,6 @@ type LocalPackageWriter struct {
 
 	// ClearAnnotations will clear annotations before writing the resources
 	ClearAnnotations []string `yaml:"clearAnnotations,omitempty"`
-
-	// FileSystem can be used to mock the disk file system.
-	FileSystem filesys.FileSystemOrOnDisk
 }
 
 var _ Writer = LocalPackageWriter{}
@@ -41,10 +36,9 @@ func (r LocalPackageWriter) Write(nodes []*yaml.RNode) error {
 		return err
 	}
 
-	if !r.FileSystem.Exists(r.PackagePath) {
-		return errors.WrapPrefixf(os.ErrNotExist, "could not write to %q", r.PackagePath)
-	}
-	if !r.FileSystem.IsDir(r.PackagePath) {
+	if s, err := os.Stat(r.PackagePath); err != nil {
+		return err
+	} else if !s.IsDir() {
 		// if the user specified input isn't a directory, the package is the directory of the
 		// target
 		r.PackagePath = filepath.Dir(r.PackagePath)
@@ -66,42 +60,50 @@ func (r LocalPackageWriter) Write(nodes []*yaml.RNode) error {
 
 	if !r.KeepReaderAnnotations {
 		r.ClearAnnotations = append(r.ClearAnnotations, kioutil.PathAnnotation)
-		r.ClearAnnotations = append(r.ClearAnnotations, kioutil.LegacyPathAnnotation)
 	}
 
 	// validate outputs before writing any
 	for path := range outputFiles {
 		outputPath := filepath.Join(r.PackagePath, path)
-		if r.FileSystem.IsDir(outputPath) {
-			return fmt.Errorf("config.kubernetes.io/path cannot be a directory: %s", path)
+		if st, err := os.Stat(outputPath); !os.IsNotExist(err) {
+			if err != nil {
+				return errors.Wrap(err)
+			}
+			if st.IsDir() {
+				return fmt.Errorf("config.kubernetes.io/path cannot be a directory: %s", path)
+			}
 		}
 
-		err = r.FileSystem.MkdirAll(filepath.Dir(outputPath))
+		err = os.MkdirAll(filepath.Dir(outputPath), 0700)
 		if err != nil {
 			return errors.Wrap(err)
 		}
 	}
 
 	// write files
-	buf := bytes.NewBuffer(nil)
 	for path := range outputFiles {
 		outputPath := filepath.Join(r.PackagePath, path)
-		err = r.FileSystem.MkdirAll(filepath.Dir(filepath.Join(r.PackagePath, path)))
+		err = os.MkdirAll(filepath.Dir(filepath.Join(r.PackagePath, path)), 0700)
 		if err != nil {
 			return errors.Wrap(err)
 		}
 
-		buf.Reset()
-		w := ByteWriter{
-			Writer:                buf,
-			KeepReaderAnnotations: r.KeepReaderAnnotations,
-			ClearAnnotations:      r.ClearAnnotations,
-		}
-		if err = w.Write(outputFiles[path]); err != nil {
+		f, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.FileMode(0600))
+		if err != nil {
 			return errors.Wrap(err)
 		}
-
-		if err := r.FileSystem.WriteFile(outputPath, buf.Bytes()); err != nil {
+		if err := func() error {
+			defer f.Close()
+			w := ByteWriter{
+				Writer:                f,
+				KeepReaderAnnotations: r.KeepReaderAnnotations,
+				ClearAnnotations:      r.ClearAnnotations,
+			}
+			if err = w.Write(outputFiles[path]); err != nil {
+				return errors.Wrap(err)
+			}
+			return nil
+		}(); err != nil {
 			return errors.Wrap(err)
 		}
 	}

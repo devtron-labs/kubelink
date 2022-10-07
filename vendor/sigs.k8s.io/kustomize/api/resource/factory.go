@@ -64,23 +64,18 @@ func (rf *Factory) FromMapAndOption(
 		// TODO: return err instead of log.
 		log.Fatal(err)
 	}
-	return rf.makeOne(n, args)
+	return rf.makeOne(n, types.NewGenArgs(args))
 }
 
 // makeOne returns a new instance of Resource.
-func (rf *Factory) makeOne(rn *yaml.RNode, o *types.GeneratorArgs) *Resource {
+func (rf *Factory) makeOne(rn *yaml.RNode, o *types.GenArgs) *Resource {
 	if rn == nil {
 		log.Fatal("RNode must not be null")
 	}
-	resource := &Resource{RNode: *rn}
-	if o != nil {
-		if o.Options == nil || !o.Options.DisableNameSuffixHash {
-			resource.EnableHashSuffix()
-		}
-		resource.SetBehavior(types.NewGenerationBehavior(o.Behavior))
+	if o == nil {
+		o = types.NewGenArgs(nil)
 	}
-
-	return resource
+	return &Resource{RNode: *rn, options: o}
 }
 
 // SliceFromPatches returns a slice of resources given a patch path
@@ -124,34 +119,14 @@ func (rf *Factory) SliceFromBytes(in []byte) ([]*Resource, error) {
 	return rf.resourcesFromRNodes(nodes), nil
 }
 
-// DropLocalNodes removes the local nodes by default. Local nodes are detected via the annotation `config.kubernetes.io/local-config: "true"`
-func (rf *Factory) DropLocalNodes(nodes []*yaml.RNode) ([]*Resource, error) {
-	var result []*yaml.RNode
-	for _, node := range nodes {
-		if node.IsNilOrEmpty() {
-			continue
-		}
-		md, err := node.GetValidatedMetadata()
-		if err != nil {
-			return nil, err
-		}
-
-		if rf.IncludeLocalConfigs {
-			result = append(result, node)
-			continue
-		}
-		localConfig, exist := md.ObjectMeta.Annotations[konfig.IgnoredByKustomizeAnnotation]
-		if !exist || localConfig == "false" {
-			result = append(result, node)
-		}
-	}
-	return rf.resourcesFromRNodes(result), nil
-}
-
 // ResourcesFromRNodes converts RNodes to Resources.
 func (rf *Factory) ResourcesFromRNodes(
 	nodes []*yaml.RNode) (result []*Resource, err error) {
-	return rf.DropLocalNodes(nodes)
+	nodes, err = rf.dropBadNodes(nodes)
+	if err != nil {
+		return nil, err
+	}
+	return rf.resourcesFromRNodes(nodes), nil
 }
 
 // resourcesFromRNode assumes all nodes are good.
@@ -163,7 +138,7 @@ func (rf *Factory) resourcesFromRNodes(
 	return
 }
 
-func (rf *Factory) RNodesFromBytes(b []byte) ([]*yaml.RNode, error) {
+func (rf *Factory) RNodesFromBytes(b []byte) (result []*yaml.RNode, err error) {
 	nodes, err := kio.FromBytes(b)
 	if err != nil {
 		return nil, err
@@ -172,17 +147,9 @@ func (rf *Factory) RNodesFromBytes(b []byte) ([]*yaml.RNode, error) {
 	if err != nil {
 		return nil, err
 	}
-	return rf.inlineAnyEmbeddedLists(nodes)
-}
-
-// inlineAnyEmbeddedLists scans the RNode slice for nodes named FooList.
-// Such nodes are expected to be lists of resources, each of type Foo.
-// These lists are replaced in the result by their inlined resources.
-func (rf *Factory) inlineAnyEmbeddedLists(
-	nodes []*yaml.RNode) (result []*yaml.RNode, err error) {
-	var n0 *yaml.RNode
 	for len(nodes) > 0 {
-		n0, nodes = nodes[0], nodes[1:]
+		n0 := nodes[0]
+		nodes = nodes[1:]
 		kind := n0.GetKind()
 		if !strings.HasSuffix(kind, "List") {
 			result = append(result, n0)
@@ -192,7 +159,7 @@ func (rf *Factory) inlineAnyEmbeddedLists(
 		var m map[string]interface{}
 		m, err = n0.Map()
 		if err != nil {
-			return nil, fmt.Errorf("trouble expanding list of %s; %w", kind, err)
+			return nil, err
 		}
 		items, ok := m["items"]
 		if !ok {
@@ -244,18 +211,36 @@ func (rf *Factory) convertObjectSliceToNodeSlice(
 func (rf *Factory) dropBadNodes(nodes []*yaml.RNode) ([]*yaml.RNode, error) {
 	var result []*yaml.RNode
 	for _, n := range nodes {
-		if n.IsNilOrEmpty() {
-			continue
-		}
-		if _, err := n.GetValidatedMetadata(); err != nil {
+		ignore, err := rf.shouldIgnore(n)
+		if err != nil {
 			return nil, err
 		}
-		if foundNil, path := n.HasNilEntryInList(); foundNil {
-			return nil, fmt.Errorf("empty item at %v in object %v", path, n)
+		if !ignore {
+			result = append(result, n)
 		}
-		result = append(result, n)
 	}
 	return result, nil
+}
+
+// shouldIgnore returns true if there's some reason to ignore the node.
+func (rf *Factory) shouldIgnore(n *yaml.RNode) (bool, error) {
+	if n.IsNilOrEmpty() {
+		return true, nil
+	}
+	if !rf.IncludeLocalConfigs {
+		md, err := n.GetValidatedMetadata()
+		if err != nil {
+			return true, err
+		}
+		_, ignore := md.ObjectMeta.Annotations[konfig.IgnoredByKustomizeAnnotation]
+		if ignore {
+			return true, nil
+		}
+	}
+	if foundNil, path := n.HasNilEntryInList(); foundNil {
+		return true, fmt.Errorf("empty item at %v in object %v", path, n)
+	}
+	return false, nil
 }
 
 // SliceFromBytesWithNames unmarshals bytes into a Resource slice with specified original
@@ -280,7 +265,7 @@ func (rf *Factory) MakeConfigMap(kvLdr ifc.KvLoader, args *types.ConfigMapArgs) 
 	if err != nil {
 		return nil, err
 	}
-	return rf.makeOne(rn, &args.GeneratorArgs), nil
+	return rf.makeOne(rn, types.NewGenArgs(&args.GeneratorArgs)), nil
 }
 
 // MakeSecret makes an instance of Resource for Secret
@@ -289,5 +274,5 @@ func (rf *Factory) MakeSecret(kvLdr ifc.KvLoader, args *types.SecretArgs) (*Reso
 	if err != nil {
 		return nil, err
 	}
-	return rf.makeOne(rn, &args.GeneratorArgs), nil
+	return rf.makeOne(rn, types.NewGenArgs(&args.GeneratorArgs)), nil
 }

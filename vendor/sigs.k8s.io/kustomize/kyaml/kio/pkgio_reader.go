@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"sigs.k8s.io/kustomize/kyaml/errors"
-	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/kio/kioutil"
 	"sigs.k8s.io/kustomize/kyaml/sets"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
@@ -40,9 +39,6 @@ type LocalPackageReadWriter struct {
 	Kind string `yaml:"kind,omitempty"`
 
 	KeepReaderAnnotations bool `yaml:"keepReaderAnnotations,omitempty"`
-
-	// PreserveSeqIndent if true adds kioutil.SeqIndentAnnotation to each resource
-	PreserveSeqIndent bool
 
 	// PackagePath is the path to the package directory.
 	PackagePath string `yaml:"path,omitempty"`
@@ -79,16 +75,6 @@ type LocalPackageReadWriter struct {
 	// FileSkipFunc is a function which returns true if reader should ignore
 	// the file
 	FileSkipFunc LocalPackageSkipFileFunc
-
-	// FileSystem can be used to mock the disk file system.
-	FileSystem filesys.FileSystemOrOnDisk
-
-	// WrapBareSeqNode wraps the bare sequence node document with map node,
-	// kyaml uses reader annotations to track resources, it is not possible to
-	// add them to bare sequence nodes, this option enables wrapping such bare
-	// sequence nodes into map node with key yaml.BareSeqNodeWrappingKey
-	// note that this wrapping is different and not related to ResourceList wrapping
-	WrapBareSeqNode bool
 }
 
 func (r *LocalPackageReadWriter) Read() ([]*yaml.RNode, error) {
@@ -100,9 +86,6 @@ func (r *LocalPackageReadWriter) Read() ([]*yaml.RNode, error) {
 		SetAnnotations:      r.SetAnnotations,
 		PackageFileName:     r.PackageFileName,
 		FileSkipFunc:        r.FileSkipFunc,
-		PreserveSeqIndent:   r.PreserveSeqIndent,
-		FileSystem:          r.FileSystem,
-		WrapBareSeqNode:     r.WrapBareSeqNode,
 	}.Read()
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -130,14 +113,13 @@ func (r *LocalPackageReadWriter) Write(nodes []*yaml.RNode) error {
 		PackagePath:           r.PackagePath,
 		ClearAnnotations:      clear,
 		KeepReaderAnnotations: r.KeepReaderAnnotations,
-		FileSystem:            r.FileSystem,
 	}.Write(nodes)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 	deleteFiles := r.files.Difference(newFiles)
 	for f := range deleteFiles {
-		if err = r.FileSystem.RemoveAll(filepath.Join(r.PackagePath, f)); err != nil {
+		if err = os.Remove(filepath.Join(r.PackagePath, f)); err != nil {
 			return errors.Wrap(err)
 		}
 	}
@@ -195,19 +177,6 @@ type LocalPackageReader struct {
 	// FileSkipFunc is a function which returns true if reader should ignore
 	// the file
 	FileSkipFunc LocalPackageSkipFileFunc
-
-	// PreserveSeqIndent if true adds kioutil.SeqIndentAnnotation to each resource
-	PreserveSeqIndent bool
-
-	// FileSystem can be used to mock the disk file system.
-	FileSystem filesys.FileSystemOrOnDisk
-
-	// WrapBareSeqNode wraps the bare sequence node document with map node,
-	// kyaml uses reader annotations to track resources, it is not possible to
-	// add them to bare sequence nodes, this option enables wrapping such bare
-	// sequence nodes into map node with key yaml.BareSeqNodeWrappingKey
-	// note that this wrapping is different and not related to ResourceList wrapping
-	WrapBareSeqNode bool
 }
 
 var _ Reader = LocalPackageReader{}
@@ -231,15 +200,12 @@ func (r LocalPackageReader) Read() ([]*yaml.RNode, error) {
 	var operand ResourceNodeSlice
 	var pathRelativeTo string
 	var err error
-	ignoreFilesMatcher := &ignoreFilesMatcher{
-		fs: r.FileSystem,
-	}
-	dir, file, err := r.FileSystem.CleanedAbs(r.PackagePath)
+	ignoreFilesMatcher := &ignoreFilesMatcher{}
+	r.PackagePath, err = filepath.Abs(r.PackagePath)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
-	r.PackagePath = filepath.Join(string(dir), file)
-	err = r.FileSystem.Walk(r.PackagePath, func(
+	err = filepath.Walk(r.PackagePath, func(
 		path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return errors.Wrap(err)
@@ -290,7 +256,7 @@ func (r LocalPackageReader) Read() ([]*yaml.RNode, error) {
 
 // readFile reads the ResourceNodes from a file
 func (r *LocalPackageReader) readFile(path string, _ os.FileInfo) ([]*yaml.RNode, error) {
-	f, err := r.FileSystem.Open(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
@@ -301,8 +267,6 @@ func (r *LocalPackageReader) readFile(path string, _ os.FileInfo) ([]*yaml.RNode
 		Reader:                f,
 		OmitReaderAnnotations: r.OmitReaderAnnotations,
 		SetAnnotations:        r.SetAnnotations,
-		PreserveSeqIndent:     r.PreserveSeqIndent,
-		WrapBareSeqNode:       r.WrapBareSeqNode,
 	}
 	return rr.Read()
 }
@@ -336,7 +300,6 @@ func (r *LocalPackageReader) initReaderAnnotations(path string, _ os.FileInfo) {
 	}
 	if !r.OmitReaderAnnotations {
 		r.SetAnnotations[kioutil.PathAnnotation] = path
-		r.SetAnnotations[kioutil.LegacyPathAnnotation] = path
 	}
 }
 
@@ -350,8 +313,11 @@ func (r *LocalPackageReader) shouldSkipDir(path string, matcher *ignoreFilesMatc
 		return nil
 	}
 	// check if this is a subpackage
-	if !r.FileSystem.Exists(filepath.Join(path, r.PackageFileName)) {
+	_, err := os.Stat(filepath.Join(path, r.PackageFileName))
+	if os.IsNotExist(err) {
 		return nil
+	} else if err != nil {
+		return errors.Wrap(err)
 	}
 	if !r.IncludeSubpackages {
 		return filepath.SkipDir

@@ -1,6 +1,3 @@
-// Copyright 2022 The Kubernetes Authors.
-// SPDX-License-Identifier: Apache-2.0
-
 package replicacount
 
 import (
@@ -17,17 +14,9 @@ import (
 type Filter struct {
 	Replica   types.Replica   `json:"replica,omitempty" yaml:"replica,omitempty"`
 	FieldSpec types.FieldSpec `json:"fieldSpec,omitempty" yaml:"fieldSpec,omitempty"`
-
-	trackableSetter filtersutil.TrackableSetter
 }
 
 var _ kio.Filter = Filter{}
-var _ kio.TrackableFilter = &Filter{}
-
-// WithMutationTracker registers a callback which will be invoked each time a field is mutated
-func (rc *Filter) WithMutationTracker(callback func(key, value, tag string, node *yaml.RNode)) {
-	rc.trackableSetter.WithMutationTracker(callback)
-}
 
 func (rc Filter) Filter(nodes []*yaml.RNode) ([]*yaml.RNode, error) {
 	return kio.FilterAll(yaml.FilterFunc(rc.run)).Filter(nodes)
@@ -44,5 +33,5 @@ func (rc Filter) run(node *yaml.RNode) (*yaml.RNode, error) {
 }
 
 func (rc Filter) set(node *yaml.RNode) error {
-	return rc.trackableSetter.SetEntry("", strconv.FormatInt(rc.Replica.Count, 10), yaml.NodeTagInt)(node)
+	return filtersutil.SetScalar(strconv.FormatInt(rc.Replica.Count, 10))(node)
 }

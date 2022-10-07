@@ -5,15 +5,11 @@ package target
 
 import (
 	"fmt"
-	"path/filepath"
 
-	"github.com/pkg/errors"
 	"sigs.k8s.io/kustomize/api/internal/plugins/builtinconfig"
 	"sigs.k8s.io/kustomize/api/internal/plugins/builtinhelpers"
 	"sigs.k8s.io/kustomize/api/resmap"
-	"sigs.k8s.io/kustomize/api/resource"
 	"sigs.k8s.io/kustomize/api/types"
-	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
 // Functions dedicated to configuring the builtin
@@ -32,7 +28,7 @@ import (
 // N plugin instances with differing configurations.
 
 func (kt *KustTarget) configureBuiltinGenerators() (
-	result []*resmap.GeneratorWithProperties, err error) {
+	result []resmap.Generator, err error) {
 	for _, bpt := range []builtinhelpers.BuiltinPluginType{
 		builtinhelpers.ConfigMapGenerator,
 		builtinhelpers.SecretGenerator,
@@ -43,38 +39,19 @@ func (kt *KustTarget) configureBuiltinGenerators() (
 		if err != nil {
 			return nil, err
 		}
-
-		var generatorOrigin *resource.Origin
-		if kt.origin != nil {
-			generatorOrigin = &resource.Origin{
-				Repo:         kt.origin.Repo,
-				Ref:          kt.origin.Ref,
-				ConfiguredIn: filepath.Join(kt.origin.Path, kt.kustFileName),
-				ConfiguredBy: yaml.ResourceIdentifier{
-					TypeMeta: yaml.TypeMeta{
-						APIVersion: "builtin",
-						Kind:       bpt.String(),
-					},
-				},
-			}
-		}
-
-		for i := range r {
-			result = append(result, &resmap.GeneratorWithProperties{Generator: r[i], Origin: generatorOrigin})
-		}
+		result = append(result, r...)
 	}
 	return result, nil
 }
 
 func (kt *KustTarget) configureBuiltinTransformers(
 	tc *builtinconfig.TransformerConfig) (
-	result []*resmap.TransformerWithProperties, err error) {
+	result []resmap.Transformer, err error) {
 	for _, bpt := range []builtinhelpers.BuiltinPluginType{
 		builtinhelpers.PatchStrategicMergeTransformer,
 		builtinhelpers.PatchTransformer,
 		builtinhelpers.NamespaceTransformer,
-		builtinhelpers.PrefixTransformer,
-		builtinhelpers.SuffixTransformer,
+		builtinhelpers.PrefixSuffixTransformer,
 		builtinhelpers.LabelTransformer,
 		builtinhelpers.AnnotationsTransformer,
 		builtinhelpers.PatchJson6902Transformer,
@@ -87,23 +64,7 @@ func (kt *KustTarget) configureBuiltinTransformers(
 		if err != nil {
 			return nil, err
 		}
-		var transformerOrigin *resource.Origin
-		if kt.origin != nil {
-			transformerOrigin = &resource.Origin{
-				Repo:         kt.origin.Repo,
-				Ref:          kt.origin.Ref,
-				ConfiguredIn: filepath.Join(kt.origin.Path, kt.kustFileName),
-				ConfiguredBy: yaml.ResourceIdentifier{
-					TypeMeta: yaml.TypeMeta{
-						APIVersion: "builtin",
-						Kind:       bpt.String(),
-					},
-				},
-			}
-		}
-		for i := range r {
-			result = append(result, &resmap.TransformerWithProperties{Transformer: r[i], Origin: transformerOrigin})
-		}
+		result = append(result, r...)
 	}
 	return result, nil
 }
@@ -186,9 +147,6 @@ var transformerConfigurators = map[builtinhelpers.BuiltinPluginType]func(
 	builtinhelpers.NamespaceTransformer: func(
 		kt *KustTarget, bpt builtinhelpers.BuiltinPluginType, f tFactory, tc *builtinconfig.TransformerConfig) (
 		result []resmap.Transformer, err error) {
-		if kt.kustomization.Namespace == "" {
-			return
-		}
 		var c struct {
 			types.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 			FieldSpecs       []types.FieldSpec
@@ -272,9 +230,6 @@ var transformerConfigurators = map[builtinhelpers.BuiltinPluginType]func(
 	builtinhelpers.LabelTransformer: func(
 		kt *KustTarget, bpt builtinhelpers.BuiltinPluginType, f tFactory, tc *builtinconfig.TransformerConfig) (
 		result []resmap.Transformer, err error) {
-		if len(kt.kustomization.Labels) == 0 && len(kt.kustomization.CommonLabels) == 0 {
-			return
-		}
 		for _, label := range kt.kustomization.Labels {
 			var c struct {
 				Labels     map[string]string
@@ -286,13 +241,6 @@ var transformerConfigurators = map[builtinhelpers.BuiltinPluginType]func(
 			if label.IncludeSelectors {
 				fss, err = fss.MergeAll(tc.CommonLabels)
 			} else {
-				// merge spec/template/metadata fieldSpec if includeTemplate flag is true
-				if label.IncludeTemplates {
-					fss, err = fss.MergeOne(types.FieldSpec{Path: "spec/template/metadata/labels", CreateIfNotPresent: false})
-					if err != nil {
-						return nil, errors.Wrap(err, "failed to merge template fieldSpec")
-					}
-				}
 				// only add to metadata by default
 				fss, err = fss.MergeOne(types.FieldSpec{Path: "metadata/labels", CreateIfNotPresent: true})
 			}
@@ -324,9 +272,6 @@ var transformerConfigurators = map[builtinhelpers.BuiltinPluginType]func(
 	builtinhelpers.AnnotationsTransformer: func(
 		kt *KustTarget, bpt builtinhelpers.BuiltinPluginType, f tFactory, tc *builtinconfig.TransformerConfig) (
 		result []resmap.Transformer, err error) {
-		if len(kt.kustomization.CommonAnnotations) == 0 {
-			return
-		}
 		var c struct {
 			Annotations map[string]string
 			FieldSpecs  []types.FieldSpec
@@ -341,38 +286,17 @@ var transformerConfigurators = map[builtinhelpers.BuiltinPluginType]func(
 		result = append(result, p)
 		return
 	},
-	builtinhelpers.PrefixTransformer: func(
+	builtinhelpers.PrefixSuffixTransformer: func(
 		kt *KustTarget, bpt builtinhelpers.BuiltinPluginType, f tFactory, tc *builtinconfig.TransformerConfig) (
 		result []resmap.Transformer, err error) {
-		if kt.kustomization.NamePrefix == "" {
-			return
-		}
 		var c struct {
-			Prefix     string            `json:"prefix,omitempty" yaml:"prefix,omitempty"`
-			FieldSpecs []types.FieldSpec `json:"fieldSpecs,omitempty" yaml:"fieldSpecs,omitempty"`
+			Prefix     string
+			Suffix     string
+			FieldSpecs []types.FieldSpec
 		}
 		c.Prefix = kt.kustomization.NamePrefix
-		c.FieldSpecs = tc.NamePrefix
-		p := f()
-		err = kt.configureBuiltinPlugin(p, c, bpt)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, p)
-		return
-	},
-	builtinhelpers.SuffixTransformer: func(
-		kt *KustTarget, bpt builtinhelpers.BuiltinPluginType, f tFactory, tc *builtinconfig.TransformerConfig) (
-		result []resmap.Transformer, err error) {
-		if kt.kustomization.NameSuffix == "" {
-			return
-		}
-		var c struct {
-			Suffix     string            `json:"suffix,omitempty" yaml:"suffix,omitempty"`
-			FieldSpecs []types.FieldSpec `json:"fieldSpecs,omitempty" yaml:"fieldSpecs,omitempty"`
-		}
 		c.Suffix = kt.kustomization.NameSuffix
-		c.FieldSpecs = tc.NameSuffix
+		c.FieldSpecs = tc.NamePrefix
 		p := f()
 		err = kt.configureBuiltinPlugin(p, c, bpt)
 		if err != nil {
@@ -403,9 +327,6 @@ var transformerConfigurators = map[builtinhelpers.BuiltinPluginType]func(
 	builtinhelpers.ReplacementTransformer: func(
 		kt *KustTarget, bpt builtinhelpers.BuiltinPluginType, f tFactory, _ *builtinconfig.TransformerConfig) (
 		result []resmap.Transformer, err error) {
-		if len(kt.kustomization.Replacements) == 0 {
-			return
-		}
 		var c struct {
 			Replacements []types.ReplacementField
 		}
