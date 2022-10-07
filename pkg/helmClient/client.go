@@ -162,7 +162,7 @@ func (c *HelmClient) AddOrUpdateChartRepo(entry repo.Entry) error {
 
 	chartRepo.CachePath = c.Settings.RepositoryCache
 
-	_, err = DownloadIndexFile(chartRepo)
+	_, err = chartRepo.DownloadIndexFile()
 	if err != nil {
 		return err
 	}
@@ -458,17 +458,19 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec) (*release.Rel
 		}
 	}
 
-	values, err := getValuesMap(spec)
+	_, err = getValuesMap(spec)
 	if err != nil {
 		return nil, err
 	}
 
-	rel, err := client.RunWithContext(ctx, helmChart, values)
+	/*rel, err := client.RunWithContext(ctx, helmChart, values)
 	if err != nil {
 		return rel, err
-	}
+	}*/
 
-	return rel, nil
+	fmt.Println("ignoring")
+
+	return nil, nil
 }
 
 // rollbackRelease rolls back a release matching the ChartSpec 'spec' to a specific version.
