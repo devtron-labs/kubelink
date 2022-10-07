@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -24,6 +25,7 @@ type hpaCondition struct {
 	Type    string
 	Reason  string
 	Message string
+	Status  string
 }
 
 func getHPAHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
@@ -52,9 +54,31 @@ func getHPAHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
 			return nil, fmt.Errorf(failedConversionMsg, err)
 		}
 		return getAutoScalingV2beta2HPAHealth(&hpa)
+	case autoscalingv2.SchemeGroupVersion.WithKind(kube.HorizontalPodAutoscalerKind):
+		var hpa autoscalingv2.HorizontalPodAutoscaler
+		err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &hpa)
+		if err != nil {
+			return nil, fmt.Errorf(failedConversionMsg, err)
+		}
+		return getAutoScalingV2HPAHealth(&hpa)
 	default:
 		return nil, fmt.Errorf("unsupported HPA GVK: %s", gvk)
 	}
+}
+
+func getAutoScalingV2HPAHealth(hpa *autoscalingv2.HorizontalPodAutoscaler) (*HealthStatus, error) {
+	statusConditions := hpa.Status.Conditions
+	conditions := make([]hpaCondition, 0, len(statusConditions))
+	for _, statusCondition := range statusConditions {
+		conditions = append(conditions, hpaCondition{
+			Type:    string(statusCondition.Type),
+			Reason:  statusCondition.Reason,
+			Message: statusCondition.Message,
+			Status:  string(statusCondition.Status),
+		})
+	}
+
+	return checkConditions(conditions, progressingStatus)
 }
 
 func getAutoScalingV2beta2HPAHealth(hpa *autoscalingv2beta2.HorizontalPodAutoscaler) (*HealthStatus, error) {
@@ -65,6 +89,7 @@ func getAutoScalingV2beta2HPAHealth(hpa *autoscalingv2beta2.HorizontalPodAutosca
 			Type:    string(statusCondition.Type),
 			Reason:  statusCondition.Reason,
 			Message: statusCondition.Message,
+			Status:  string(statusCondition.Status),
 		})
 	}
 
@@ -79,6 +104,7 @@ func getAutoScalingV2beta1HPAHealth(hpa *autoscalingv2beta1.HorizontalPodAutosca
 			Type:    string(statusCondition.Type),
 			Reason:  statusCondition.Reason,
 			Message: statusCondition.Message,
+			Status:  string(statusCondition.Status),
 		})
 	}
 
@@ -141,14 +167,9 @@ func isDegraded(condition *hpaCondition) bool {
 }
 
 func isHealthy(condition *hpaCondition) bool {
-	healthy_states := []hpaCondition{
-		{Type: "AbleToScale", Reason: "SucceededRescale"},
-		{Type: "ScalingLimited", Reason: "DesiredWithinRange"},
-		{Type: "ScalingLimited", Reason: "TooFewReplicas"},
-		{Type: "ScalingLimited", Reason: "TooManyReplicas"},
-	}
-	for _, healthy_state := range healthy_states {
-		if condition.Type == healthy_state.Type && condition.Reason == healthy_state.Reason {
+	healthyConditionTypes := []string{"AbleToScale", "ScalingLimited"}
+	for _, conditionType := range healthyConditionTypes {
+		if condition.Type == conditionType && condition.Status == "True" {
 			return true
 		}
 	}
