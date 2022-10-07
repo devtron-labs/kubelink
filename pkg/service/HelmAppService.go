@@ -421,6 +421,8 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 		return nil, err
 	}
 
+	helmClientObj = nil
+
 	upgradeReleaseResponse := &client.UpgradeReleaseResponse{
 		Success: true,
 	}

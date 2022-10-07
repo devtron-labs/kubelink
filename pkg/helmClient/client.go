@@ -28,6 +28,7 @@ const (
 // NewClientFromRestConf returns a new Helm client constructed with the provided REST config options
 func NewClientFromRestConf(options *RestConfClientOptions) (Client, error) {
 	settings := cli.New()
+	settings.MaxHistory = 1
 
 	clientGetter := NewRESTClientGetter(options.Namespace, nil, options.RestConfig)
 
@@ -271,6 +272,13 @@ func (c *HelmClient) upgrade(ctx context.Context, helmChart *chart.Chart, update
 		return nil, err
 	}
 
+	fmt.Println("throwing")
+	c.ActionConfig = nil
+	c.storage = nil
+	c.Settings = nil
+	c.Providers = nil
+	c.DebugLog = nil
+
 	return release, nil
 }
 
@@ -376,7 +384,6 @@ func (c *HelmClient) lint(chartPath string, values map[string]interface{}) error
 
 	return nil
 }
-
 
 func getValuesMap(spec *ChartSpec) (map[string]interface{}, error) {
 	var values map[string]interface{}
