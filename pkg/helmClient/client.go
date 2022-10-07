@@ -504,44 +504,45 @@ func DownloadIndexFile(chartRepo *repo.ChartRepository) (string, error) {
 
 	indexURL := parsedURL.String()
 
-	_, err = util.GetFromUrlWithRetry(indexURL)
+	index, err := util.GetFromUrlWithRetry(indexURL)
+
+	if err != nil {
+		return "", err
+	}
+
+	_, err = loadIndex(index, chartRepo.Config.URL)
+	if err != nil {
+		return "", err
+	}
+
 	return "", nil
 
-	/*if err != nil {
-		return "", err
-	}
+	/*
+		// Create the chart list file in the cache directory
+		var charts strings.Builder
+		for name := range indexFile.Entries {
+			fmt.Fprintln(&charts, name)
+		}
+		chartsFile := filepath.Join(chartRepo.CachePath, helmpath.CacheChartsFile(chartRepo.Config.Name))
+		os.MkdirAll(filepath.Dir(chartsFile), 0755)
+		ioutil.WriteFile(chartsFile, []byte(charts.String()), 0644)
 
-	indexFile, err := loadIndex(index, chartRepo.Config.URL)
-	if err != nil {
-		return "", err
-	}
+		// Create the index file in the cache directory
+		fname := filepath.Join(chartRepo.CachePath, helmpath.CacheIndexFile(chartRepo.Config.Name))
+		os.MkdirAll(filepath.Dir(fname), 0755)
 
+		err = ioutil.WriteFile(fname, index, 0644)
+		if err != nil {
+			return "", err
+		}
 
-	// Create the chart list file in the cache directory
-	var charts strings.Builder
-	for name := range indexFile.Entries {
-		fmt.Fprintln(&charts, name)
-	}
-	chartsFile := filepath.Join(chartRepo.CachePath, helmpath.CacheChartsFile(chartRepo.Config.Name))
-	os.MkdirAll(filepath.Dir(chartsFile), 0755)
-	ioutil.WriteFile(chartsFile, []byte(charts.String()), 0644)
-
-	// Create the index file in the cache directory
-	fname := filepath.Join(chartRepo.CachePath, helmpath.CacheIndexFile(chartRepo.Config.Name))
-	os.MkdirAll(filepath.Dir(fname), 0755)
-
-	err = ioutil.WriteFile(fname, index, 0644)
-	if err != nil {
-		return "", err
-	}
-
-	// cleanup
-	index = nil
-	indexFile = nil
+		// cleanup
+		index = nil
+		indexFile = nil
 
 
 
-	return fname, nil*/
+		return fname, nil*/
 }
 
 // loadIndex loads an index file and does minimal validity checking.
