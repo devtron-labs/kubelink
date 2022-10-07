@@ -172,11 +172,11 @@ func (c *HelmClient) AddOrUpdateChartRepo(entry repo.Entry) error {
 		return nil
 	}*/
 
-	c.storage.Update(&entry)
+	/*c.storage.Update(&entry)
 	err = c.storage.WriteFile(c.Settings.RepositoryConfig, 0o644)
 	if err != nil {
 		return err
-	}
+	}*/
 
 	return nil
 }
