@@ -497,7 +497,7 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 	}
 	// Add or update chart repo ends
 
-	/*// Install release starts
+	// Install release starts
 	chartSpec := &helmClient.ChartSpec{
 		ReleaseName:      releaseIdentifier.ReleaseName,
 		Namespace:        releaseIdentifier.ReleaseNamespace,
@@ -515,9 +515,9 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 	if err != nil {
 		impl.logger.Errorw("Error in install release ", "err", err)
 		return nil, err
-	}*/
+	}
 	// Install release ends
-	return nil, nil
+	return rel, nil
 }
 
 func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, request *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error) {
