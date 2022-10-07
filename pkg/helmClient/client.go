@@ -324,6 +324,7 @@ func copyUpgradeOptions(chartSpec *ChartSpec, upgradeOptions *action.Upgrade) {
 	upgradeOptions.CleanupOnFail = chartSpec.CleanupOnFail
 	upgradeOptions.DryRun = chartSpec.DryRun
 	upgradeOptions.SubNotes = chartSpec.SubNotes
+	upgradeOptions.DisableOpenAPIValidation = true
 }
 
 // copyInstallOptions merges values of the provided chart to helm install options used by the client.
@@ -343,6 +344,7 @@ func copyInstallOptions(chartSpec *ChartSpec, installOptions *action.Install) {
 	installOptions.SkipCRDs = chartSpec.SkipCRDs
 	installOptions.DryRun = chartSpec.DryRun
 	installOptions.SubNotes = chartSpec.SubNotes
+	installOptions.DisableOpenAPIValidation = true
 }
 
 // getChart returns a chart matching the provided chart name and options.
@@ -376,7 +378,6 @@ func (c *HelmClient) lint(chartPath string, values map[string]interface{}) error
 
 	return nil
 }
-
 
 func getValuesMap(spec *ChartSpec) (map[string]interface{}, error) {
 	var values map[string]interface{}
