@@ -332,6 +332,7 @@ func copyUpgradeOptions(chartSpec *ChartSpec, upgradeOptions *action.Upgrade) {
 	upgradeOptions.CleanupOnFail = chartSpec.CleanupOnFail
 	upgradeOptions.DryRun = chartSpec.DryRun
 	upgradeOptions.SubNotes = chartSpec.SubNotes
+	upgradeOptions.DisableOpenAPIValidation = true
 }
 
 // copyInstallOptions merges values of the provided chart to helm install options used by the client.
