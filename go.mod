@@ -1,6 +1,6 @@
 module github.com/devtron-labs/kubelink
 
-go 1.15
+go 1.17
 
 require (
 	github.com/argoproj/gitops-engine v0.4.1
