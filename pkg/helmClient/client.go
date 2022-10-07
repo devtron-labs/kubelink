@@ -11,18 +11,14 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/downloader"
 	"helm.sh/helm/v3/pkg/getter"
-	"helm.sh/helm/v3/pkg/helmpath"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
-	"io/ioutil"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"log"
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"sigs.k8s.io/yaml"
-	"strings"
 )
 
 var storage = repo.File{}
@@ -172,11 +168,11 @@ func (c *HelmClient) AddOrUpdateChartRepo(entry repo.Entry) error {
 		return nil
 	}*/
 
-	/*c.storage.Update(&entry)
+	c.storage.Update(&entry)
 	err = c.storage.WriteFile(c.Settings.RepositoryConfig, 0o644)
 	if err != nil {
 		return err
-	}*/
+	}
 
 	return nil
 }
@@ -508,9 +504,10 @@ func DownloadIndexFile(chartRepo *repo.ChartRepository) (string, error) {
 
 	indexURL := parsedURL.String()
 
-	index, err := util.GetFromUrlWithRetry(indexURL)
+	_, err = util.GetFromUrlWithRetry(indexURL)
+	return "", nil
 
-	if err != nil {
+	/*if err != nil {
 		return "", err
 	}
 
@@ -519,8 +516,6 @@ func DownloadIndexFile(chartRepo *repo.ChartRepository) (string, error) {
 		return "", err
 	}
 
-	/*fmt.Println("sleeping after load index")
-	time.Sleep(time.Second * 60)*/
 
 	// Create the chart list file in the cache directory
 	var charts strings.Builder
@@ -544,10 +539,9 @@ func DownloadIndexFile(chartRepo *repo.ChartRepository) (string, error) {
 	index = nil
 	indexFile = nil
 
-	/*fmt.Println("sleeping after cleanup")
-	time.Sleep(time.Second * 60)*/
 
-	return fname, nil
+
+	return fname, nil*/
 }
 
 // loadIndex loads an index file and does minimal validity checking.
