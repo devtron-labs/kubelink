@@ -28,8 +28,8 @@ import (
 var storage = repo.File{}
 
 const (
-	defaultCachePath            = "/tmp/.helmcache"
-	defaultRepositoryConfigPath = "/tmp/.helmrepo"
+	defaultCachePath            = "/devtroncd/.helmcache"
+	defaultRepositoryConfigPath = "/devtroncd/.helmrepo"
 )
 
 // NewClientFromRestConf returns a new Helm client constructed with the provided REST config options

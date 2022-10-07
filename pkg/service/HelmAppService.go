@@ -471,13 +471,12 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 
 func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequest, dryRun bool) (*release.Release, error) {
 	releaseIdentifier := request.ReleaseIdentifier
-	_, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
+	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("returning")
 
-	/*// Add or update chart repo starts
+	// Add or update chart repo starts
 	chartRepoRequest := request.ChartRepository
 	chartRepoName := chartRepoRequest.Name
 	chartRepo := repo.Entry{
@@ -495,7 +494,7 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 	if err != nil {
 		impl.logger.Errorw("Error in add/update chart repo ", "err", err)
 		return nil, err
-	}*/
+	}
 	// Add or update chart repo ends
 
 	/*// Install release starts
