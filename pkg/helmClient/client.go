@@ -162,7 +162,7 @@ func (c *HelmClient) AddOrUpdateChartRepo(entry repo.Entry) error {
 
 	chartRepo.CachePath = c.Settings.RepositoryCache
 
-	_, err = chartRepo.DownloadIndexFile()
+	_, err = DownloadIndexFile(chartRepo)
 	if err != nil {
 		return err
 	}
