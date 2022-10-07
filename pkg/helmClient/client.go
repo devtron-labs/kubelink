@@ -11,14 +11,18 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/downloader"
 	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/helmpath"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
+	"io/ioutil"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"log"
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"sigs.k8s.io/yaml"
+	"strings"
 )
 
 var storage = repo.File{}
@@ -510,39 +514,34 @@ func DownloadIndexFile(chartRepo *repo.ChartRepository) (string, error) {
 		return "", err
 	}
 
-	_, err = loadIndex(index, chartRepo.Config.URL)
+	indexFile, err := loadIndex(index, chartRepo.Config.URL)
 	if err != nil {
 		return "", err
 	}
 
+	// Create the chart list file in the cache directory
+	var charts strings.Builder
+	for name := range indexFile.Entries {
+		fmt.Fprintln(&charts, name)
+	}
+	chartsFile := filepath.Join(chartRepo.CachePath, helmpath.CacheChartsFile(chartRepo.Config.Name))
+	os.MkdirAll(filepath.Dir(chartsFile), 0755)
+	ioutil.WriteFile(chartsFile, []byte(charts.String()), 0644)
+
+	/*// Create the index file in the cache directory
+	fname := filepath.Join(chartRepo.CachePath, helmpath.CacheIndexFile(chartRepo.Config.Name))
+	os.MkdirAll(filepath.Dir(fname), 0755)
+
+	err = ioutil.WriteFile(fname, index, 0644)
+	if err != nil {
+		return "", err
+	}*/
+
+	// cleanup
+	index = nil
+	indexFile = nil
+
 	return "", nil
-
-	/*
-		// Create the chart list file in the cache directory
-		var charts strings.Builder
-		for name := range indexFile.Entries {
-			fmt.Fprintln(&charts, name)
-		}
-		chartsFile := filepath.Join(chartRepo.CachePath, helmpath.CacheChartsFile(chartRepo.Config.Name))
-		os.MkdirAll(filepath.Dir(chartsFile), 0755)
-		ioutil.WriteFile(chartsFile, []byte(charts.String()), 0644)
-
-		// Create the index file in the cache directory
-		fname := filepath.Join(chartRepo.CachePath, helmpath.CacheIndexFile(chartRepo.Config.Name))
-		os.MkdirAll(filepath.Dir(fname), 0755)
-
-		err = ioutil.WriteFile(fname, index, 0644)
-		if err != nil {
-			return "", err
-		}
-
-		// cleanup
-		index = nil
-		indexFile = nil
-
-
-
-		return fname, nil*/
 }
 
 // loadIndex loads an index file and does minimal validity checking.
