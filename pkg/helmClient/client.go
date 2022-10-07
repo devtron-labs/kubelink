@@ -458,17 +458,17 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec) (*release.Rel
 		}
 	}
 
-	_, err = getValuesMap(spec)
+	values, err := getValuesMap(spec)
 	if err != nil {
 		return nil, err
 	}
 
-	/*rel, err := client.RunWithContext(ctx, helmChart, values)
+	rel, err := client.RunWithContext(ctx, helmChart, values)
 	if err != nil {
 		return rel, err
-	}*/
+	}
 
-	fmt.Println("ignoring")
+	fmt.Println("not ignoring")
 
 	return nil, nil
 }
