@@ -415,7 +415,7 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 	}
 
 	impl.logger.Debug("Upgrading release")
-	_, err = helmClientObj.UpgradeRelease(context.Background(), helmRelease.Chart, updateChartSpec)
+	_, err = helmClientObj.UpgradeRelease(context.Background(), helmRelease.Chart, updateChartSpec, request.DisableOpenApiValidation)
 	if err != nil {
 		impl.logger.Errorw("Error in upgrade release ", "err", err)
 		return nil, err
@@ -511,7 +511,7 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 	}
 
 	impl.logger.Debugw("Installing release", "name", releaseIdentifier.ReleaseName, "namespace", releaseIdentifier.ReleaseNamespace, "dry-run", dryRun)
-	rel, err := helmClientObj.InstallChart(context.Background(), chartSpec)
+	rel, err := helmClientObj.InstallChart(context.Background(), chartSpec, request.DisableOpenApiValidation)
 	if err != nil {
 		impl.logger.Errorw("Error in install release ", "err", err)
 		return nil, err
@@ -560,7 +560,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 	}
 
 	impl.logger.Debug("Upgrading release with chart info")
-	_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
+	_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec, request.DisableOpenApiValidation)
 	if err != nil {
 		impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
 		return nil, err
@@ -1104,7 +1104,7 @@ func (impl HelmAppServiceImpl) InstallReleaseWithCustomChart(request *client.Hel
 	}
 
 	//	impl.logger.Debug("Upgrading release with chart info")
-	_, err = helmClientObj.InstallChart(context.Background(), chartSpec)
+	_, err = helmClientObj.InstallChart(context.Background(), chartSpec, true)
 	if err != nil {
 		impl.logger.Errorw("Error in install chart", "err", err)
 		return false, err

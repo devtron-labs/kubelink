@@ -142,8 +142,8 @@ func (c *HelmClient) UninstallReleaseByName(name string) error {
 
 // UpgradeRelease upgrades the provided chart and returns the corresponding release.
 // Namespace and other context is provided via the helmclient.Options struct when instantiating a client.
-func (c *HelmClient) UpgradeRelease(ctx context.Context, chart *chart.Chart, updatedChartSpec *ChartSpec) (*release.Release, error) {
-	return c.upgrade(ctx, chart, updatedChartSpec)
+func (c *HelmClient) UpgradeRelease(ctx context.Context, chart *chart.Chart, updatedChartSpec *ChartSpec, disableOpenApiValidation bool) (*release.Release, error) {
+	return c.upgrade(ctx, chart, updatedChartSpec, disableOpenApiValidation)
 }
 
 // AddOrUpdateChartRepo adds or updates the provided helm chart repository.
@@ -176,7 +176,7 @@ func (c *HelmClient) AddOrUpdateChartRepo(entry repo.Entry) error {
 
 // InstallChart installs the provided chart and returns the corresponding release.
 // Namespace and other context is provided via the helmclient.Options struct when instantiating a client.
-func (c *HelmClient) InstallChart(ctx context.Context, spec *ChartSpec) (*release.Release, error) {
+func (c *HelmClient) InstallChart(ctx context.Context, spec *ChartSpec, disableOpenApiValidation bool) (*release.Release, error) {
 	// if not dry-run, then only check if the release is installed or not
 	if !spec.DryRun {
 		installed, err := c.chartIsInstalled(spec.ReleaseName, spec.Namespace)
@@ -189,13 +189,13 @@ func (c *HelmClient) InstallChart(ctx context.Context, spec *ChartSpec) (*releas
 			return nil, errors.New(errorMessage)
 		}
 	}
-	return c.install(ctx, spec)
+	return c.install(ctx, spec, disableOpenApiValidation)
 }
 
 // UpgradeReleaseWithChartInfo installs the provided chart and returns the corresponding release.
 // Namespace and other context is provided via the helmclient.Options struct when instantiating a client.
-func (c *HelmClient) UpgradeReleaseWithChartInfo(ctx context.Context, spec *ChartSpec) (*release.Release, error) {
-	return c.upgradeWithChartInfo(ctx, spec)
+func (c *HelmClient) UpgradeReleaseWithChartInfo(ctx context.Context, spec *ChartSpec, disableOpenApiValidation bool) (*release.Release, error) {
+	return c.upgradeWithChartInfo(ctx, spec, disableOpenApiValidation)
 }
 
 func (c *HelmClient) IsReleaseInstalled(ctx context.Context, releaseName string, releaseNamespace string) (bool, error) {
@@ -247,9 +247,9 @@ func (c *HelmClient) uninstallReleaseByName(name string) error {
 
 // upgrade upgrades a chart and CRDs.
 // Optionally lints the chart if the linting flag is set.
-func (c *HelmClient) upgrade(ctx context.Context, helmChart *chart.Chart, updatedChartSpec *ChartSpec) (*release.Release, error) {
+func (c *HelmClient) upgrade(ctx context.Context, helmChart *chart.Chart, updatedChartSpec *ChartSpec, disableOpenApiValidation bool) (*release.Release, error) {
 	client := action.NewUpgrade(c.ActionConfig)
-	copyUpgradeOptions(updatedChartSpec, client)
+	copyUpgradeOptions(updatedChartSpec, client, disableOpenApiValidation)
 
 	if client.Version == "" {
 		client.Version = ">0.0.0-0"
@@ -276,9 +276,9 @@ func (c *HelmClient) upgrade(ctx context.Context, helmChart *chart.Chart, update
 
 // upgradeWithChartInfo upgrades a chart and CRDs.
 // Optionally lints the chart if the linting flag is set.
-func (c *HelmClient) upgradeWithChartInfo(ctx context.Context, spec *ChartSpec) (*release.Release, error) {
+func (c *HelmClient) upgradeWithChartInfo(ctx context.Context, spec *ChartSpec, disableOpenApiValidation bool) (*release.Release, error) {
 	client := action.NewUpgrade(c.ActionConfig)
-	copyUpgradeOptions(spec, client)
+	copyUpgradeOptions(spec, client, disableOpenApiValidation)
 
 	if client.Version == "" {
 		client.Version = ">0.0.0-0"
@@ -309,7 +309,7 @@ func (c *HelmClient) upgradeWithChartInfo(ctx context.Context, spec *ChartSpec) 
 }
 
 // copyUpgradeOptions merges values of the provided chart to helm upgrade options used by the client.
-func copyUpgradeOptions(chartSpec *ChartSpec, upgradeOptions *action.Upgrade) {
+func copyUpgradeOptions(chartSpec *ChartSpec, upgradeOptions *action.Upgrade, disableOpenApiValidation bool) {
 	upgradeOptions.Version = chartSpec.Version
 	upgradeOptions.Namespace = chartSpec.Namespace
 	upgradeOptions.Timeout = chartSpec.Timeout
@@ -324,11 +324,11 @@ func copyUpgradeOptions(chartSpec *ChartSpec, upgradeOptions *action.Upgrade) {
 	upgradeOptions.CleanupOnFail = chartSpec.CleanupOnFail
 	upgradeOptions.DryRun = chartSpec.DryRun
 	upgradeOptions.SubNotes = chartSpec.SubNotes
-	upgradeOptions.DisableOpenAPIValidation = true
+	upgradeOptions.DisableOpenAPIValidation = disableOpenApiValidation
 }
 
 // copyInstallOptions merges values of the provided chart to helm install options used by the client.
-func copyInstallOptions(chartSpec *ChartSpec, installOptions *action.Install) {
+func copyInstallOptions(chartSpec *ChartSpec, installOptions *action.Install, disableOpenApiValidation bool) {
 	installOptions.CreateNamespace = chartSpec.CreateNamespace
 	installOptions.DisableHooks = chartSpec.DisableHooks
 	installOptions.Replace = chartSpec.Replace
@@ -344,7 +344,7 @@ func copyInstallOptions(chartSpec *ChartSpec, installOptions *action.Install) {
 	installOptions.SkipCRDs = chartSpec.SkipCRDs
 	installOptions.DryRun = chartSpec.DryRun
 	installOptions.SubNotes = chartSpec.SubNotes
-	installOptions.DisableOpenAPIValidation = true
+	installOptions.DisableOpenAPIValidation = disableOpenApiValidation
 }
 
 // getChart returns a chart matching the provided chart name and options.
@@ -410,9 +410,9 @@ func (c *HelmClient) chartIsInstalled(releaseName string, releaseNamespace strin
 
 // install installs the provided chart.
 // Optionally lints the chart if the linting flag is set.
-func (c *HelmClient) install(ctx context.Context, spec *ChartSpec) (*release.Release, error) {
+func (c *HelmClient) install(ctx context.Context, spec *ChartSpec, disableOpenApiValidation bool) (*release.Release, error) {
 	client := action.NewInstall(c.ActionConfig)
-	copyInstallOptions(spec, client)
+	copyInstallOptions(spec, client, disableOpenApiValidation)
 
 	if client.Version == "" {
 		client.Version = ">0.0.0-0"
