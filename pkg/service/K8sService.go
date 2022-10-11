@@ -93,6 +93,7 @@ func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace st
 		}
 
 		if err != nil {
+			impl.logger.Errorw("Error-------- ", "gvr", gvr, "namespace", namespace, "scope", scope)
 			return nil, err
 		}
 
