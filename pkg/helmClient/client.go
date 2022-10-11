@@ -21,8 +21,8 @@ import (
 var storage = repo.File{}
 
 const (
-	defaultCachePath            = "/tmp/.helmcache"
-	defaultRepositoryConfigPath = "/tmp/.helmrepo"
+	defaultCachePath            = "/devtroncd/.helmcache"
+	defaultRepositoryConfigPath = "/devtroncd/.helmrepo"
 )
 
 // NewClientFromRestConf returns a new Helm client constructed with the provided REST config options
@@ -376,7 +376,6 @@ func (c *HelmClient) lint(chartPath string, values map[string]interface{}) error
 
 	return nil
 }
-
 
 func getValuesMap(spec *ChartSpec) (map[string]interface{}, error) {
 	var values map[string]interface{}
