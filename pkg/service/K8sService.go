@@ -7,6 +7,7 @@ import (
 	gitops_engine "github.com/devtron-labs/kubelink/pkg/util/gitops-engine"
 	k8sUtils "github.com/devtron-labs/kubelink/pkg/util/k8s"
 	"go.uber.org/zap"
+	errors2 "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -93,19 +94,25 @@ func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace st
 		}
 
 		if err != nil {
-			return nil, err
+			statusError, ok := err.(*errors2.StatusError)
+			if !ok || statusError.ErrStatus.Reason != metav1.StatusReasonNotFound {
+				return nil, err
+			}
 		}
 
-		for _, item := range objects.Items {
-			ownerRefs, _ := gitops_engine.ResolveResourceReferences(&item)
-			item.SetOwnerReferences(ownerRefs)
-			for _, ownerRef := range item.GetOwnerReferences() {
-				if ownerRef.Name == parentName && ownerRef.Kind == parentGvk.Kind && ownerRef.APIVersion == parentApiVersion {
-					// using deep copy as it replaces item in manifest in loop
-					manifests = append(manifests, item.DeepCopy())
+		if objects != nil {
+			for _, item := range objects.Items {
+				ownerRefs, _ := gitops_engine.ResolveResourceReferences(&item)
+				item.SetOwnerReferences(ownerRefs)
+				for _, ownerRef := range item.GetOwnerReferences() {
+					if ownerRef.Name == parentName && ownerRef.Kind == parentGvk.Kind && ownerRef.APIVersion == parentApiVersion {
+						// using deep copy as it replaces item in manifest in loop
+						manifests = append(manifests, item.DeepCopy())
+					}
 				}
 			}
 		}
+
 	}
 
 	return manifests, nil
