@@ -1,14 +1,17 @@
-FROM golang:1.18-alpine3.14 AS build-env
+FROM golang:1.18 AS build-env
 
-RUN apk add --no-cache git gcc musl-dev
-RUN apk add --update make
+RUN apt update
+RUN apt install git gcc musl-dev make -y
 RUN go install github.com/google/wire/cmd/wire@latest
 
 WORKDIR /go/src/github.com/devtron-labs/kubelink
 ADD . /go/src/github.com/devtron-labs/kubelink/
 RUN GOOS=linux make
 
-FROM alpine:3.9
-RUN apk add --no-cache ca-certificates
+FROM ubuntu
+RUN apt update
+RUN apt install ca-certificates -y
+RUN apt clean autoclean
+RUN apt autoremove -y && rm -rf /var/lib/apt/lists/*
 COPY --from=build-env  /go/src/github.com/devtron-labs/kubelink/kubelink .
 CMD ["./kubelink"]
