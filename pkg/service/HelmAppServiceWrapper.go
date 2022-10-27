@@ -276,6 +276,7 @@ func resourceRefResult(resourceRefs []*bean.ResourceRef) (resourceRefResults []*
 	}
 	return resourceRefResults
 }
+
 func (impl *ApplicationServiceServerImpl) AppDetailAdaptor(req *bean.AppDetail) *client.AppDetail {
 	var resourceNodes []*client.ResourceNode
 	for _, node := range req.ResourceTreeResponse.Nodes {
@@ -301,6 +302,7 @@ func (impl *ApplicationServiceServerImpl) AppDetailAdaptor(req *bean.AppDetail) 
 			Health:          healthStatus,
 			IsHibernated:    node.IsHibernated,
 			CanBeHibernated: node.CanBeHibernated,
+			Info:            impl.buildInfoItems(node.Info),
 		}
 		resourceNodes = append(resourceNodes, resourceNode)
 	}
@@ -339,4 +341,12 @@ func (impl *ApplicationServiceServerImpl) AppDetailAdaptor(req *bean.AppDetail) 
 		EnvironmentDetails: req.EnvironmentDetails,
 	}
 	return appDetail
+}
+
+func (impl *ApplicationServiceServerImpl) buildInfoItems(infoItemBeans []bean.InfoItem) []*client.InfoItem {
+	var infoItems []*client.InfoItem
+	for _, infoItemBean := range infoItemBeans {
+		infoItems = append(infoItems, &client.InfoItem{Name: infoItemBean.Name, Value: infoItemBean.Value})
+	}
+	return infoItems
 }

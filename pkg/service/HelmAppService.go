@@ -12,6 +12,7 @@ import (
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/pkg/helmClient"
 	"github.com/devtron-labs/kubelink/pkg/util"
+	"github.com/devtron-labs/kubelink/pkg/util/argo"
 	gitops_engine "github.com/devtron-labs/kubelink/pkg/util/gitops-engine"
 	k8sUtils "github.com/devtron-labs/kubelink/pkg/util/k8s"
 	jsonpatch "github.com/evanphx/json-patch"
@@ -901,6 +902,11 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 
 		}
 		// hibernate set ends
+
+		if k8sUtils.IsPod(gvk) {
+			infoItems, _ := argo.PopulatePodInfo(manifest)
+			node.Info = infoItems
+		}
 
 		nodes = append(nodes, node)
 	}
