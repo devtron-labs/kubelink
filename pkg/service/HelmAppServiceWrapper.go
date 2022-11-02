@@ -194,7 +194,7 @@ func (impl *ApplicationServiceServerImpl) InstallRelease(ctx context.Context, in
 func (impl *ApplicationServiceServerImpl) UpgradeReleaseWithChartInfo(ctx context.Context, in *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error) {
 	releaseIdentifier := in.ReleaseIdentifier
 	impl.Logger.Infow("Upgrade release with chart Info request", "clusterName", releaseIdentifier.ClusterConfig.ClusterName, "releaseName", releaseIdentifier.ReleaseName,
-		"namespace", releaseIdentifier.ReleaseNamespace)
+		"namespace", releaseIdentifier.ReleaseNamespace, "chartVersion", in.ChartVersion, "values", in.ValuesYaml)
 
 	impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
 	defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
