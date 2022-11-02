@@ -303,6 +303,7 @@ func (impl *ApplicationServiceServerImpl) AppDetailAdaptor(req *bean.AppDetail) 
 			IsHibernated:    node.IsHibernated,
 			CanBeHibernated: node.CanBeHibernated,
 			Info:            impl.buildInfoItems(node.Info),
+			CreatedAt:       node.CreatedAt,
 		}
 		resourceNodes = append(resourceNodes, resourceNode)
 	}

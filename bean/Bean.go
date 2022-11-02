@@ -92,6 +92,7 @@ type ResourceNode struct {
 	IsHibernated    bool                    `json:"isHibernated"`
 	CanBeHibernated bool                    `json:"canBeHibernated"`
 	Info            []InfoItem              `json:"info,omitempty"`
+	CreatedAt       string                  `json:"createdAt,omitempty"`
 }
 
 // ResourceRef includes fields which unique identify resource

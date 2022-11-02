@@ -839,6 +839,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 			NetworkingInfo: &bean.ResourceNetworkingInfo{
 				Labels: manifest.GetLabels(),
 			},
+			CreatedAt: manifest.GetCreationTimestamp().String(),
 		}
 
 		if parentResourceRef != nil {
