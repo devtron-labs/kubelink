@@ -775,20 +775,34 @@ func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDet
 
 func (impl HelmAppServiceImpl) filterNodes(resourceTreeFilter *client.ResourceTreeFilter, nodes []*bean.ResourceNode) []*bean.ResourceNode {
 	resourceFilters := resourceTreeFilter.ResourceFilters
-	if len(resourceFilters) == 0 {
+	globalFilter := resourceTreeFilter.GlobalFilter
+	if globalFilter == nil && (resourceFilters == nil || len(resourceFilters) == 0) {
 		return nodes
 	}
 
 	var filteredNodes []*bean.ResourceNode
-	var gvkVsLabels map[schema.GroupVersionKind]map[string]string
 
+	// handle global
+	if globalFilter != nil && len(globalFilter.Labels) > 0 {
+		globalLabels := globalFilter.Labels
+		for _, node := range nodes {
+			toAdd := util.IsMapSubset(node.NetworkingInfo.Labels, globalLabels)
+			if toAdd {
+				filteredNodes = append(filteredNodes, node)
+			}
+		}
+		return filteredNodes
+	}
+
+	// handle gvk level
+	var gvkVsLabels map[schema.GroupVersionKind]map[string]string
 	for _, resourceFilter := range resourceTreeFilter.ResourceFilters {
 		gvk := resourceFilter.Gvk
 		gvkVsLabels[schema.GroupVersionKind{
 			Group:   gvk.Group,
 			Version: gvk.Version,
 			Kind:    gvk.Kind,
-		}] = resourceFilter.Labels
+		}] = resourceFilter.ResourceIdentifier.Labels
 	}
 
 	for _, node := range nodes {
