@@ -83,6 +83,10 @@ func IsService(gvk schema.GroupVersionKind) bool {
 	return gvk.Group == "" && gvk.Kind == kube.ServiceKind
 }
 
+func IsPod(gvk schema.GroupVersionKind) bool {
+	return gvk.Group == "" && gvk.Kind == kube.PodKind && gvk.Version == "v1"
+}
+
 func IsDevtronApp(labels map[string]string) bool {
 	isDevtronApp := false
 	if val, ok := labels[DEVTRON_APP_LABEL_KEY]; ok {

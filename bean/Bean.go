@@ -91,6 +91,8 @@ type ResourceNode struct {
 	Health          *HealthStatus           `json:"health,omitempty" protobuf:"bytes,7,opt,name=health"`
 	IsHibernated    bool                    `json:"isHibernated"`
 	CanBeHibernated bool                    `json:"canBeHibernated"`
+	Info            []InfoItem              `json:"info,omitempty"`
+	CreatedAt       string                  `json:"createdAt,omitempty"`
 }
 
 // ResourceRef includes fields which unique identify resource
@@ -171,4 +173,12 @@ type DesiredOrLiveManifest struct {
 	Manifest                   *unstructured.Unstructured `json:"manifest"`
 	IsLiveManifestFetchError   bool                       `json:"isLiveManifestFetchError"`
 	LiveManifestFetchErrorCode int32                      `json:"liveManifestFetchErrorCode"`
+}
+
+// InfoItem contains arbitrary, human readable information about an application
+type InfoItem struct {
+	// Name is a human readable title for this piece of information.
+	Name string `json:"name,omitempty"`
+	// Value is human readable content.
+	Value string `json:"value,omitempty"`
 }
