@@ -752,6 +752,13 @@ func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDet
 	if err != nil {
 		return nil, err
 	}
+
+	// filter nodes based on ResourceTreeFilter
+	resourceTreeFilter := appDetailRequest.ResourceTreeFilter
+	if resourceTreeFilter != nil && len(nodes) > 0 {
+		nodes = impl.filterNodes(resourceTreeFilter, nodes)
+	}
+
 	// build pods metadata
 	podsMetadata, err := buildPodMetadata(nodes)
 	if err != nil {
@@ -764,6 +771,51 @@ func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDet
 		PodMetadata: podsMetadata,
 	}
 	return resourceTreeResponse, nil
+}
+
+func (impl HelmAppServiceImpl) filterNodes(resourceTreeFilter *client.ResourceTreeFilter, nodes []*bean.ResourceNode) []*bean.ResourceNode {
+	resourceFilters := resourceTreeFilter.ResourceFilters
+	globalFilter := resourceTreeFilter.GlobalFilter
+	if globalFilter == nil && (resourceFilters == nil || len(resourceFilters) == 0) {
+		return nodes
+	}
+
+	var filteredNodes []*bean.ResourceNode
+
+	// handle global
+	if globalFilter != nil && len(globalFilter.Labels) > 0 {
+		globalLabels := globalFilter.Labels
+		for _, node := range nodes {
+			toAdd := util.IsMapSubset(node.NetworkingInfo.Labels, globalLabels)
+			if toAdd {
+				filteredNodes = append(filteredNodes, node)
+			}
+		}
+		return filteredNodes
+	}
+
+	// handle gvk level
+	var gvkVsLabels map[schema.GroupVersionKind]map[string]string
+	for _, resourceFilter := range resourceTreeFilter.ResourceFilters {
+		gvk := resourceFilter.Gvk
+		gvkVsLabels[schema.GroupVersionKind{
+			Group:   gvk.Group,
+			Version: gvk.Version,
+			Kind:    gvk.Kind,
+		}] = resourceFilter.ResourceIdentifier.Labels
+	}
+
+	for _, node := range nodes {
+		nodeGvk := node.Manifest.GroupVersionKind()
+		if val, ok := gvkVsLabels[nodeGvk]; ok {
+			toAdd := util.IsMapSubset(node.NetworkingInfo.Labels, val)
+			if toAdd {
+				filteredNodes = append(filteredNodes, node)
+			}
+		}
+	}
+
+	return filteredNodes
 }
 
 func (impl HelmAppServiceImpl) getDesiredOrLiveManifests(restConfig *rest.Config, desiredManifests []unstructured.Unstructured, releaseNamespace string) ([]*bean.DesiredOrLiveManifest, error) {
