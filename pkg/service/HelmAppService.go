@@ -786,7 +786,7 @@ func (impl HelmAppServiceImpl) filterNodes(resourceTreeFilter *client.ResourceTr
 	if globalFilter != nil && len(globalFilter.Labels) > 0 {
 		globalLabels := globalFilter.Labels
 		for _, node := range nodes {
-			if node.NetworkingInfo != nil {
+			if node.NetworkingInfo != nil && len(node.NetworkingInfo.Labels) > 0 {
 				toAdd := util.IsMapSubset(node.NetworkingInfo.Labels, globalLabels)
 				if toAdd {
 					filteredNodes = append(filteredNodes, node)
