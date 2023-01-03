@@ -781,12 +781,15 @@ func (impl HelmAppServiceImpl) getDesiredOrLiveManifests(restConfig *rest.Config
 		desiredOrLiveManifest := &bean.DesiredOrLiveManifest{}
 
 		if err != nil {
+			impl.logger.Errorw("Error in getting live manifest ", "err", err)
 			statusError, _ := err.(*errors2.StatusError)
 			desiredOrLiveManifest = &bean.DesiredOrLiveManifest{
 				// using deep copy as it replaces item in manifest in loop
-				Manifest:                   desiredManifest.DeepCopy(),
-				IsLiveManifestFetchError:   true,
-				LiveManifestFetchErrorCode: statusError.Status().Code,
+				Manifest:                 desiredManifest.DeepCopy(),
+				IsLiveManifestFetchError: true,
+			}
+			if statusError != nil {
+				desiredOrLiveManifest.LiveManifestFetchErrorCode = statusError.Status().Code
 			}
 		} else {
 			desiredOrLiveManifest = &bean.DesiredOrLiveManifest{
