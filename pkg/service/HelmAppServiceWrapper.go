@@ -76,7 +76,7 @@ func (impl *ApplicationServiceServerImpl) GetAppDetail(ctxt context.Context, req
 	return res, nil
 }
 
-func (impl *ApplicationServiceServerImpl) GetAppStatus(ctx context.Context, req *client.AppDetailRequest) (*bean.HealthStatusCode, error) {
+func (impl *ApplicationServiceServerImpl) GetAppStatus(ctx context.Context, req *client.AppDetailRequest) (*client.AppStatus, error) {
 	impl.Logger.Infow("App detail request", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
 		"namespace", req.Namespace)
 
@@ -86,7 +86,10 @@ func (impl *ApplicationServiceServerImpl) GetAppStatus(ctx context.Context, req 
 			"namespace", req.Namespace, "err", err)
 		return nil, err
 	}
-	return helmAppStatus, nil
+	appStatus := &client.AppStatus{
+		ApplicationStatus: *helmAppStatus,
+	}
+	return appStatus, nil
 }
 
 func (impl *ApplicationServiceServerImpl) Hibernate(ctx context.Context, in *client.HibernateRequest) (*client.HibernateResponse, error) {
