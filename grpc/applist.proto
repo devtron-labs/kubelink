@@ -18,6 +18,7 @@ message AppListRequest {
 service ApplicationService {
   rpc ListApplications(AppListRequest) returns (stream DeployedAppList){}
   rpc GetAppDetail(AppDetailRequest) returns (AppDetail){}
+  rpc GetAppStatus(AppDetailRequest) returns (string){}
   rpc Hibernate(HibernateRequest) returns (HibernateResponse){}
   rpc UnHibernate(HibernateRequest) returns (HibernateResponse){}
   rpc GetDeploymentHistory(AppDetailRequest) returns (HelmAppDeploymentHistory){}
