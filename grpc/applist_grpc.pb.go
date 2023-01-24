@@ -8,7 +8,6 @@ package client
 
 import (
 	context "context"
-	"github.com/devtron-labs/kubelink/bean"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -25,7 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 type ApplicationServiceClient interface {
 	ListApplications(ctx context.Context, in *AppListRequest, opts ...grpc.CallOption) (ApplicationService_ListApplicationsClient, error)
 	GetAppDetail(ctx context.Context, in *AppDetailRequest, opts ...grpc.CallOption) (*AppDetail, error)
-	GetAppStatus(ctx context.Context, in *AppDetailRequest, opts ...grpc.CallOption) (*bean.HealthStatusCode, error)
+	GetAppStatus(ctx context.Context, in *AppDetailRequest, opts ...grpc.CallOption) (*string, error)
 	Hibernate(ctx context.Context, in *HibernateRequest, opts ...grpc.CallOption) (*HibernateResponse, error)
 	UnHibernate(ctx context.Context, in *HibernateRequest, opts ...grpc.CallOption) (*HibernateResponse, error)
 	GetDeploymentHistory(ctx context.Context, in *AppDetailRequest, opts ...grpc.CallOption) (*HelmAppDeploymentHistory, error)
@@ -91,8 +90,8 @@ func (c *applicationServiceClient) GetAppDetail(ctx context.Context, in *AppDeta
 	return out, nil
 }
 
-func (c *applicationServiceClient) GetAppStatus(ctx context.Context, in *AppDetailRequest, opts ...grpc.CallOption) (*bean.HealthStatusCode, error) {
-	out := new(bean.HealthStatusCode)
+func (c *applicationServiceClient) GetAppStatus(ctx context.Context, in *AppDetailRequest, opts ...grpc.CallOption) (*string, error) {
+	out := new(string)
 	err := c.cc.Invoke(ctx, "/ApplicationService/GetAppStatus", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -232,7 +231,7 @@ func (c *applicationServiceClient) InstallReleaseWithCustomChart(ctx context.Con
 type ApplicationServiceServer interface {
 	ListApplications(*AppListRequest, ApplicationService_ListApplicationsServer) error
 	GetAppDetail(context.Context, *AppDetailRequest) (*AppDetail, error)
-	GetAppStatus(context.Context, *AppDetailRequest) (*bean.HealthStatusCode, error)
+	GetAppStatus(context.Context, *AppDetailRequest) (*string, error)
 	Hibernate(context.Context, *HibernateRequest) (*HibernateResponse, error)
 	UnHibernate(context.Context, *HibernateRequest) (*HibernateResponse, error)
 	GetDeploymentHistory(context.Context, *AppDetailRequest) (*HelmAppDeploymentHistory, error)
@@ -260,7 +259,7 @@ func (UnimplementedApplicationServiceServer) ListApplications(*AppListRequest, A
 func (UnimplementedApplicationServiceServer) GetAppDetail(context.Context, *AppDetailRequest) (*AppDetail, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAppDetail not implemented")
 }
-func (UnimplementedApplicationServiceServer) GetAppStatus(context.Context, *AppDetailRequest) (*bean.HealthStatusCode, error) {
+func (UnimplementedApplicationServiceServer) GetAppStatus(context.Context, *AppDetailRequest) (*string, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAppStatus not implemented")
 }
 func (UnimplementedApplicationServiceServer) Hibernate(context.Context, *HibernateRequest) (*HibernateResponse, error) {
