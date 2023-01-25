@@ -6,9 +6,11 @@
 package main
 
 import (
+	"github.com/devtron-labs/kubelink/api/router"
 	"github.com/devtron-labs/kubelink/internal/lock"
 	"github.com/devtron-labs/kubelink/internal/logger"
 	"github.com/devtron-labs/kubelink/pkg/service"
+	"github.com/devtron-labs/kubelink/pprof"
 )
 
 // Injectors from Wire.go:
@@ -19,6 +21,9 @@ func InitializeApp() (*App, error) {
 	k8sServiceImpl := service.NewK8sServiceImpl(sugaredLogger)
 	helmAppServiceImpl := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl)
 	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(sugaredLogger, chartRepositoryLocker, helmAppServiceImpl)
-	app := NewApp(sugaredLogger, applicationServiceServerImpl)
+	pprofResthandler := pprof.NewPProfRestHandler(sugaredLogger)
+	pprofRouter := pprof.NewPProfRouter(sugaredLogger,pprofResthandler)
+	router:= 	router.NewRouter(sugaredLogger,pprofRouter)
+	app := NewApp(sugaredLogger, applicationServiceServerImpl,router)
 	return app, nil
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/devtron-labs/kubelink/api/router"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/pkg/service"
 	"go.uber.org/zap"
@@ -15,12 +16,15 @@ import (
 type App struct {
 	Logger     *zap.SugaredLogger
 	ServerImpl *service.ApplicationServiceServerImpl
+	router     *router.RouterImpl
 }
 
-func NewApp(Logger *zap.SugaredLogger, ServerImpl *service.ApplicationServiceServerImpl) *App {
+func NewApp(Logger *zap.SugaredLogger, ServerImpl *service.ApplicationServiceServerImpl,
+	router *router.RouterImpl) *App {
 	return &App{
 		Logger:     Logger,
 		ServerImpl: ServerImpl,
+		router:     router,
 	}
 }
 
@@ -38,6 +42,7 @@ func (app *App) Start() {
 			MaxConnectionAge: 10 * time.Second,
 		}),
 	}
+	app.router.InitRouter()
 	grpcServer := grpc.NewServer(opts...)
 
 	client.RegisterApplicationServiceServer(grpcServer, app.ServerImpl)

@@ -1,5 +1,5 @@
 //go:build wireinject
-//+build wireinject
+// +build wireinject
 
 /*
  * Copyright (c) 2020 Devtron Labs
@@ -20,9 +20,11 @@
 package main
 
 import (
+	"github.com/devtron-labs/kubelink/api/router"
 	"github.com/devtron-labs/kubelink/internal/lock"
 	"github.com/devtron-labs/kubelink/internal/logger"
 	"github.com/devtron-labs/kubelink/pkg/service"
+	"github.com/devtron-labs/kubelink/pprof"
 	"github.com/google/wire"
 )
 
@@ -36,6 +38,11 @@ func InitializeApp() (*App, error) {
 		service.NewHelmAppServiceImpl,
 		wire.Bind(new(service.HelmAppService), new(*service.HelmAppServiceImpl)),
 		service.NewApplicationServiceServerImpl,
+		router.NewRouter,
+		pprof.NewPProfRestHandler,
+		wire.Bind(new(pprof.PProfRestHandler), new(*pprof.PProfRestHandlerImpl)),
+		pprof.NewPProfRouter,
+		wire.Bind(new(pprof.PProfRouter), new(*pprof.PProfRouterImpl)),
 	)
 	return &App{}, nil
 }
