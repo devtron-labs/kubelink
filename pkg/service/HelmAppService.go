@@ -195,7 +195,9 @@ func (impl *HelmAppServiceImpl) FetchApplicationStatus(req *client.AppDetailRequ
 		impl.logger.Errorw("Error in getting nodes", "err", err, "req", req)
 		return appStatus, err
 	}
-	appStatus = util.BuildAppHealthStatus(nodes)
+	//getting app status on basis of healthy/non-healthy as this api is used for deployment status
+	//in orchestrator and not for app status
+	appStatus = util.GetAppStatusOnBasisOfHealthyNonHealthy(nodes)
 	return appStatus, nil
 }
 
