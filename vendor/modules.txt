@@ -58,7 +58,7 @@ github.com/chai2010/gettext-go
 github.com/chai2010/gettext-go/mo
 github.com/chai2010/gettext-go/plural
 github.com/chai2010/gettext-go/po
-# github.com/containerd/containerd v1.6.6
+# github.com/containerd/containerd v1.6.18
 ## explicit; go 1.17
 github.com/containerd/containerd/archive/compression
 github.com/containerd/containerd/content
@@ -153,9 +153,6 @@ github.com/fatih/camelcase
 # github.com/fatih/color v1.13.0
 ## explicit; go 1.13
 github.com/fatih/color
-# github.com/felixge/httpsnoop v1.0.1
-## explicit; go 1.13
-github.com/felixge/httpsnoop
 # github.com/fvbommel/sortorder v1.0.1
 ## explicit; go 1.13
 github.com/fvbommel/sortorder
@@ -229,9 +226,6 @@ github.com/google/uuid
 # github.com/google/wire v0.5.0
 ## explicit; go 1.12
 github.com/google/wire
-# github.com/gorilla/handlers v1.5.1
-## explicit; go 1.14
-github.com/gorilla/handlers
 # github.com/gorilla/mux v1.8.0
 ## explicit; go 1.12
 github.com/gorilla/mux
@@ -301,7 +295,7 @@ github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.9
 ## explicit; go 1.9
 github.com/mattn/go-runewidth
-# github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
+# github.com/matttproud/golang_protobuf_extensions v1.0.4
 ## explicit; go 1.9
 github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/mitchellh/copystructure v1.2.0
@@ -421,6 +415,8 @@ go.starlark.net/syntax
 # go.uber.org/atomic v1.7.0
 ## explicit; go 1.13
 go.uber.org/atomic
+# go.uber.org/goleak v1.1.12
+## explicit; go 1.13
 # go.uber.org/multierr v1.6.0
 ## explicit; go 1.12
 go.uber.org/multierr
