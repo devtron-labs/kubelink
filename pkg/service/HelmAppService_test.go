@@ -226,14 +226,6 @@ WARNING: You did not provide a custom web application. Apache will be deployed w
 			got, err := impl.GetNotes(tt.args.ctx, tt.args.installReleaseRequest)
 			if (err != nil) == tt.wantErr {
 				t.Errorf("GetNotes() error = %v, wantErr %v", err, tt.wantErr)
-				//if err.Error() != tt.want {
-				//	//println("hello found error " + err.Error())
-				//	t.Errorf("GetNotes() got = %v, want %v", got, tt.want)
-				//} else {
-				//	//return true
-				//
-				//}
-				//println("hello found error " + err.Error())
 				return
 
 			} else {
@@ -246,59 +238,64 @@ WARNING: You did not provide a custom web application. Apache will be deployed w
 	}
 }
 
-//func TestHelmAppServiceImpl_GetNotes1(t *testing.T) {
-//	type fields struct {
-//		logger     *zap.SugaredLogger
-//		k8sService K8sService
-//		randSource rand.Source
-//	}
-//	type args struct {
-//		ctx                   context.Context
-//		installReleaseRequest *client.InstallReleaseRequest
-//	}
-//	tests := []struct {
-//		name    string
-//		fields  fields
-//		args    args
-//		want    string
-//		wantErr bool
-//	}{
-//		// TODO: Add test cases.
-//	}
-//	for _, tt := range tests {
-//		t.Run(tt.name, func(t *testing.T) {
-//			impl := HelmAppServiceImpl{
-//				logger:     tt.fields.logger,
-//				k8sService: tt.fields.k8sService,
-//				randSource: tt.fields.randSource,
-//			}
-//			got, err := impl.GetNotes(tt.args.ctx, tt.args.installReleaseRequest)
-//			if (err != nil) != tt.wantErr {
-//				t.Errorf("GetNotes() error = %v, wantErr %v", err, tt.wantErr)
-//				return
-//			}
-//			if got != tt.want {
-//				t.Errorf("GetNotes() got = %v, want %v", got, tt.want)
-//			}
-//		})
-//	}
-//}
+func TestHelmAppServiceImpl_GetNotes1(t *testing.T) {
+	type fields struct {
+		logger     *zap.SugaredLogger
+		k8sService K8sService
+		randSource rand.Source
+	}
+	type args struct {
+		ctx                   context.Context
+		installReleaseRequest *client.InstallReleaseRequest
+	}
+	logger := logger.NewSugaredLogger()
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    string
+		wantErr bool
+	}{
 
-//{name: "Test4", fields: fields{logger,
-//	NewK8sServiceImpl(logger),
-//	rand.NewSource(1)}, args: struct{ installReleaseRequest *client.InstallReleaseRequest }{installReleaseRequest: &client.InstallReleaseRequest{
-//	ChartName:    "apachedemo",
-//	ChartVersion: "9.2.15",
-//	ValuesYaml:   "",
-//	ChartRepository: &client.ChartRepository{
-//		Name:     "my-repo",
-//		Url:      "https://charts.bitnami.com/bitnami",
-//		Username: "CGFHGGJHB",
-//		Password: "HGHGJGJHBJ",
-//	},
-//	ReleaseIdentifier: &client.ReleaseIdentifier{
-//		ReleaseName:      "apache",
-//		ReleaseNamespace: "default",
-//		ClusterConfig:    &client.ClusterConfig{ClusterName: "", Token: ""},
-//	},
-//}}, want: "chart \"apachedemo\" matching 9.2.15 not found in my-repo index. (try 'helm repo update'): no chart name found", wantErr: true},
+		{name: "Test4", fields: fields{logger,
+			NewK8sServiceImpl(logger),
+			rand.NewSource(1)}, args: args{context.Background(), &client.InstallReleaseRequest{
+			ChartName:    "apachedemo",
+			ChartVersion: "9.2.15",
+			ValuesYaml:   "",
+			ChartRepository: &client.ChartRepository{
+				Name:     "my-repo",
+				Url:      "https://charts.bitnami.com/bitnami",
+				Username: "CGFHGGJHB",
+				Password: "HGHGJGJHBJ",
+			},
+			ReleaseIdentifier: &client.ReleaseIdentifier{
+				ReleaseName:      "apache",
+				ReleaseNamespace: "default",
+				ClusterConfig:    &client.ClusterConfig{ClusterName: "", Token: ""},
+			},
+		}}, want: "chart \"apachedemo\" matching 9.2.15 not found in my-repo index. (try 'helm repo update'): no chart name found", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			impl := HelmAppServiceImpl{
+				logger:     tt.fields.logger,
+				k8sService: tt.fields.k8sService,
+				randSource: tt.fields.randSource,
+			}
+			got, err := impl.GetNotes(tt.args.ctx, tt.args.installReleaseRequest)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetNotes() error = %v, wantErr %v", err, tt.wantErr)
+				return
+
+			} else {
+				if err.Error() != tt.want {
+					t.Errorf("GetNotes() got = %v, want %v", got, tt.want)
+				}
+			}
+
+		})
+	}
+}
