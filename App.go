@@ -11,7 +11,6 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"log"
 	"net"
-	"net/http"
 	"time"
 )
 
@@ -56,10 +55,5 @@ func (app *App) Start() {
 	if err != nil {
 		app.Logger.Fatalw("failed to listen: %v", "err", err)
 	}
-	server := &http.Server{Addr: fmt.Sprintf(":%d", port), Handler: app.router.Router}
 
-	err = server.ListenAndServe()
-	if err != nil {
-		app.Logger.Fatalw("failed to listen: %v", "err", err)
-	}
 }
