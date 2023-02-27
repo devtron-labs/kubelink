@@ -40,7 +40,7 @@ import (
 const (
 	hibernateReplicaAnnotation = "hibernator.devtron.ai/replicas"
 	hibernatePatch             = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
-	chartWorkingDirectory      = "/devtroncd/charts/"
+	chartWorkingDirectory      = "/home/devtron/devtroncd/charts/"
 )
 
 type HelmAppService interface {
