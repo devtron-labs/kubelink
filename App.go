@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"log"
 	"net"
+	"net/http"
 	"time"
 )
 
@@ -33,6 +34,8 @@ func (app *App) Start() {
 
 	port := 50051 //TODO: extract from environment variable
 
+	httpPort := 9092
+
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Panic(err)
@@ -49,6 +52,15 @@ func (app *App) Start() {
 	grpcServer := grpc.NewServer(opts...)
 
 	client.RegisterApplicationServiceServer(grpcServer, app.ServerImpl)
+	grpc_prometheus.EnableHandlingTimeHistogram()
+	grpc_prometheus.Register(grpcServer)
+	go func() {
+		server := &http.Server{Addr: fmt.Sprintf(":%d", httpPort), Handler: app.router.Router}
+		err := server.ListenAndServe()
+		if err != nil {
+			log.Fatal("error in starting http server", err)
+		}
+	}()
 	app.Logger.Infow("starting server on ", "port", port)
 
 	err = grpcServer.Serve(listener)
