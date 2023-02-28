@@ -3,6 +3,7 @@ package router
 import (
 	"github.com/devtron-labs/kubelink/pprof"
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -22,6 +23,7 @@ func NewRouter(logger *zap.SugaredLogger,
 }
 
 func (r *RouterImpl) InitRouter() {
-	pProfListenerRouter := r.Router.PathPrefix("/kubelink/debug/pprof").Subrouter()
+	pProfListenerRouter := r.Router.PathPrefix("/kubelink/debug/pprof/").Subrouter()
 	r.pprofRouter.InitPProfRouter(pProfListenerRouter)
+	r.Router.PathPrefix("/kubelink/metrics").Handler(promhttp.Handler())
 }
