@@ -23,7 +23,7 @@ func NewRouter(logger *zap.SugaredLogger,
 }
 
 func (r *RouterImpl) InitRouter() {
-	pProfListenerRouter := r.Router.PathPrefix("/kubelink/debug/pprof").Subrouter()
+	pProfListenerRouter := r.Router.PathPrefix("/kubelink/debug/pprof/").Subrouter()
 	r.pprofRouter.InitPProfRouter(pProfListenerRouter)
-	r.Router.PathPrefix("/metrics").Handler(promhttp.Handler())
+	r.Router.PathPrefix("/kubelink/metrics").Handler(promhttp.Handler())
 }
