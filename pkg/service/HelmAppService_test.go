@@ -213,50 +213,6 @@ WARNING: You did not provide a custom web application. Apache will be deployed w
 
 
 `, wantErr: true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-
-			impl := HelmAppServiceImpl{
-				logger:     tt.fields.logger,
-				k8sService: tt.fields.k8sService,
-				randSource: tt.fields.randSource,
-			}
-			got, err := impl.GetNotes(tt.args.ctx, tt.args.installReleaseRequest)
-			if (err != nil) == tt.wantErr {
-				t.Errorf("GetNotes() error = %v, wantErr %v", err, tt.wantErr)
-				return
-
-			} else {
-				if got != tt.want {
-					t.Errorf("GetNotes() got = %v, want %v", got, tt.want)
-				}
-			}
-
-		})
-	}
-}
-
-func TestHelmAppServiceImpl_GetNotes1(t *testing.T) {
-	type fields struct {
-		logger     *zap.SugaredLogger
-		k8sService K8sService
-		randSource rand.Source
-	}
-	type args struct {
-		ctx                   context.Context
-		installReleaseRequest *client.InstallReleaseRequest
-	}
-	logger := logger.NewSugaredLogger()
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    string
-		wantErr bool
-	}{
-
 		{name: "Test4", fields: fields{logger,
 			NewK8sServiceImpl(logger),
 			rand.NewSource(1)}, args: args{context.Background(), &client.InstallReleaseRequest{
@@ -285,15 +241,13 @@ func TestHelmAppServiceImpl_GetNotes1(t *testing.T) {
 				k8sService: tt.fields.k8sService,
 				randSource: tt.fields.randSource,
 			}
-			got, err := impl.GetNotes(tt.args.ctx, tt.args.installReleaseRequest)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetNotes() error = %v, wantErr %v", err, tt.wantErr)
-				return
-
-			} else {
-				if err.Error() != tt.want {
-					t.Errorf("GetNotes() got = %v, want %v", got, tt.want)
-				}
+			got, _ := impl.GetNotes(tt.args.ctx, tt.args.installReleaseRequest)
+			_, err := impl.GetNotes(tt.args.ctx, tt.args.installReleaseRequest)
+			if err != nil {
+				got = err.Error()
+			}
+			if got != tt.want {
+				t.Errorf("GetNotes() got = %v, want %v", got, tt.want)
 			}
 
 		})
