@@ -241,8 +241,7 @@ WARNING: You did not provide a custom web application. Apache will be deployed w
 				k8sService: tt.fields.k8sService,
 				randSource: tt.fields.randSource,
 			}
-			got, _ := impl.GetNotes(tt.args.ctx, tt.args.installReleaseRequest)
-			_, err := impl.GetNotes(tt.args.ctx, tt.args.installReleaseRequest)
+			got, err := impl.GetNotes(tt.args.ctx, tt.args.installReleaseRequest)
 			if err != nil {
 				got = err.Error()
 			}
