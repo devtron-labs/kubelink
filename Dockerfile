@@ -14,4 +14,9 @@ RUN apt install ca-certificates -y
 RUN apt clean autoclean
 RUN apt autoremove -y && rm -rf /var/lib/apt/lists/*
 COPY --from=build-env  /go/src/github.com/devtron-labs/kubelink/kubelink .
+
+RUN useradd -ms /bin/bash devtron
+RUN chown -R devtron:devtron ./kubelink
+USER devtron
+
 CMD ["./kubelink"]
