@@ -130,11 +130,12 @@ const (
 )
 
 type PodMetadata struct {
-	Name           string   `json:"name"`
-	UID            string   `json:"uid"`
-	Containers     []string `json:"containers"`
-	InitContainers []string `json:"initContainers"`
-	IsNew          bool     `json:"isNew"`
+	Name                string   `json:"name"`
+	UID                 string   `json:"uid"`
+	Containers          []string `json:"containers"`
+	InitContainers      []string `json:"initContainers"`
+	EphemeralContainers []string `json:"ephemeralContainers"`
+	IsNew               bool     `json:"isNew"`
 }
 
 type HelmReleaseDetailRequest struct {
