@@ -1113,9 +1113,10 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 			}
 		}
 
-		// set containers and initContainers names
+		// set containers,initContainers and ephemeral container names
 		var containerNames []string
 		var initContainerNames []string
+		var ephemeralContainers []string
 		for _, container := range pod.Spec.Containers {
 			containerNames = append(containerNames, container.Name)
 		}
@@ -1123,12 +1124,17 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 			initContainerNames = append(initContainerNames, initContainer.Name)
 		}
 
+		for _, ephemeralContainer := range pod.Spec.EphemeralContainers {
+			ephemeralContainers = append(ephemeralContainers, ephemeralContainer.Name)
+		}
+
 		podMetadata := &bean.PodMetadata{
-			Name:           node.Name,
-			UID:            node.UID,
-			Containers:     containerNames,
-			InitContainers: initContainerNames,
-			IsNew:          isNew,
+			Name:                node.Name,
+			UID:                 node.UID,
+			Containers:          containerNames,
+			InitContainers:      initContainerNames,
+			EphemeralContainers: ephemeralContainers,
+			IsNew:               isNew,
 		}
 
 		podsMetadata = append(podsMetadata, podMetadata)
