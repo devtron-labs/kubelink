@@ -60,6 +60,7 @@ type HelmAppService interface {
 	RollbackRelease(request *client.RollbackReleaseRequest) (bool, error)
 	TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error)
 	InstallReleaseWithCustomChart(req *client.HelmInstallCustomRequest) (bool, error)
+	GetNotes(ctx context.Context, installReleaseRequest *client.InstallReleaseRequest) (string, error)
 }
 
 type HelmAppServiceImpl struct {
@@ -488,7 +489,6 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 	return installReleaseResponse, nil
 
 }
-
 func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequest, dryRun bool) (*release.Release, error) {
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
@@ -538,6 +538,21 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 	}
 	// Install release ends
 	return rel, nil
+}
+
+// 1. run this method using main
+// 2. write unit test case
+// 3. expose this method over grpc
+// 4. write rest handler, router, and servie in orchestrator
+// 5 .invoke this method using grpc
+func (impl HelmAppServiceImpl) GetNotes(ctx context.Context, installReleaseRequest *client.InstallReleaseRequest) (string, error) {
+
+	release, err := impl.installRelease(installReleaseRequest, true)
+	if err != nil {
+		impl.logger.Errorw("Error in fetching Notes ", "err", err)
+		return "", err
+	}
+	return release.Info.Notes, nil
 }
 
 func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, request *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error) {
