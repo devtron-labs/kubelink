@@ -650,19 +650,35 @@ func (impl HelmAppServiceImpl) RollbackRelease(request *client.RollbackReleaseRe
 	return true, nil
 }
 
-// TemplateChart returns a rendered version of the provided ChartSpec 'spec' by performing a "dry-run" install.
+//TemplateChart returns a rendered version of the provided ChartSpec 'spec' by performing a "dry-run" install.
+
+//func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error) {
+//	// Install release starts with dry-run
+//	rel, err := impl.installRelease(request, true)
+//	if err != nil {
+//		return "", err
+//	}
+//	// Install release ends with dry-run
+//
+//	if rel == nil {
+//		return "", errors.New("release is found nil")
+//	}
+//	return rel.Manifest, nil
+//}
+
 func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error) {
-	// Install release starts with dry-run
-	rel, err := impl.installRelease(request, true)
+	//cmd := exec.Command("helm", "template", "dt-secrets-test", "-n", "devtroncd", "devtron/dt-secrets")
+	//output, err := cmd.Output()
+
+	//if cmd == nil {
+	//	return "", errors.New("release is found nil")
+	//}
+	//Manifest := string(output)
+	releaseObject, err := getHelmRelease(request.ReleaseIdentifier.ClusterConfig, request.ReleaseIdentifier.ReleaseNamespace, request.ReleaseIdentifier.ReleaseName)
 	if err != nil {
 		return "", err
 	}
-	// Install release ends with dry-run
-
-	if rel == nil {
-		return "", errors.New("release is found nil")
-	}
-	return rel.Manifest, nil
+	return releaseObject.Manifest, nil
 }
 
 func getHelmRelease(clusterConfig *client.ClusterConfig, namespace string, releaseName string) (*release.Release, error) {
