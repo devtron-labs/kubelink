@@ -32,6 +32,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -667,18 +668,25 @@ func (impl HelmAppServiceImpl) RollbackRelease(request *client.RollbackReleaseRe
 //}
 
 func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error) {
-	//cmd := exec.Command("helm", "template", "dt-secrets-test", "-n", "devtroncd", "devtron/dt-secrets")
-	//output, err := cmd.Output()
+	releaseName := request.ReleaseIdentifier.ReleaseName
+	releaseNamespace := request.ReleaseIdentifier.ReleaseNamespace
 
-	//if cmd == nil {
-	//	return "", errors.New("release is found nil")
-	//}
-	//Manifest := string(output)
-	releaseObject, err := getHelmRelease(request.ReleaseIdentifier.ClusterConfig, request.ReleaseIdentifier.ReleaseNamespace, request.ReleaseIdentifier.ReleaseName)
+	cmd := exec.Command("helm", "template", releaseName, "-n", releaseNamespace, "devtron/dt-secrets")
+	output, err := cmd.Output()
 	if err != nil {
 		return "", err
 	}
-	return releaseObject.Manifest, nil
+
+	if cmd == nil {
+		return "", errors.New("release is found nil")
+	}
+	manifest := string(output)
+	//releaseObject, err := getHelmRelease(request.ReleaseIdentifier.ClusterConfig, request.ReleaseIdentifier.ReleaseNamespace, request.ReleaseIdentifier.ReleaseName)
+	//if err != nil {
+	//	return "", err
+	//}
+	//return releaseObject.Manifest, nil
+	return manifest, nil
 }
 
 func getHelmRelease(clusterConfig *client.ClusterConfig, namespace string, releaseName string) (*release.Release, error) {
