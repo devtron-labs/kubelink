@@ -32,7 +32,6 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -668,48 +667,25 @@ func (impl HelmAppServiceImpl) RollbackRelease(request *client.RollbackReleaseRe
 //}
 
 func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error) {
-	releaseName := request.ReleaseIdentifier.ReleaseName
-	releaseNamespace := request.ReleaseIdentifier.ReleaseNamespace
-	chartName := request.ChartName
-	chartVersion := request.ChartVersion
-	cmd := exec.Command("helm", "pull", chartName, "--version", chartVersion)
-	err := cmd.Run()
-	if err != nil {
-		return "", err
+	releaseIdentifier := request.ReleaseIdentifier
+	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
+	chartSpec := &helmClient.ChartSpec{
+		ReleaseName:   releaseIdentifier.ReleaseName,
+		Namespace:     releaseIdentifier.ReleaseNamespace,
+		ChartName:     request.ChartName,
+		CleanupOnFail: true, // allow deletion of new resources created in this rollback when rollback fails
+		MaxHistory:    0,    // limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
 	}
-	//, chartPathOptions *action.ChartPathOptions
-	//chartPath, err := chartPathOptions.LocateChart(chartName, c.Settings)
-	//chartArchivePath := fmt.Sprintf("%s-%s.tgz", chartName, chartVersion)
-	//I have to use chart path from install
-	// RunWithContext in install.go for helm template
-	//action.go 105
-	chartDirectory, err := os.MkdirTemp("", "chart-")
-	if err != nil {
-		return "", err
-	}
-	cmd = exec.Command("helm", "fetch", chartName, "--version", chartVersion, "--untar", "--untardir", chartDirectory)
-	err = cmd.Run()
-	if err != nil {
+	HelmTemplateOptions := &helmClient.HelmTemplateOptions{}
 
-		return "", err
-	}
-	chartPath := chartDirectory
-	cmd = exec.Command("helm", "template", releaseName, "-n", releaseNamespace, chartPath)
-	output, err := cmd.Output()
+	rel, err := helmClientObj.TemplateChart(chartSpec, HelmTemplateOptions)
 	if err != nil {
 		return "", err
 	}
-
-	if cmd == nil {
+	if rel == nil {
 		return "", errors.New("release is found nil")
 	}
-	manifest := string(output)
-	//releaseObject, err := getHelmRelease(request.ReleaseIdentifier.ClusterConfig, request.ReleaseIdentifier.ReleaseNamespace, request.ReleaseIdentifier.ReleaseName)
-	//if err != nil {
-	//	return "", err
-	//}
-	//return releaseObject.Manifest, nil
-	return manifest, nil
+	return string(rel), nil
 }
 
 func getHelmRelease(clusterConfig *client.ClusterConfig, namespace string, releaseName string) (*release.Release, error) {

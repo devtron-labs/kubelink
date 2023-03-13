@@ -1,6 +1,7 @@
 package helmClient
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"log"
 	"os"
 	"sigs.k8s.io/yaml"
+	"strings"
 )
 
 var storage = repo.File{}
@@ -484,4 +486,126 @@ func copyRollbackOptions(chartSpec *ChartSpec, rollbackOptions *action.Rollback)
 	rollbackOptions.MaxHistory = chartSpec.MaxHistory
 	rollbackOptions.Recreate = chartSpec.Recreate
 	rollbackOptions.Wait = chartSpec.Wait
+}
+func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions) ([]byte, error) {
+	client := action.NewInstall(c.ActionConfig)
+	mergeInstallOptions(spec, client)
+
+	client.DryRun = true
+	client.ReleaseName = spec.ReleaseName
+	client.Replace = true // Skip the name check
+	client.ClientOnly = true
+	client.IncludeCRDs = true
+
+	if options != nil {
+		client.KubeVersion = options.KubeVersion
+		client.APIVersions = options.APIVersions
+	}
+
+	// NameAndChart returns either the TemplateName if set,
+	// the ReleaseName if set or the generatedName as the first return value.
+	releaseName, _, err := client.NameAndChart([]string{spec.ChartName})
+	if err != nil {
+		return nil, err
+	}
+	client.ReleaseName = releaseName
+
+	if client.Version == "" {
+		client.Version = ">0.0.0-0"
+	}
+	ChartPathOptions := action.ChartPathOptions{
+		RepoURL: "https://charts.bitnami.com/bitnami",
+	}
+	client.ChartPathOptions = ChartPathOptions
+	helmChart, chartPath, err := c.getChart(spec.ChartName, &client.ChartPathOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	if helmChart.Metadata.Type != "" && helmChart.Metadata.Type != "application" {
+		return nil, fmt.Errorf(
+			"chart %q has an unsupported type and is not installable: %q",
+			helmChart.Metadata.Name,
+			helmChart.Metadata.Type,
+		)
+	}
+	helmChart, err = updateDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
+	if err != nil {
+		return nil, err
+	}
+
+	values, err := getValuesMap(spec)
+	if err != nil {
+		return nil, err
+	}
+
+	out := new(bytes.Buffer)
+	rel, err := client.Run(helmChart, values)
+
+	// We ignore a potential error here because, when the --debug flag was specified,
+	// we always want to print the YAML, even if it is not valid. The error is still returned afterwards.
+	if rel != nil {
+		var manifests bytes.Buffer
+		fmt.Fprintln(&manifests, strings.TrimSpace(rel.Manifest))
+		if !client.DisableHooks {
+			for _, m := range rel.Hooks {
+				fmt.Fprintf(&manifests, "---\n# Source: %s\n%s\n", m.Path, m.Manifest)
+			}
+		}
+
+		// if we have a list of files to render, then check that each of the
+		// provided files exists in the chart.
+		fmt.Fprintf(out, "%s", manifests.String())
+	}
+
+	return out.Bytes(), err
+}
+func mergeInstallOptions(chartSpec *ChartSpec, installOptions *action.Install) {
+	installOptions.CreateNamespace = chartSpec.CreateNamespace
+	installOptions.DisableHooks = chartSpec.DisableHooks
+	installOptions.Replace = chartSpec.Replace
+	installOptions.Wait = chartSpec.Wait
+	installOptions.DependencyUpdate = chartSpec.DependencyUpdate
+	installOptions.Timeout = chartSpec.Timeout
+	installOptions.Namespace = chartSpec.Namespace
+	installOptions.ReleaseName = chartSpec.ReleaseName
+	installOptions.Version = chartSpec.Version
+	installOptions.GenerateName = chartSpec.GenerateName
+	installOptions.NameTemplate = chartSpec.NameTemplate
+	installOptions.Atomic = chartSpec.Atomic
+	installOptions.SkipCRDs = chartSpec.SkipCRDs
+	installOptions.DryRun = chartSpec.DryRun
+	installOptions.SubNotes = chartSpec.SubNotes
+	installOptions.WaitForJobs = chartSpec.WaitForJobs
+}
+
+// updateDependencies checks dependencies for given helmChart and updates dependencies with metadata if dependencyUpdate is true. returns updated HelmChart
+func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPathOptions, chartPath string, c *HelmClient, dependencyUpdate bool, spec *ChartSpec) (*chart.Chart, error) {
+	if req := helmChart.Metadata.Dependencies; req != nil {
+		if err := action.CheckDependencies(helmChart, req); err != nil {
+			if dependencyUpdate {
+				man := &downloader.Manager{
+					ChartPath:        chartPath,
+					Keyring:          chartPathOptions.Keyring,
+					SkipUpdate:       false,
+					Getters:          c.Providers,
+					RepositoryConfig: c.Settings.RepositoryConfig,
+					RepositoryCache:  c.Settings.RepositoryCache,
+					Out:              c.output,
+				}
+				if err := man.Update(); err != nil {
+					return nil, err
+				}
+
+				helmChart, _, err = c.getChart(spec.ChartName, chartPathOptions)
+				if err != nil {
+					return nil, err
+				}
+
+			} else {
+				return nil, err
+			}
+		}
+	}
+	return helmChart, nil
 }
