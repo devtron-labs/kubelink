@@ -650,22 +650,6 @@ func (impl HelmAppServiceImpl) RollbackRelease(request *client.RollbackReleaseRe
 	return true, nil
 }
 
-//TemplateChart returns a rendered version of the provided ChartSpec 'spec' by performing a "dry-run" install.
-
-//func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error) {
-//	// Install release starts with dry-run
-//	rel, err := impl.installRelease(request, true)
-//	if err != nil {
-//		return "", err
-//	}
-//	// Install release ends with dry-run
-//
-//	if rel == nil {
-//		return "", errors.New("release is found nil")
-//	}
-//	return rel.Manifest, nil
-//}
-
 func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error) {
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
