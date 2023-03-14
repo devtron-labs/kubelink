@@ -123,7 +123,8 @@ type ChartSpec struct {
 	// WaitForJobs indicates whether to wait for completion of release Jobs before marking the release as successful.
 	// 'Wait' has to be specified for this to take effect.
 	// The timeout may be specified via the 'Timeout' field.
-	WaitForJobs bool `json:"waitForJobs,omitempty"`
+	WaitForJobs bool   `json:"waitForJobs,omitempty"`
+	RepoURL     string `json:"repoURL,omitempty"`
 }
 type HelmTemplateOptions struct {
 	KubeVersion *chartutil.KubeVersion

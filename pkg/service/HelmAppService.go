@@ -675,6 +675,7 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 		ChartName:     request.ChartName,
 		CleanupOnFail: true, // allow deletion of new resources created in this rollback when rollback fails
 		MaxHistory:    0,    // limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
+		RepoURL:       request.ChartRepository.Url,
 	}
 	HelmTemplateOptions := &helmClient.HelmTemplateOptions{}
 

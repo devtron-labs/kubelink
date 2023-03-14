@@ -514,7 +514,7 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 		client.Version = ">0.0.0-0"
 	}
 	ChartPathOptions := action.ChartPathOptions{
-		RepoURL: "https://charts.bitnami.com/bitnami",
+		RepoURL: spec.RepoURL,
 	}
 	client.ChartPathOptions = ChartPathOptions
 	helmChart, chartPath, err := c.getChart(spec.ChartName, &client.ChartPathOptions)
