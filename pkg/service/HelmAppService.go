@@ -665,6 +665,7 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 
 	rel, err := helmClientObj.TemplateChart(chartSpec, HelmTemplateOptions)
 	if err != nil {
+		impl.logger.Errorw("error occured while generating manifest in helm app service", "err:", err)
 		return "", err
 	}
 	if rel == nil {

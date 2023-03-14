@@ -17,7 +17,6 @@ import (
 	"log"
 	"os"
 	"sigs.k8s.io/yaml"
-	"strings"
 )
 
 var storage = repo.File{}
@@ -541,22 +540,26 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 
 	out := new(bytes.Buffer)
 	rel, err := client.Run(helmChart, values)
+	if err != nil {
+		return nil, err
+	}
 
 	// We ignore a potential error here because, when the --debug flag was specified,
 	// we always want to print the YAML, even if it is not valid. The error is still returned afterwards.
-	if rel != nil {
-		var manifests bytes.Buffer
-		fmt.Fprintln(&manifests, strings.TrimSpace(rel.Manifest))
-		if !client.DisableHooks {
-			for _, m := range rel.Hooks {
-				fmt.Fprintf(&manifests, "---\n# Source: %s\n%s\n", m.Path, m.Manifest)
-			}
-		}
-
-		// if we have a list of files to render, then check that each of the
-		// provided files exists in the chart.
-		fmt.Fprintf(out, "%s", manifests.String())
-	}
+	//if rel != nil {
+	//	var manifests bytes.Buffer
+	//	fmt.Fprintln(&manifests, strings.TrimSpace(rel.Manifest))
+	//	if !client.DisableHooks {
+	//		for _, m := range rel.Hooks {
+	//			fmt.Fprintf(&manifests, "---\n# Source: %s\n%s\n", m.Path, m.Manifest)
+	//		}
+	//	}
+	//
+	//	// if we have a list of files to render, then check that each of the
+	//	// provided files exists in the chart.
+	//	fmt.Fprintf(out, "%s", manifests.String())
+	//}
+	fmt.Fprintf(out, "%s", rel.Manifest)
 
 	return out.Bytes(), err
 }
