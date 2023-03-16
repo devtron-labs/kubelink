@@ -518,6 +518,10 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 	client.ChartPathOptions = ChartPathOptions
 	helmChart, chartPath, err := c.getChart(spec.ChartName, &client.ChartPathOptions)
 	if err != nil {
+		fmt.Errorf("error in getting helm chart and chart path for chart %q and repo Url %q",
+			spec.ChartName,
+			spec.RepoURL,
+		)
 		return nil, err
 	}
 
@@ -530,6 +534,9 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 	}
 	helmChart, err = updateDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
 	if err != nil {
+		fmt.Errorf("error in updating dependencies for helm chart %q",
+			spec.ChartName,
+		)
 		return nil, err
 	}
 
@@ -541,6 +548,10 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 	out := new(bytes.Buffer)
 	rel, err := client.Run(helmChart, values)
 	if err != nil {
+		fmt.Errorf("error in fetching release for helm chart %q and repo Url %q",
+			spec.ChartName,
+			spec.RepoURL,
+		)
 		return nil, err
 	}
 
