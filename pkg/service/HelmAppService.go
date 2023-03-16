@@ -650,19 +650,28 @@ func (impl HelmAppServiceImpl) RollbackRelease(request *client.RollbackReleaseRe
 	return true, nil
 }
 
-// TemplateChart returns a rendered version of the provided ChartSpec 'spec' by performing a "dry-run" install.
 func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error) {
-	// Install release starts with dry-run
-	rel, err := impl.installRelease(request, true)
+	releaseIdentifier := request.ReleaseIdentifier
+	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
+	chartSpec := &helmClient.ChartSpec{
+		ReleaseName:   releaseIdentifier.ReleaseName,
+		Namespace:     releaseIdentifier.ReleaseNamespace,
+		ChartName:     request.ChartName,
+		CleanupOnFail: true, // allow deletion of new resources created in this rollback when rollback fails
+		MaxHistory:    0,    // limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
+		RepoURL:       request.ChartRepository.Url,
+	}
+	HelmTemplateOptions := &helmClient.HelmTemplateOptions{}
+
+	rel, err := helmClientObj.TemplateChart(chartSpec, HelmTemplateOptions)
 	if err != nil {
+		impl.logger.Errorw("error occured while generating manifest in helm app service", "err:", err)
 		return "", err
 	}
-	// Install release ends with dry-run
-
 	if rel == nil {
 		return "", errors.New("release is found nil")
 	}
-	return rel.Manifest, nil
+	return string(rel), nil
 }
 
 func getHelmRelease(clusterConfig *client.ClusterConfig, namespace string, releaseName string) (*release.Release, error) {
