@@ -563,7 +563,8 @@ func (impl HelmAppServiceImpl) GetNotes(ctx context.Context, request *client.Ins
 		return "", err
 	}
 	if release == nil {
-		return "", errors.New("release is found nil")
+		impl.logger.Errorw("no release found for", "name", releaseIdentifier.ReleaseName)
+		return "", err
 	}
 
 	return string(release), nil

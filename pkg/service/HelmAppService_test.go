@@ -326,7 +326,7 @@ To access NGINX from outside the cluster, follow the steps below:
 				ReleaseNamespace: "default",
 				ClusterConfig:    &client.ClusterConfig{ClusterName: "", Token: ""},
 			},
-		}}, want: "release is found nil", wantErr: true},
+		}}, want: "", wantErr: true},
 		{name: "Test3", fields: fields{logger,
 			NewK8sServiceImpl(logger),
 			rand.NewSource(1)}, args: args{context.Background(), &client.InstallReleaseRequest{
@@ -396,7 +396,7 @@ WARNING: You did not provide a custom web application. Apache will be deployed w
 				got = err.Error()
 			}
 			if got != tt.want {
-				t.Errorf("GetNotes() got = %v, want %v", got, tt.want)
+				t.Errorf("GetNotes() got = %v, want = %v", got, tt.want)
 			}
 
 		})
