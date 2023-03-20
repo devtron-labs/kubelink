@@ -486,6 +486,79 @@ func copyRollbackOptions(chartSpec *ChartSpec, rollbackOptions *action.Rollback)
 	rollbackOptions.Recreate = chartSpec.Recreate
 	rollbackOptions.Wait = chartSpec.Wait
 }
+func (c *HelmClient) GetNotes(spec *ChartSpec, options *HelmTemplateOptions) ([]byte, error) {
+	client := action.NewInstall(c.ActionConfig)
+	mergeInstallOptions(spec, client)
+
+	client.DryRun = true
+	client.ReleaseName = spec.ReleaseName
+	client.Replace = true // Skip the name check
+	client.ClientOnly = true
+	client.IncludeCRDs = true
+
+	if options != nil {
+		client.KubeVersion = options.KubeVersion
+		client.APIVersions = options.APIVersions
+	}
+
+	// NameAndChart returns either the TemplateName if set,
+	// the ReleaseName if set or the generatedName as the first return value.
+	releaseName, _, err := client.NameAndChart([]string{spec.ChartName})
+	if err != nil {
+		return nil, err
+	}
+	client.ReleaseName = releaseName
+
+	if client.Version == "" {
+		client.Version = ">0.0.0-0"
+	}
+	ChartPathOptions := action.ChartPathOptions{
+		RepoURL: spec.RepoURL,
+	}
+	client.ChartPathOptions = ChartPathOptions
+	helmChart, chartPath, err := c.getChart(spec.ChartName, &client.ChartPathOptions)
+	if err != nil {
+		fmt.Errorf("error in getting helm chart and chart path for chart %q and repo Url %q",
+			spec.ChartName,
+			spec.RepoURL,
+		)
+		return nil, err
+	}
+
+	if helmChart.Metadata.Type != "" && helmChart.Metadata.Type != "application" {
+		return nil, fmt.Errorf(
+			"chart %q has an unsupported type and is not installable: %q",
+			helmChart.Metadata.Name,
+			helmChart.Metadata.Type,
+		)
+	}
+	helmChart, err = updateDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
+	if err != nil {
+		fmt.Errorf("error in updating dependencies for helm chart %q",
+			spec.ChartName,
+		)
+		return nil, err
+	}
+
+	values, err := getValuesMap(spec)
+	if err != nil {
+		return nil, err
+	}
+
+	out := new(bytes.Buffer)
+	rel, err := client.Run(helmChart, values)
+	if err != nil {
+		fmt.Errorf("error in fetching release for helm chart %q and repo Url %q",
+			spec.ChartName,
+			spec.RepoURL,
+		)
+		return nil, err
+	}
+	fmt.Fprintf(out, "%s", rel.Info.Notes)
+
+	return out.Bytes(), err
+
+}
 func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions) ([]byte, error) {
 	client := action.NewInstall(c.ActionConfig)
 	mergeInstallOptions(spec, client)
