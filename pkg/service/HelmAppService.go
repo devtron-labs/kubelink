@@ -546,8 +546,6 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 // 4. write rest handler, router, and servie in orchestrator
 // 5 .invoke this method using grpc
 func (impl HelmAppServiceImpl) GetNotes(ctx context.Context, request *client.InstallReleaseRequest) (string, error) {
-
-	//release, err := impl.installRelease(installReleaseRequest, true)
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	chartSpec := &helmClient.ChartSpec{
@@ -561,16 +559,13 @@ func (impl HelmAppServiceImpl) GetNotes(ctx context.Context, request *client.Ins
 	HelmTemplateOptions := &helmClient.HelmTemplateOptions{}
 	release, err := helmClientObj.GetNotes(chartSpec, HelmTemplateOptions)
 	if err != nil {
-		impl.logger.Errorw("error occured while generating notes in helm app service", "err:", err)
+		impl.logger.Errorw("Error in fetching Notes ", "err", err)
 		return "", err
 	}
 	if release == nil {
 		return "", errors.New("release is found nil")
 	}
-	if err != nil {
-		impl.logger.Errorw("Error in fetching Notes ", "err", err)
-		return "", err
-	}
+
 	return string(release), nil
 }
 
