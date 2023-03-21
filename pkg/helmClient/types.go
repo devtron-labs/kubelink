@@ -1,7 +1,9 @@
 package helmClient
 
 import (
+	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/getter"
+	"io"
 	"k8s.io/client-go/rest"
 	"time"
 
@@ -9,7 +11,6 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/repo"
 )
-
 
 // RestConfClientOptions defines the options used for constructing a client via REST config
 type RestConfClientOptions struct {
@@ -42,6 +43,7 @@ type HelmClient struct {
 	ActionConfig *action.Configuration
 	linting      bool
 	DebugLog     action.DebugLog
+	output       io.Writer
 }
 
 // ChartSpec defines the values of a helm chart
@@ -118,4 +120,14 @@ type ChartSpec struct {
 	// DryRun indicates whether to perform a dry run.
 	// +optional
 	DryRun bool `json:"dryRun,omitempty"`
+	// WaitForJobs indicates whether to wait for completion of release Jobs before marking the release as successful.
+	// 'Wait' has to be specified for this to take effect.
+	// The timeout may be specified via the 'Timeout' field.
+	WaitForJobs bool   `json:"waitForJobs,omitempty"`
+	RepoURL     string `json:"repoURL,omitempty"`
+}
+type HelmTemplateOptions struct {
+	KubeVersion *chartutil.KubeVersion
+	// APIVersions defined here will be appended to the default list helm provides
+	APIVersions chartutil.VersionSet
 }

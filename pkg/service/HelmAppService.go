@@ -40,7 +40,7 @@ import (
 const (
 	hibernateReplicaAnnotation = "hibernator.devtron.ai/replicas"
 	hibernatePatch             = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
-	chartWorkingDirectory      = "/devtroncd/charts/"
+	chartWorkingDirectory      = "/home/devtron/devtroncd/charts/"
 )
 
 type HelmAppService interface {
@@ -60,6 +60,7 @@ type HelmAppService interface {
 	RollbackRelease(request *client.RollbackReleaseRequest) (bool, error)
 	TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error)
 	InstallReleaseWithCustomChart(req *client.HelmInstallCustomRequest) (bool, error)
+	GetNotes(ctx context.Context, installReleaseRequest *client.InstallReleaseRequest) (string, error)
 }
 
 type HelmAppServiceImpl struct {
@@ -488,7 +489,6 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 	return installReleaseResponse, nil
 
 }
-
 func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequest, dryRun bool) (*release.Release, error) {
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
@@ -538,6 +538,21 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 	}
 	// Install release ends
 	return rel, nil
+}
+
+// 1. run this method using main
+// 2. write unit test case
+// 3. expose this method over grpc
+// 4. write rest handler, router, and servie in orchestrator
+// 5 .invoke this method using grpc
+func (impl HelmAppServiceImpl) GetNotes(ctx context.Context, installReleaseRequest *client.InstallReleaseRequest) (string, error) {
+
+	release, err := impl.installRelease(installReleaseRequest, true)
+	if err != nil {
+		impl.logger.Errorw("Error in fetching Notes ", "err", err)
+		return "", err
+	}
+	return release.Info.Notes, nil
 }
 
 func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, request *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error) {
@@ -635,19 +650,28 @@ func (impl HelmAppServiceImpl) RollbackRelease(request *client.RollbackReleaseRe
 	return true, nil
 }
 
-// TemplateChart returns a rendered version of the provided ChartSpec 'spec' by performing a "dry-run" install.
 func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error) {
-	// Install release starts with dry-run
-	rel, err := impl.installRelease(request, true)
+	releaseIdentifier := request.ReleaseIdentifier
+	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
+	chartSpec := &helmClient.ChartSpec{
+		ReleaseName:   releaseIdentifier.ReleaseName,
+		Namespace:     releaseIdentifier.ReleaseNamespace,
+		ChartName:     request.ChartName,
+		CleanupOnFail: true, // allow deletion of new resources created in this rollback when rollback fails
+		MaxHistory:    0,    // limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
+		RepoURL:       request.ChartRepository.Url,
+	}
+	HelmTemplateOptions := &helmClient.HelmTemplateOptions{}
+
+	rel, err := helmClientObj.TemplateChart(chartSpec, HelmTemplateOptions)
 	if err != nil {
+		impl.logger.Errorw("error occured while generating manifest in helm app service", "err:", err)
 		return "", err
 	}
-	// Install release ends with dry-run
-
 	if rel == nil {
 		return "", errors.New("release is found nil")
 	}
-	return rel.Manifest, nil
+	return string(rel), nil
 }
 
 func getHelmRelease(clusterConfig *client.ClusterConfig, namespace string, releaseName string) (*release.Release, error) {
@@ -1098,9 +1122,10 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 			}
 		}
 
-		// set containers and initContainers names
+		// set containers,initContainers and ephemeral container names
 		var containerNames []string
 		var initContainerNames []string
+		var ephemeralContainers []string
 		for _, container := range pod.Spec.Containers {
 			containerNames = append(containerNames, container.Name)
 		}
@@ -1108,12 +1133,17 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 			initContainerNames = append(initContainerNames, initContainer.Name)
 		}
 
+		for _, ephemeralContainer := range pod.Spec.EphemeralContainers {
+			ephemeralContainers = append(ephemeralContainers, ephemeralContainer.Name)
+		}
+
 		podMetadata := &bean.PodMetadata{
-			Name:           node.Name,
-			UID:            node.UID,
-			Containers:     containerNames,
-			InitContainers: initContainerNames,
-			IsNew:          isNew,
+			Name:                node.Name,
+			UID:                 node.UID,
+			Containers:          containerNames,
+			InitContainers:      initContainerNames,
+			EphemeralContainers: ephemeralContainers,
+			IsNew:               isNew,
 		}
 
 		podsMetadata = append(podsMetadata, podMetadata)

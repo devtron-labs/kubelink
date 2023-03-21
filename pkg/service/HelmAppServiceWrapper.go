@@ -367,3 +367,13 @@ func (impl *ApplicationServiceServerImpl) buildInfoItems(infoItemBeans []bean.In
 	}
 	return infoItems
 }
+
+func (impl *ApplicationServiceServerImpl) GetNotes(ctx context.Context, installReleaseRequest *client.InstallReleaseRequest) (*client.ChartNotesResponse, error) {
+	releaseNote, err := impl.HelmAppService.GetNotes(ctx, installReleaseRequest)
+	if err != nil {
+		impl.Logger.Errorw("Error in fetching Notes ", "err", err)
+		return nil, err
+	}
+	chartNotesResponse := &client.ChartNotesResponse{Notes: releaseNote}
+	return chartNotesResponse, nil
+}
