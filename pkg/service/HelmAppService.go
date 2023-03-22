@@ -18,6 +18,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
 	"io/ioutil"
@@ -661,8 +662,13 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 		MaxHistory:    0,    // limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
 		RepoURL:       request.ChartRepository.Url,
 	}
-	HelmTemplateOptions := &helmClient.HelmTemplateOptions{}
 
+	HelmTemplateOptions := &helmClient.HelmTemplateOptions{}
+	if request.K8SVersion != "" {
+		HelmTemplateOptions.KubeVersion = &chartutil.KubeVersion{
+			Version: request.K8SVersion,
+		}
+	}
 	rel, err := helmClientObj.TemplateChart(chartSpec, HelmTemplateOptions)
 	if err != nil {
 		impl.logger.Errorw("error occured while generating manifest in helm app service", "err:", err)
