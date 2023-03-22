@@ -559,6 +559,11 @@ func (impl HelmAppServiceImpl) GetNotes(ctx context.Context, request *client.Ins
 		Version:       request.ChartVersion,
 	}
 	HelmTemplateOptions := &helmClient.HelmTemplateOptions{}
+	if request.K8SVersion != "" {
+		HelmTemplateOptions.KubeVersion = &chartutil.KubeVersion{
+			Version: request.K8SVersion,
+		}
+	}
 	release, err := helmClientObj.GetNotes(chartSpec, HelmTemplateOptions)
 	if err != nil {
 		impl.logger.Errorw("Error in fetching Notes ", "err", err)
