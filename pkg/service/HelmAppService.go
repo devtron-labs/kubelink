@@ -663,10 +663,11 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 		RepoURL:       request.ChartRepository.Url,
 	}
 
-	HelmTemplateOptions := &helmClient.HelmTemplateOptions{
-		KubeVersion: &chartutil.KubeVersion{
+	HelmTemplateOptions := &helmClient.HelmTemplateOptions{}
+	if request.K8SVersion != "" {
+		HelmTemplateOptions.KubeVersion = &chartutil.KubeVersion{
 			Version: request.K8SVersion,
-		},
+		}
 	}
 	rel, err := helmClientObj.TemplateChart(chartSpec, HelmTemplateOptions)
 	if err != nil {
