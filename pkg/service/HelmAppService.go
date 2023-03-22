@@ -546,14 +546,35 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 // 3. expose this method over grpc
 // 4. write rest handler, router, and servie in orchestrator
 // 5 .invoke this method using grpc
-func (impl HelmAppServiceImpl) GetNotes(ctx context.Context, installReleaseRequest *client.InstallReleaseRequest) (string, error) {
-
-	release, err := impl.installRelease(installReleaseRequest, true)
+func (impl HelmAppServiceImpl) GetNotes(ctx context.Context, request *client.InstallReleaseRequest) (string, error) {
+	releaseIdentifier := request.ReleaseIdentifier
+	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
+	chartSpec := &helmClient.ChartSpec{
+		ReleaseName:   releaseIdentifier.ReleaseName,
+		Namespace:     releaseIdentifier.ReleaseNamespace,
+		ChartName:     request.ChartName,
+		CleanupOnFail: true, // allow deletion of new resources created in this rollback when rollback fails
+		MaxHistory:    0,    // limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
+		RepoURL:       request.ChartRepository.Url,
+		Version:       request.ChartVersion,
+	}
+	HelmTemplateOptions := &helmClient.HelmTemplateOptions{}
+	if request.K8SVersion != "" {
+		HelmTemplateOptions.KubeVersion = &chartutil.KubeVersion{
+			Version: request.K8SVersion,
+		}
+	}
+	release, err := helmClientObj.GetNotes(chartSpec, HelmTemplateOptions)
 	if err != nil {
 		impl.logger.Errorw("Error in fetching Notes ", "err", err)
 		return "", err
 	}
-	return release.Info.Notes, nil
+	if release == nil {
+		impl.logger.Errorw("no release found for", "name", releaseIdentifier.ReleaseName)
+		return "", err
+	}
+
+	return string(release), nil
 }
 
 func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, request *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error) {
