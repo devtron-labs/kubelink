@@ -11,6 +11,7 @@ import (
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/pkg/helmClient"
+	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/util"
 	"github.com/devtron-labs/kubelink/pkg/util/argo"
 	gitops_engine "github.com/devtron-labs/kubelink/pkg/util/gitops-engine"
@@ -65,22 +66,25 @@ type HelmAppService interface {
 }
 
 type HelmAppServiceImpl struct {
-	logger     *zap.SugaredLogger
-	k8sService K8sService
-	randSource rand.Source
+	logger      *zap.SugaredLogger
+	k8sService  K8sService
+	randSource  rand.Source
+	K8sInformer k8sInformer.K8sInformer
 }
 
-func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService) *HelmAppServiceImpl {
+func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService, k8sInformer k8sInformer.K8sInformer) *HelmAppServiceImpl {
 
 	helmAppServiceImpl := &HelmAppServiceImpl{
-		logger:     logger,
-		k8sService: k8sService,
-		randSource: rand.NewSource(time.Now().UnixNano()),
+		logger:      logger,
+		k8sService:  k8sService,
+		randSource:  rand.NewSource(time.Now().UnixNano()),
+		K8sInformer: k8sInformer,
 	}
 	err := os.MkdirAll(chartWorkingDirectory, os.ModePerm)
 	if err != nil {
 		helmAppServiceImpl.logger.Errorw("err in creating dir", "err", err)
 	}
+
 	return helmAppServiceImpl
 }
 func (impl HelmAppServiceImpl) CleanDir(dir string) {
@@ -99,52 +103,53 @@ func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.Clus
 	impl.logger.Debugw("Fetching application list ", "clusterId", config.ClusterId, "clusterName", config.ClusterName)
 
 	deployedApp := &client.DeployedAppList{ClusterId: config.GetClusterId()}
-	restConfig, err := k8sUtils.GetRestConfig(config)
-	if err != nil {
-		impl.logger.Errorw("Error in building rest config ", "clusterId", config.ClusterId, "err", err)
-		deployedApp.Errored = true
-		deployedApp.ErrorMsg = err.Error()
-		return deployedApp
-	}
-	opt := &helmClient.RestConfClientOptions{
-		Options:    &helmClient.Options{},
-		RestConfig: restConfig,
-	}
-
-	helmAppClient, err := helmClient.NewClientFromRestConf(opt)
-	if err != nil {
-		impl.logger.Errorw("Error in building client from rest config ", "clusterId", config.ClusterId, "err", err)
-		deployedApp.Errored = true
-		deployedApp.ErrorMsg = err.Error()
-		return deployedApp
-	}
-
-	impl.logger.Debug("Fetching application list from helm")
-	releases, err := helmAppClient.ListAllReleases()
-	if err != nil {
-		impl.logger.Errorw("Error in getting releases list ", "clusterId", config.ClusterId, "err", err)
-		deployedApp.Errored = true
-		deployedApp.ErrorMsg = err.Error()
-		return deployedApp
-	}
-
-	var deployedApps []*client.DeployedAppDetail
-	for _, items := range releases {
-		appDetail := &client.DeployedAppDetail{
-			AppId:        util.GetAppId(config.ClusterId, items),
-			AppName:      items.Name,
-			ChartName:    items.Chart.Name(),
-			ChartAvatar:  items.Chart.Metadata.Icon,
-			LastDeployed: timestamppb.New(items.Info.LastDeployed.Time),
-			EnvironmentDetail: &client.EnvironmentDetails{
-				ClusterName: config.ClusterName,
-				ClusterId:   config.ClusterId,
-				Namespace:   items.Namespace,
-			},
-		}
-		deployedApps = append(deployedApps, appDetail)
-	}
-	deployedApp.DeployedAppDetail = deployedApps
+	//restConfig, err := k8sUtils.GetRestConfig(config)
+	//if err != nil {
+	//	impl.logger.Errorw("Error in building rest config ", "clusterId", config.ClusterId, "err", err)
+	//	deployedApp.Errored = true
+	//	deployedApp.ErrorMsg = err.Error()
+	//	return deployedApp
+	//}
+	//opt := &helmClient.RestConfClientOptions{
+	//	Options:    &helmClient.Options{},
+	//	RestConfig: restConfig,
+	//}
+	//
+	//helmAppClient, err := helmClient.NewClientFromRestConf(opt)
+	//if err != nil {
+	//	impl.logger.Errorw("Error in building client from rest config ", "clusterId", config.ClusterId, "err", err)
+	//	deployedApp.Errored = true
+	//	deployedApp.ErrorMsg = err.Error()
+	//	return deployedApp
+	//}
+	//
+	//impl.logger.Debug("Fetching application list from helm")
+	//releases, err := helmAppClient.ListAllReleases()
+	//if err != nil {
+	//	impl.logger.Errorw("Error in getting releases list ", "clusterId", config.ClusterId, "err", err)
+	//	deployedApp.Errored = true
+	//	deployedApp.ErrorMsg = err.Error()
+	//	return deployedApp
+	//}
+	//
+	//var deployedApps []*client.DeployedAppDetail
+	//for _, items := range releases {
+	//	appDetail := &client.DeployedAppDetail{
+	//		AppId:        util.GetAppId(config.ClusterId, items),
+	//		AppName:      items.Name,
+	//		ChartName:    items.Chart.Name(),
+	//		ChartAvatar:  items.Chart.Metadata.Icon,
+	//		LastDeployed: timestamppb.New(items.Info.LastDeployed.Time),
+	//		EnvironmentDetail: &client.EnvironmentDetails{
+	//			ClusterName: config.ClusterName,
+	//			ClusterId:   config.ClusterId,
+	//			Namespace:   items.Namespace,
+	//		},
+	//	}
+	//	deployedApps = append(deployedApps, appDetail)
+	//}
+	deployedAppDetailList := impl.K8sInformer.GetAllReleaseByClusterId(int(config.GetClusterId()))
+	deployedApp.DeployedAppDetail = deployedAppDetailList
 	return deployedApp
 }
 

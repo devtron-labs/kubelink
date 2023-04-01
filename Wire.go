@@ -23,7 +23,10 @@ import (
 	"github.com/devtron-labs/kubelink/api/router"
 	"github.com/devtron-labs/kubelink/internal/lock"
 	"github.com/devtron-labs/kubelink/internal/logger"
+	repository "github.com/devtron-labs/kubelink/pkg/cluster"
+	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
+	"github.com/devtron-labs/kubelink/pkg/sql"
 	"github.com/devtron-labs/kubelink/pprof"
 	"github.com/google/wire"
 )
@@ -31,6 +34,7 @@ import (
 func InitializeApp() (*App, error) {
 	wire.Build(
 		NewApp,
+		sql.PgSqlWireSet,
 		logger.NewSugaredLogger,
 		lock.NewChartRepositoryLocker,
 		service.NewK8sServiceImpl,
@@ -43,6 +47,10 @@ func InitializeApp() (*App, error) {
 		wire.Bind(new(pprof.PProfRestHandler), new(*pprof.PProfRestHandlerImpl)),
 		pprof.NewPProfRouter,
 		wire.Bind(new(pprof.PProfRouter), new(*pprof.PProfRouterImpl)),
+		k8sInformer.Newk8sInformerImpl,
+		wire.Bind(new(k8sInformer.K8sInformer), new(*k8sInformer.K8sInformerImpl)),
+		repository.NewClusterRepositoryImpl,
+		wire.Bind(new(repository.ClusterRepository), new(*repository.ClusterRepositoryImpl)),
 	)
 	return &App{}, nil
 }

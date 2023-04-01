@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/devtron-labs/kubelink/api/router"
 	client "github.com/devtron-labs/kubelink/grpc"
+	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"go.uber.org/zap"
@@ -16,17 +17,19 @@ import (
 )
 
 type App struct {
-	Logger     *zap.SugaredLogger
-	ServerImpl *service.ApplicationServiceServerImpl
-	router     *router.RouterImpl
+	Logger      *zap.SugaredLogger
+	ServerImpl  *service.ApplicationServiceServerImpl
+	router      *router.RouterImpl
+	k8sInformer k8sInformer.K8sInformer
 }
 
 func NewApp(Logger *zap.SugaredLogger, ServerImpl *service.ApplicationServiceServerImpl,
-	router *router.RouterImpl) *App {
+	router *router.RouterImpl, k8sInformer k8sInformer.K8sInformer) *App {
 	return &App{
-		Logger:     Logger,
-		ServerImpl: ServerImpl,
-		router:     router,
+		Logger:      Logger,
+		ServerImpl:  ServerImpl,
+		router:      router,
+		k8sInformer: k8sInformer,
 	}
 }
 
