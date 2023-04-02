@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
@@ -22,9 +21,6 @@ import (
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
-	"os/user"
-	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
@@ -127,18 +123,13 @@ func (impl *K8sInformerImpl) BuildInformer(clusterInfo []*bean.ClusterInfo) erro
 
 	restConfig := &rest.Config{}
 	for _, cluster := range clusterInfo {
-
 		if cluster.ClusterId == 0 {
-			usr, err := user.Current()
+			config, err := rest.InClusterConfig()
 			if err != nil {
-				impl.logger.Errorw("Error while getting user current env details", "error", err)
+				impl.logger.Errorw("error in fetch default cluster config", "err", err, "servername", restConfig.ServerName)
+				continue
 			}
-			kubeconfig := flag.String("build-informer", filepath.Join(usr.HomeDir, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
-			flag.Parse()
-			restConfig, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
-			if err != nil {
-				impl.logger.Errorw("Error while building config from flags", "error", err)
-			}
+			restConfig = config
 		} else {
 			restConfig.BearerToken = cluster.BearerToken
 			restConfig.Host = cluster.ServerUrl
@@ -167,7 +158,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo, config 
 
 	httpClientFor, err := rest.HTTPClientFor(config)
 	if err != nil {
-		fmt.Println("error occurred while overriding k8s client", "reason", err)
+		impl.logger.Errorw("error occurred while overriding k8s client", "reason", err)
 		return err
 	}
 	clusterClient, err := kubernetes.NewForConfigAndClient(config, httpClientFor)
@@ -178,6 +169,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo, config 
 
 	// for default cluster adding an extra informer, this informer will add informer on new clusters
 	if clusterInfo.ClusterName == DEFAULT_CLUSTER {
+		impl.logger.Debugw("Starting informer reading new cluster request for default cluster")
 		informerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(clusterClient, time.Minute)
 		stopper := make(chan struct{})
 		secretInformer := informerFactory.Core().V1().Secrets()
