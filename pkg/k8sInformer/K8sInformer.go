@@ -123,7 +123,7 @@ func (impl *K8sInformerImpl) BuildInformer(clusterInfo []*bean.ClusterInfo) erro
 
 	restConfig := &rest.Config{}
 	for _, cluster := range clusterInfo {
-		if cluster.ClusterId == 0 {
+		if cluster.ClusterName == DEFAULT_CLUSTER {
 			config, err := rest.InClusterConfig()
 			if err != nil {
 				impl.logger.Errorw("error in fetch default cluster config", "err", err, "servername", restConfig.ServerName)
@@ -259,9 +259,11 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 		impl.logger.Errorw("error in fetching cluster by cluster ids")
 		return err
 	}
+	impl.logger.Infow("starting informer for cluster - ", "cluster-id", clusterInfo.Id, "cluster-name", clusterInfo.ClusterName)
 	restConfig := rest.Config{}
 	restConfig.Host = clusterInfo.ServerUrl
 	restConfig.BearerToken = clusterInfo.Config["bearer_token"]
+	restConfig.Insecure = true
 
 	httpClientFor, err := rest.HTTPClientFor(&restConfig)
 	if err != nil {
