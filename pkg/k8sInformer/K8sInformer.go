@@ -42,7 +42,7 @@ type K8sInformer interface {
 	StartInformer(clusterInfo bean.ClusterInfo, config *rest.Config, mutex *sync.Mutex) error
 	SyncInformer(clusterId int) error
 	StopInformer(clusterName string)
-	//StartInformerAndPopulateCache(clusterId int) error
+	StartInformerAndPopulateCache(clusterId int) error
 	GetAllReleaseByClusterId(clusterId int) []*client.DeployedAppDetail
 }
 
@@ -142,6 +142,7 @@ func (impl *K8sInformerImpl) BuildInformer(clusterInfo []*bean.ClusterInfo) erro
 		} else {
 			restConfig.BearerToken = cluster.BearerToken
 			restConfig.Host = cluster.ServerUrl
+			restConfig.Insecure = true
 		}
 
 		err := impl.StartInformer(*cluster, restConfig, &impl.mutex)
@@ -164,9 +165,6 @@ func (impl *K8sInformerImpl) deleteSecret(namespace string, name string, client 
 
 func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo, config *rest.Config, mutex *sync.Mutex) error {
 
-	config.Host = "https://20.232.55.111:16443"
-	config.BearerToken = "YlA4SlRZOXBkM0tmMzljTklFUjQ1RGtkN2J1OGxBaG12YzBqcld2Rmc5cz0K"
-	config.Insecure = true
 	httpClientFor, err := rest.HTTPClientFor(config)
 	if err != nil {
 		fmt.Println("error occurred while overriding k8s client", "reason", err)
@@ -178,6 +176,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo, config 
 		return err
 	}
 
+	// for default cluster adding an extra informer, this informer will add informer on new clusters
 	if clusterInfo.ClusterName == DEFAULT_CLUSTER {
 		informerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(clusterClient, time.Minute)
 		stopper := make(chan struct{})
@@ -225,7 +224,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo, config 
 		impl.informerStopper[clusterInfo.ClusterName] = stopper
 
 	}
-	// these informers will be used to populate cache
+	// these informers will be used to populate helm release cache
 	err = impl.StartInformerAndPopulateCache(clusterInfo.ClusterId)
 	if err != nil {
 		impl.logger.Errorw("error in creating informer for new cluster", "err", err)
@@ -273,10 +272,6 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 	restConfig.Host = clusterInfo.ServerUrl
 	restConfig.BearerToken = clusterInfo.Config["bearer_token"]
 
-	restConfig.Host = "https://20.232.55.111:16443"
-	restConfig.BearerToken = "YlA4SlRZOXBkM0tmMzljTklFUjQ1RGtkN2J1OGxBaG12YzBqcld2Rmc5cz0K"
-	restConfig.Insecure = true
-
 	httpClientFor, err := rest.HTTPClientFor(&restConfig)
 	if err != nil {
 		fmt.Println("error occurred while overriding k8s client", "reason", err)
@@ -320,7 +315,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			if secretObject, ok := oldObj.(*coreV1.Secret); ok {
-				if secretObject.Type != "HELM_RELEASE_SECRET_TYPE" {
+				if secretObject.Type != HELM_RELEASE_SECRET_TYPE {
 					return
 				}
 				releaseDTO, err := decodeRelease(string(secretObject.Data["release"]))
@@ -343,6 +338,20 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 				impl.HelmListClusterMap[releaseDTO.Name] = appDetail
 			}
 		},
+		DeleteFunc: func(obj interface{}) {
+			if secretObject, ok := obj.(*coreV1.Secret); ok {
+				if secretObject.Type != HELM_RELEASE_SECRET_TYPE {
+					return
+				}
+				releaseDTO, err := decodeRelease(string(secretObject.Data["release"]))
+				if err != nil {
+					impl.logger.Errorw("error in decoding release")
+				}
+				impl.mutex.Lock()
+				defer impl.mutex.Unlock()
+				delete(impl.HelmListClusterMap, releaseDTO.Name)
+			}
+		},
 	})
 	informerFactory.Start(stopper)
 	impl.informerStopper[clusterInfo.ClusterName] = stopper
@@ -352,9 +361,8 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 func (impl *K8sInformerImpl) GetAllReleaseByClusterId(clusterId int) []*client.DeployedAppDetail {
 
 	var deployedAppDetailList []*client.DeployedAppDetail
-	deployedAppDetailMap := impl.HelmListClusterMap
 
-	for _, v := range deployedAppDetailMap {
+	for _, v := range impl.HelmListClusterMap {
 		if int(v.EnvironmentDetail.ClusterId) == clusterId {
 			deployedAppDetailList = append(deployedAppDetailList, v)
 		}
