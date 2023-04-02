@@ -133,8 +133,9 @@ func (impl *K8sInformerImpl) BuildInformer(clusterInfo []*bean.ClusterInfo) erro
 		} else {
 			restConfig.BearerToken = cluster.BearerToken
 			restConfig.Host = cluster.ServerUrl
+			restConfig.Insecure = true
 		}
-		restConfig.Insecure = true
+
 		err := impl.StartInformer(*cluster, restConfig, &impl.mutex)
 		if err != nil {
 			impl.logger.Errorw("error in starting informer for cluster ", "cluster-name ", cluster.ClusterName, "err", err)
