@@ -294,9 +294,9 @@ func (impl *K8sInformerImpl) SyncInformer(clusterId int) error {
 		return err
 	}
 	//before creating new informer for cluster, close existing one
-	impl.logger.Errorw("stopping informer")
+	impl.logger.Infow("stopping informer")
 	impl.StopInformer(clusterInfo.ClusterName, clusterInfo.Id)
-	impl.logger.Errorw("informer stopped")
+	impl.logger.Infow("informer stopped")
 	//create new informer for cluster with new config
 	err = impl.StartInformerAndPopulateCache(clusterId)
 	if err != nil {
