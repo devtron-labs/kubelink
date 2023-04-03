@@ -29,11 +29,10 @@ import (
 )
 
 const (
-	HELM_RELEASE_SECRET_TYPE       = "helm.sh/release.v1"
-	CLUSTER_ADD_REQ_SECRET_TYPE    = "cluster.request/add"
-	CLUSTER_UPDATE_REQ_SECRET_TYPE = "cluster.request/update"
-	DEFAULT_CLUSTER                = "default_cluster"
-	INFORMER_ALREADY_EXIST_MESSAGE = "INFORMER_ALREADY_EXIST"
+	HELM_RELEASE_SECRET_TYPE         = "helm.sh/release.v1"
+	CLUSTER_MODIFY_EVENT_SECRET_TYPE = "cluster.request/modify"
+	DEFAULT_CLUSTER                  = "default_cluster"
+	INFORMER_ALREADY_EXIST_MESSAGE   = "INFORMER_ALREADY_EXIST"
 )
 
 type K8sInformer interface {
@@ -194,23 +193,22 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 		secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				if secretObject, ok := obj.(*coreV1.Secret); ok {
-					if secretObject.Type != CLUSTER_ADD_REQ_SECRET_TYPE && secretObject.Type != CLUSTER_UPDATE_REQ_SECRET_TYPE {
+					if secretObject.Type != CLUSTER_MODIFY_EVENT_SECRET_TYPE {
 						return
 					}
-					if secretObject.Type == CLUSTER_ADD_REQ_SECRET_TYPE {
-						data := secretObject.Data
-						id := data["cluster_id"][0]
-						id_int, err := strconv.Atoi(string(id))
+					data := secretObject.Data
+					action := data["action"]
+					id := data["cluster_id"][0]
+					id_int, err := strconv.Atoi(string(id))
+
+					if string(action) == "add" {
 						err = impl.StartInformerAndPopulateCache(id_int)
 						if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
 							impl.logger.Errorw("error in adding informer for cluster", "id", id_int, "err", err)
 							return
 						}
 					}
-					if secretObject.Type == CLUSTER_UPDATE_REQ_SECRET_TYPE {
-						data := secretObject.Data
-						id := data["cluster_id"][0]
-						id_int, err := strconv.Atoi(string(id))
+					if string(action) == "update" {
 						err = impl.SyncInformer(id_int)
 						if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
 							impl.logger.Errorw("error in updating informer for cluster", "id", clusterInfo.ClusterId, "name", clusterInfo.ClusterName, "err", err)
@@ -221,10 +219,19 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				if secretObject, ok := newObj.(*coreV1.Secret); ok {
-					if secretObject.Type == CLUSTER_UPDATE_REQ_SECRET_TYPE {
-						data := secretObject.Data
-						id := data["cluster_id"][0]
-						id_int, err := strconv.Atoi(string(id))
+					data := secretObject.Data
+					action := data["action"]
+					id := data["cluster_id"][0]
+					id_int, err := strconv.Atoi(string(id))
+
+					if string(action) == "add" {
+						err = impl.StartInformerAndPopulateCache(id_int)
+						if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
+							impl.logger.Errorw("error in adding informer for cluster", "id", id_int, "err", err)
+							return
+						}
+					}
+					if string(action) == "update" {
 						err = impl.SyncInformer(id_int)
 						if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
 							impl.logger.Errorw("error in updating informer for cluster", "id", clusterInfo.ClusterId, "name", clusterInfo.ClusterName, "err", err)
