@@ -198,7 +198,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 					}
 					data := secretObject.Data
 					action := data["action"]
-					id := data["cluster_id"][0]
+					id := string(data["cluster_id"])
 					id_int, _ := strconv.Atoi(string(id))
 
 					if string(action) == "add" {
@@ -225,7 +225,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 					}
 					data := secretObject.Data
 					action := data["action"]
-					id := data["cluster_id"][0]
+					id := string(data["cluster_id"])
 					id_int, _ := strconv.Atoi(string(id))
 
 					if string(action) == "add" {
@@ -251,7 +251,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 					}
 					data := secretObject.Data
 					action := data["action"]
-					id := data["cluster_id"][0]
+					id := string(data["cluster_id"])
 					id_int, _ := strconv.Atoi(string(id))
 
 					if string(action) == "delete" {
@@ -270,7 +270,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 			},
 		})
 		informerFactory.Start(stopper)
-		impl.informerStopper[clusterInfo.ClusterName+"second_informer"] = stopper
+		impl.informerStopper[clusterInfo.ClusterName+"_second_informer"] = stopper
 
 	}
 	// these informers will be used to populate helm release cache
@@ -332,7 +332,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 	if clusterInfo.ClusterName == DEFAULT_CLUSTER {
 		restConfig, err = rest.InClusterConfig()
 		if err != nil {
-			impl.logger.Errorw("error in fetch default cluster config", "err", err, "servername", restConfig.ServerName)
+			impl.logger.Errorw("error in fetch default cluster config", "err", err, "clusterName", clusterInfo.ClusterName)
 			return err
 		}
 	} else {
