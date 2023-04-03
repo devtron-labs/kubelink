@@ -67,7 +67,7 @@ type HelmAppService interface {
 }
 
 type HelmReleaseConfig struct {
-	enableHelmReleaseCache bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
+	EnableHelmReleaseCache bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
 }
 
 func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
@@ -118,7 +118,7 @@ func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.Clus
 	deployedApp := &client.DeployedAppList{ClusterId: config.GetClusterId()}
 	var deployedApps []*client.DeployedAppDetail
 
-	if impl.helmReleaseConfig.enableHelmReleaseCache {
+	if impl.helmReleaseConfig.EnableHelmReleaseCache {
 		impl.logger.Infow("Fetching helm release using Cache")
 		deployedApps = impl.K8sInformer.GetAllReleaseByClusterId(int(config.GetClusterId()))
 	} else {

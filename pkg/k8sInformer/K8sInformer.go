@@ -44,7 +44,7 @@ type K8sInformer interface {
 }
 
 type HelmReleaseConfig struct {
-	enableHelmReleaseCache bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
+	EnableHelmReleaseCache bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
 }
 
 func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
@@ -70,7 +70,7 @@ func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.
 	}
 	informerFactory.HelmListClusterMap = make(map[string]*client.DeployedAppDetail)
 	informerFactory.informerStopper = make(map[string]chan struct{})
-	if helmReleaseConfig.enableHelmReleaseCache {
+	if helmReleaseConfig.EnableHelmReleaseCache {
 		go informerFactory.BuildInformerForAllClusters()
 	}
 	return informerFactory
