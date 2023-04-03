@@ -39,7 +39,7 @@ type K8sInformer interface {
 	BuildInformer(clusterInfo []*bean.ClusterInfo) error
 	StartInformer(clusterInfo bean.ClusterInfo) error
 	SyncInformer(clusterId int) error
-	StopInformer(clusterName string)
+	StopInformer(clusterName string, clusterId int)
 	StartInformerAndPopulateCache(clusterId int) error
 	GetAllReleaseByClusterId(clusterId int) []*client.DeployedAppDetail
 }
@@ -268,7 +268,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 							impl.logger.Errorw("Error in fetching cluster by id", "cluster-id ", id_int)
 							return
 						}
-						impl.StopInformer(deleteClusterInfo.ClusterName)
+						impl.StopInformer(deleteClusterInfo.ClusterName, 0)
 						if err != nil {
 							impl.logger.Errorw("error in updating informer for cluster", "id", clusterInfo.ClusterId, "name", clusterInfo.ClusterName, "err", err)
 							return
@@ -301,7 +301,7 @@ func (impl *K8sInformerImpl) SyncInformer(clusterId int) error {
 	}
 	//before creating new informer for cluster, close existing one
 	impl.logger.Errorw("stopping informer")
-	impl.StopInformer(clusterInfo.ClusterName)
+	impl.StopInformer(clusterInfo.ClusterName, clusterInfo.Id)
 	impl.logger.Errorw("informer stopped")
 	delete(impl.ClusterSecretMap, clusterId)
 	//create new informer for cluster with new config
@@ -313,11 +313,11 @@ func (impl *K8sInformerImpl) SyncInformer(clusterId int) error {
 	return nil
 }
 
-func (impl *K8sInformerImpl) StopInformer(clusterName string) {
-	stopper := impl.informerStopper[clusterName]
+func (impl *K8sInformerImpl) StopInformer(clusterName string, clusterId int) {
+	stopper := impl.informerStopper[clusterName+string(rune(clusterId))]
 	if stopper != nil {
 		close(stopper)
-		delete(impl.informerStopper, clusterName)
+		delete(impl.informerStopper, clusterName+string(rune(clusterId)))
 	}
 	return
 }
@@ -440,7 +440,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 	})
 	informerFactory.Start(stopper)
 	impl.logger.Infow("informer started for cluster: ", "cluster_id", clusterInfo.Id, "cluster_name", clusterInfo.ClusterName)
-	impl.informerStopper[clusterInfo.ClusterName] = stopper
+	impl.informerStopper[clusterInfo.ClusterName+string(rune(clusterInfo.Id))] = stopper
 	return nil
 }
 
