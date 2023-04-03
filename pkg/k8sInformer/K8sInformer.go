@@ -201,7 +201,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 					data := secretObject.Data
 					action := data["action"]
 					id := string(data["cluster_id"])
-					id_int, _ := strconv.Atoi(string(id))
+					id_int, _ := strconv.Atoi(id)
 
 					if _, ok := impl.ClusterSecretMap[id_int]; ok {
 						return
@@ -232,7 +232,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 					data := secretObject.Data
 					action := data["action"]
 					id := string(data["cluster_id"])
-					id_int, _ := strconv.Atoi(string(id))
+					id_int, _ := strconv.Atoi(id)
 
 					if _, ok := impl.ClusterSecretMap[id_int]; ok {
 						return
@@ -262,11 +262,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 					data := secretObject.Data
 					action := data["action"]
 					id := string(data["cluster_id"])
-					id_int, _ := strconv.Atoi(string(id))
-
-					if _, ok := impl.ClusterSecretMap[id_int]; ok {
-						return
-					}
+					id_int, _ := strconv.Atoi(id)
 
 					if string(action) == "delete" {
 						deleteClusterInfo, err := impl.clusterRepository.FindById(id_int)
