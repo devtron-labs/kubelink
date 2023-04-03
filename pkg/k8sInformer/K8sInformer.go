@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/caarlos0/env"
 	"github.com/devtron-labs/kubelink/bean"
@@ -32,6 +33,7 @@ const (
 	CLUSTER_ADD_REQ_SECRET_TYPE    = "cluster.request/add"
 	CLUSTER_UPDATE_REQ_SECRET_TYPE = "cluster.request/update"
 	DEFAULT_CLUSTER                = "default_cluster"
+	INFORMER_ALREADY_EXIST_MESSAGE = "INFORMER_ALREADY_EXIST"
 )
 
 type K8sInformer interface {
@@ -200,7 +202,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 						id := data["cluster_id"][0]
 						id_int, err := strconv.Atoi(string(id))
 						err = impl.StartInformerAndPopulateCache(id_int)
-						if err != nil {
+						if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
 							impl.logger.Errorw("error in adding informer for cluster", "id", id_int, "err", err)
 							return
 						}
@@ -210,25 +212,26 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 						id := data["cluster_id"][0]
 						id_int, err := strconv.Atoi(string(id))
 						err = impl.SyncInformer(id_int)
-						if err != nil {
+						if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
 							impl.logger.Errorw("error in updating informer for cluster", "id", clusterInfo.ClusterId, "name", clusterInfo.ClusterName, "err", err)
 							return
 						}
-
-					}
-					k8sClient, err := v1.NewForConfigAndClient(restConfig, httpClientFor)
-					if err != nil {
-						impl.logger.Errorw("error creating k8s client", "error", err)
-						return
-					}
-					err = impl.deleteSecret(secretObject.Namespace, secretObject.Name, k8sClient)
-					if err != nil {
-						impl.logger.Errorw("error in deleting secret of informer create request", "err", err)
-						return
 					}
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
+				if secretObject, ok := newObj.(*coreV1.Secret); ok {
+					if secretObject.Type == CLUSTER_UPDATE_REQ_SECRET_TYPE {
+						data := secretObject.Data
+						id := data["cluster_id"][0]
+						id_int, err := strconv.Atoi(string(id))
+						err = impl.SyncInformer(id_int)
+						if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
+							impl.logger.Errorw("error in updating informer for cluster", "id", clusterInfo.ClusterId, "name", clusterInfo.ClusterName, "err", err)
+							return
+						}
+					}
+				}
 			},
 			DeleteFunc: func(obj interface{}) {
 			},
@@ -285,8 +288,8 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 	}
 
 	if _, ok := impl.informerStopper[clusterInfo.ClusterName]; ok {
-		impl.logger.Infow("Informer for cluster already exit, hence skipping - ", "cluster_id", clusterInfo.Id, "cluster_name", clusterInfo.ClusterName)
-		return nil
+		impl.logger.Debugw("Informer for cluster already exit, hence skipping - ", "cluster_id", clusterInfo.Id, "cluster_name", clusterInfo.ClusterName)
+		return errors.New(INFORMER_ALREADY_EXIST_MESSAGE)
 	}
 
 	impl.logger.Infow("starting informer for cluster - ", "cluster-id", clusterInfo.Id, "cluster-name", clusterInfo.ClusterName)
