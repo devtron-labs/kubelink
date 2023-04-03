@@ -208,8 +208,11 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 						id := data["cluster_id"][0]
 						id_int, err := strconv.Atoi(string(id))
 						err = impl.SyncInformer(id_int)
-						impl.logger.Errorw("error in updating informer for cluster", "id", clusterInfo.ClusterId, "name", clusterInfo.ClusterName, "err", err)
-						return
+						if err != nil {
+							impl.logger.Errorw("error in updating informer for cluster", "id", clusterInfo.ClusterId, "name", clusterInfo.ClusterName, "err", err)
+							return
+						}
+
 					}
 					k8sClient, err := v1.NewForConfigAndClient(restConfig, httpClientFor)
 					if err != nil {
@@ -380,6 +383,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 		},
 	})
 	informerFactory.Start(stopper)
+	impl.logger.Infow("informer started for cluster: ", "cluster_id", clusterInfo.Id, "cluster_name", clusterInfo.ClusterName)
 	impl.informerStopper[clusterInfo.ClusterName] = stopper
 	return nil
 }
