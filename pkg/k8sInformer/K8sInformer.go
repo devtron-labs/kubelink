@@ -59,12 +59,14 @@ type K8sInformerImpl struct {
 	mutex              sync.Mutex
 	informerStopper    map[string]chan struct{}
 	clusterRepository  repository.ClusterRepository
+	helmReleaseConfig  *HelmReleaseConfig
 }
 
 func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.ClusterRepository, helmReleaseConfig *HelmReleaseConfig) *K8sInformerImpl {
 	informerFactory := &K8sInformerImpl{
 		logger:            logger,
 		clusterRepository: clusterRepository,
+		helmReleaseConfig: helmReleaseConfig,
 	}
 	informerFactory.HelmListClusterMap = make(map[string]*client.DeployedAppDetail)
 	informerFactory.informerStopper = make(map[string]chan struct{})
