@@ -199,7 +199,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 					data := secretObject.Data
 					action := data["action"]
 					id := data["cluster_id"][0]
-					id_int, err := strconv.Atoi(string(id))
+					id_int, _ := strconv.Atoi(string(id))
 
 					if string(action) == "add" {
 						err = impl.StartInformerAndPopulateCache(id_int)
@@ -219,10 +219,14 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				if secretObject, ok := newObj.(*coreV1.Secret); ok {
+
+					if secretObject.Type != CLUSTER_MODIFY_EVENT_SECRET_TYPE {
+						return
+					}
 					data := secretObject.Data
 					action := data["action"]
 					id := data["cluster_id"][0]
-					id_int, err := strconv.Atoi(string(id))
+					id_int, _ := strconv.Atoi(string(id))
 
 					if string(action) == "add" {
 						err = impl.StartInformerAndPopulateCache(id_int)
@@ -232,7 +236,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 						}
 					}
 					if string(action) == "update" {
-						err = impl.SyncInformer(id_int)
+						err := impl.SyncInformer(id_int)
 						if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
 							impl.logger.Errorw("error in updating informer for cluster", "id", clusterInfo.ClusterId, "name", clusterInfo.ClusterName, "err", err)
 							return
@@ -241,6 +245,28 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
+				if secretObject, ok := obj.(*coreV1.Secret); ok {
+					if secretObject.Type != CLUSTER_MODIFY_EVENT_SECRET_TYPE {
+						return
+					}
+					data := secretObject.Data
+					action := data["action"]
+					id := data["cluster_id"][0]
+					id_int, _ := strconv.Atoi(string(id))
+
+					if string(action) == "delete" {
+						deleteClusterInfo, err := impl.clusterRepository.FindById(id_int)
+						if err != nil {
+							impl.logger.Errorw("Error in fetching cluster by id", "cluster-id ", id_int)
+							return
+						}
+						impl.StopInformer(deleteClusterInfo.ClusterName)
+						if err != nil {
+							impl.logger.Errorw("error in updating informer for cluster", "id", clusterInfo.ClusterId, "name", clusterInfo.ClusterName, "err", err)
+							return
+						}
+					}
+				}
 			},
 		})
 		informerFactory.Start(stopper)
