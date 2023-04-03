@@ -200,8 +200,10 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 						id := data["cluster_id"][0]
 						id_int, err := strconv.Atoi(string(id))
 						err = impl.StartInformerAndPopulateCache(id_int)
-						impl.logger.Errorw("error in adding informer for cluster", "id", clusterInfo.ClusterId, "name", clusterInfo.ClusterName, "err", err)
-						return
+						if err != nil {
+							impl.logger.Errorw("error in adding informer for cluster", "id", id_int, "err", err)
+							return
+						}
 					}
 					if secretObject.Type == CLUSTER_UPDATE_REQ_SECRET_TYPE {
 						data := secretObject.Data
@@ -221,7 +223,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 					}
 					err = impl.deleteSecret(secretObject.Namespace, secretObject.Name, k8sClient)
 					if err != nil {
-						impl.logger.Errorw("error in deleting Cluster create namespace", "err", err)
+						impl.logger.Errorw("error in deleting secret of informer create request", "err", err)
 						return
 					}
 				}
@@ -281,6 +283,12 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 		impl.logger.Errorw("error in fetching cluster by cluster ids")
 		return err
 	}
+
+	if _, ok := impl.informerStopper[clusterInfo.ClusterName]; ok {
+		impl.logger.Infow("Informer for cluster already exit, hence skipping - ", "cluster_id", clusterInfo.Id, "cluster_name", clusterInfo.ClusterName)
+		return nil
+	}
+
 	impl.logger.Infow("starting informer for cluster - ", "cluster-id", clusterInfo.Id, "cluster-name", clusterInfo.ClusterName)
 
 	restConfig := &rest.Config{}
