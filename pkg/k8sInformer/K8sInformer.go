@@ -11,6 +11,7 @@ import (
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
+	"github.com/devtron-labs/kubelink/pkg/util"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"helm.sh/helm/v3/pkg/release"
@@ -347,6 +348,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 					impl.logger.Errorw("error in decoding release")
 				}
 				appDetail := &client.DeployedAppDetail{
+					AppId:        util.GetAppId(int32(clusterInfo.Id), releaseDTO),
 					AppName:      releaseDTO.Name,
 					ChartName:    releaseDTO.Chart.Name(),
 					ChartAvatar:  releaseDTO.Chart.Metadata.Icon,
@@ -373,6 +375,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 					impl.logger.Errorw("error in decoding release")
 				}
 				appDetail := &client.DeployedAppDetail{
+					AppId:        util.GetAppId(int32(clusterInfo.Id), releaseDTO),
 					AppName:      releaseDTO.Name,
 					ChartName:    releaseDTO.Chart.Name(),
 					ChartAvatar:  releaseDTO.Chart.Metadata.Icon,
