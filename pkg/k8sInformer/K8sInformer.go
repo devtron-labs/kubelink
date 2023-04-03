@@ -203,11 +203,10 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 					id := string(data["cluster_id"])
 					id_int, _ := strconv.Atoi(id)
 
-					if _, ok := impl.ClusterSecretMap[id_int]; ok {
-						return
-					}
-
 					if string(action) == "add" {
+						if _, ok := impl.ClusterSecretMap[id_int]; ok {
+							return
+						}
 						err = impl.StartInformerAndPopulateCache(id_int)
 						if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
 							impl.logger.Errorw("error in adding informer for cluster", "id", id_int, "err", err)
@@ -234,11 +233,10 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 					id := string(data["cluster_id"])
 					id_int, _ := strconv.Atoi(id)
 
-					if _, ok := impl.ClusterSecretMap[id_int]; ok {
-						return
-					}
-
 					if string(action) == "add" {
+						if _, ok := impl.ClusterSecretMap[id_int]; ok {
+							return
+						}
 						err = impl.StartInformerAndPopulateCache(id_int)
 						if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
 							impl.logger.Errorw("error in adding informer for cluster", "id", id_int, "err", err)
@@ -302,7 +300,10 @@ func (impl *K8sInformerImpl) SyncInformer(clusterId int) error {
 		return err
 	}
 	//before creating new informer for cluster, close existing one
+	impl.logger.Errorw("stopping informer")
 	impl.StopInformer(clusterInfo.ClusterName)
+	impl.logger.Errorw("informer stopped")
+	delete(impl.ClusterSecretMap, clusterId)
 	//create new informer for cluster with new config
 	err = impl.StartInformerAndPopulateCache(clusterId)
 	if err != nil {
