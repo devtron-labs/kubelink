@@ -322,7 +322,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 
 	if _, ok := impl.informerStopper[clusterInfo.ClusterName]; ok {
 		impl.logger.Debugw("Informer for cluster already exit, hence skipping - ", "cluster_id", clusterInfo.Id, "cluster_name", clusterInfo.ClusterName)
-		return errors.New(INFORMER_ALREADY_EXIST_MESSAGE)
+		return nil
 	}
 
 	impl.logger.Infow("starting informer for cluster - ", "cluster-id", clusterInfo.Id, "cluster-name", clusterInfo.ClusterName)
