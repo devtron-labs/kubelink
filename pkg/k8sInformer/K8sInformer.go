@@ -229,7 +229,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 			},
 		})
 		informerFactory.Start(stopper)
-		impl.informerStopper[clusterInfo.ClusterName] = stopper
+		impl.informerStopper[clusterInfo.ClusterName+"second_informer"] = stopper
 
 	}
 	// these informers will be used to populate helm release cache
