@@ -51,6 +51,8 @@ func InitializeApp() (*App, error) {
 		wire.Bind(new(k8sInformer.K8sInformer), new(*k8sInformer.K8sInformerImpl)),
 		repository.NewClusterRepositoryImpl,
 		wire.Bind(new(repository.ClusterRepository), new(*repository.ClusterRepositoryImpl)),
+		service.GetHelmReleaseConfig,
+		k8sInformer.GetHelmReleaseConfig,
 	)
 	return &App{}, nil
 }

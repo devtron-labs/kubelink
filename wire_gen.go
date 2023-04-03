@@ -33,7 +33,11 @@ func InitializeApp() (*App, error) {
 	}
 	clusterRepositoryImpl := repository.NewClusterRepositoryImpl(db, sugaredLogger)
 	k8sInformerImpl := k8sInformer.Newk8sInformerImpl(sugaredLogger, clusterRepositoryImpl)
-	helmAppServiceImpl := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl)
+	helmReleaseConfig, err := service.GetHelmReleaseConfig()
+	if err != nil {
+		return nil, err
+	}
+	helmAppServiceImpl := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, helmReleaseConfig)
 	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(sugaredLogger, chartRepositoryLocker, helmAppServiceImpl)
 	pProfRestHandlerImpl := pprof.NewPProfRestHandler(sugaredLogger)
 	pProfRouterImpl := pprof.NewPProfRouter(sugaredLogger, pProfRestHandlerImpl)

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/caarlos0/env"
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
@@ -42,6 +43,16 @@ type K8sInformer interface {
 	GetAllReleaseByClusterId(clusterId int) []*client.DeployedAppDetail
 }
 
+type HelmReleaseConfig struct {
+	enableHelmReleaseCache bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
+}
+
+func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
+	cfg := &HelmReleaseConfig{}
+	err := env.Parse(cfg)
+	return cfg, err
+}
+
 type K8sInformerImpl struct {
 	logger             *zap.SugaredLogger
 	HelmListClusterMap map[string]*client.DeployedAppDetail
@@ -50,14 +61,16 @@ type K8sInformerImpl struct {
 	clusterRepository  repository.ClusterRepository
 }
 
-func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.ClusterRepository) *K8sInformerImpl {
+func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.ClusterRepository, helmReleaseConfig *HelmReleaseConfig) *K8sInformerImpl {
 	informerFactory := &K8sInformerImpl{
 		logger:            logger,
 		clusterRepository: clusterRepository,
 	}
 	informerFactory.HelmListClusterMap = make(map[string]*client.DeployedAppDetail)
 	informerFactory.informerStopper = make(map[string]chan struct{})
-	go informerFactory.BuildInformerForAllClusters()
+	if helmReleaseConfig.enableHelmReleaseCache {
+		go informerFactory.BuildInformerForAllClusters()
+	}
 	return informerFactory
 }
 
