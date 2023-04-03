@@ -35,7 +35,7 @@ const (
 
 type K8sInformer interface {
 	BuildInformer(clusterInfo []*bean.ClusterInfo) error
-	StartInformer(clusterInfo bean.ClusterInfo, config *rest.Config) error
+	StartInformer(clusterInfo bean.ClusterInfo) error
 	SyncInformer(clusterId int) error
 	StopInformer(clusterName string)
 	StartInformerAndPopulateCache(clusterId int) error
@@ -121,22 +121,9 @@ func (impl *K8sInformerImpl) BuildInformerForAllClusters() error {
 
 func (impl *K8sInformerImpl) BuildInformer(clusterInfo []*bean.ClusterInfo) error {
 
-	restConfig := &rest.Config{}
 	for _, cluster := range clusterInfo {
-		if cluster.ClusterName == DEFAULT_CLUSTER {
-			config, err := rest.InClusterConfig()
-			if err != nil {
-				impl.logger.Errorw("error in fetch default cluster config", "err", err, "servername", restConfig.ServerName)
-				return err
-			}
-			restConfig = config
-		} else {
-			restConfig.BearerToken = cluster.BearerToken
-			restConfig.Host = cluster.ServerUrl
-			restConfig.Insecure = true
-		}
 
-		err := impl.StartInformer(*cluster, restConfig)
+		err := impl.StartInformer(*cluster)
 		if err != nil {
 			impl.logger.Errorw("error in starting informer for cluster ", "cluster-name ", cluster.ClusterName, "err", err)
 			return err
@@ -154,14 +141,28 @@ func (impl *K8sInformerImpl) deleteSecret(namespace string, name string, client 
 	return nil
 }
 
-func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo, config *rest.Config) error {
+func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 
-	httpClientFor, err := rest.HTTPClientFor(config)
+	restConfig := &rest.Config{}
+	if clusterInfo.ClusterName == DEFAULT_CLUSTER {
+		config, err := rest.InClusterConfig()
+		if err != nil {
+			impl.logger.Errorw("error in fetch default cluster config", "err", err, "servername", restConfig.ServerName)
+			return err
+		}
+		restConfig = config
+	} else {
+		restConfig.BearerToken = clusterInfo.BearerToken
+		restConfig.Host = clusterInfo.ServerUrl
+		restConfig.Insecure = true
+	}
+
+	httpClientFor, err := rest.HTTPClientFor(restConfig)
 	if err != nil {
 		impl.logger.Errorw("error occurred while overriding k8s client", "reason", err)
 		return err
 	}
-	clusterClient, err := kubernetes.NewForConfigAndClient(config, httpClientFor)
+	clusterClient, err := kubernetes.NewForConfigAndClient(restConfig, httpClientFor)
 	if err != nil {
 		impl.logger.Errorw("error in create k8s config", "err", err)
 		return err
@@ -195,7 +196,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo, config 
 						impl.logger.Errorw("error in updating informer for cluster", "id", clusterInfo.ClusterId, "name", clusterInfo.ClusterName, "err", err)
 						return
 					}
-					k8sClient, err := v1.NewForConfigAndClient(config, httpClientFor)
+					k8sClient, err := v1.NewForConfigAndClient(restConfig, httpClientFor)
 					if err != nil {
 						impl.logger.Errorw("error creating k8s client", "error", err)
 						return
@@ -271,9 +272,11 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 			return err
 		}
 	} else {
-		restConfig.Host = clusterInfo.ServerUrl
-		restConfig.BearerToken = clusterInfo.Config["bearer_token"]
-		restConfig.Insecure = true
+		restConfig = &rest.Config{
+			Host:            clusterInfo.ServerUrl,
+			BearerToken:     clusterInfo.Config["bearer_token"],
+			TLSClientConfig: rest.TLSClientConfig{Insecure: true},
+		}
 	}
 
 	httpClientFor, err := rest.HTTPClientFor(restConfig)
