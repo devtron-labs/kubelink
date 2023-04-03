@@ -28,10 +28,10 @@ import (
 )
 
 const (
-	HELM_RELEASE_SECRET_TYPE = "helm.sh/release.v1"
-	CLUSTER_ADD_REQ          = "CLUSTER_ADD_REQUEST"
-	CLUSTER_UPDATE_REQ       = "CLUSTER_UPDATE_REQUEST"
-	DEFAULT_CLUSTER          = "default_cluster"
+	HELM_RELEASE_SECRET_TYPE       = "helm.sh/release.v1"
+	CLUSTER_ADD_REQ_SECRET_TYPE    = "cluster.request/add"
+	CLUSTER_UPDATE_REQ_SECRET_TYPE = "cluster.request/update"
+	DEFAULT_CLUSTER                = "default_cluster"
 )
 
 type K8sInformer interface {
@@ -192,10 +192,10 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 		secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				if secretObject, ok := obj.(*coreV1.Secret); ok {
-					if secretObject.Type != CLUSTER_ADD_REQ && secretObject.Type != CLUSTER_UPDATE_REQ {
+					if secretObject.Type != CLUSTER_ADD_REQ_SECRET_TYPE && secretObject.Type != CLUSTER_UPDATE_REQ_SECRET_TYPE {
 						return
 					}
-					if secretObject.Type == CLUSTER_ADD_REQ {
+					if secretObject.Type == CLUSTER_ADD_REQ_SECRET_TYPE {
 						data := secretObject.Data
 						id := data["cluster_id"][0]
 						id_int, err := strconv.Atoi(string(id))
@@ -203,7 +203,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 						impl.logger.Errorw("error in adding informer for cluster", "id", clusterInfo.ClusterId, "name", clusterInfo.ClusterName, "err", err)
 						return
 					}
-					if secretObject.Type == CLUSTER_UPDATE_REQ {
+					if secretObject.Type == CLUSTER_UPDATE_REQ_SECRET_TYPE {
 						data := secretObject.Data
 						id := data["cluster_id"][0]
 						id_int, err := strconv.Atoi(string(id))
@@ -233,10 +233,12 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 
 	}
 	// these informers will be used to populate helm release cache
-	err = impl.StartInformerAndPopulateCache(clusterInfo.ClusterId)
-	if err != nil {
-		impl.logger.Errorw("error in creating informer for new cluster", "err", err)
-		return err
+	if _, ok := impl.informerStopper[clusterInfo.ClusterName]; !ok {
+		err = impl.StartInformerAndPopulateCache(clusterInfo.ClusterId)
+		if err != nil {
+			impl.logger.Errorw("error in creating informer for new cluster", "err", err)
+			return err
+		}
 	}
 
 	return nil
@@ -332,6 +334,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 				}
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
+				// adding cluster id with release name because there can be case when two cluster have release with same name
 				impl.HelmListClusterMap[releaseDTO.Name+string(rune(clusterInfo.Id))] = appDetail
 			}
 		},
@@ -357,6 +360,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 				}
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
+				// adding cluster id with release name because there can be case when two cluster have release with same name
 				impl.HelmListClusterMap[releaseDTO.Name+string(rune(clusterInfo.Id))] = appDetail
 			}
 		},
