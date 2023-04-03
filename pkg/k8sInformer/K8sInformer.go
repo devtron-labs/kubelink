@@ -332,7 +332,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 				}
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
-				impl.HelmListClusterMap[releaseDTO.Name] = appDetail
+				impl.HelmListClusterMap[releaseDTO.Name+string(rune(clusterInfo.Id))] = appDetail
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
@@ -357,7 +357,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 				}
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
-				impl.HelmListClusterMap[releaseDTO.Name] = appDetail
+				impl.HelmListClusterMap[releaseDTO.Name+string(rune(clusterInfo.Id))] = appDetail
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -371,7 +371,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 				}
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
-				delete(impl.HelmListClusterMap, releaseDTO.Name)
+				delete(impl.HelmListClusterMap, releaseDTO.Name+string(rune(clusterInfo.Id)))
 			}
 		},
 	})
