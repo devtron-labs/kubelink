@@ -431,9 +431,7 @@ func (impl *K8sInformerImpl) GetAllReleaseByClusterId(clusterId int) []*client.D
 	impl.mutex.Unlock()
 
 	for _, v := range releaseMap {
-		if int(v.EnvironmentDetail.ClusterId) == clusterId {
-			deployedAppDetailList = append(deployedAppDetailList, v)
-		}
+		deployedAppDetailList = append(deployedAppDetailList, v)
 	}
 	return deployedAppDetailList
 }
