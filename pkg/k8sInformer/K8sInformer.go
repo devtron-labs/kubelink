@@ -256,7 +256,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 	// these informers will be used to populate helm release cache
 
 	err = impl.StartInformerAndPopulateCache(clusterInfo.ClusterId)
-	if err != nil {
+	if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
 		impl.logger.Errorw("error in creating informer for new cluster", "err", err)
 		return err
 	}
