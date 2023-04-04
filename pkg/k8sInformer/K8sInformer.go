@@ -55,7 +55,7 @@ type K8sInformerImpl struct {
 	logger             *zap.SugaredLogger
 	HelmListClusterMap map[int]map[string]*client.DeployedAppDetail
 	mutex              sync.Mutex
-	informerStopper    map[string]chan struct{}
+	informerStopper    map[int]chan struct{}
 	clusterRepository  repository.ClusterRepository
 	helmReleaseConfig  *HelmReleaseConfig
 }
@@ -67,7 +67,7 @@ func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.
 		helmReleaseConfig: helmReleaseConfig,
 	}
 	informerFactory.HelmListClusterMap = make(map[int]map[string]*client.DeployedAppDetail)
-	informerFactory.informerStopper = make(map[string]chan struct{})
+	informerFactory.informerStopper = make(map[int]chan struct{})
 	if helmReleaseConfig.EnableHelmReleaseCache {
 		go informerFactory.BuildInformerForAllClusters()
 	}
@@ -250,7 +250,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 			},
 		})
 		informerFactory.Start(stopper)
-		impl.informerStopper[clusterInfo.ClusterName+"_second_informer"] = stopper
+		//impl.informerStopper[clusterInfo.ClusterName+"_second_informer"] = stopper
 
 	}
 	// these informers will be used to populate helm release cache
@@ -285,10 +285,10 @@ func (impl *K8sInformerImpl) SyncInformer(clusterId int) error {
 }
 
 func (impl *K8sInformerImpl) StopInformer(clusterName string, clusterId int) {
-	stopper := impl.informerStopper[clusterName+string(rune(clusterId))]
+	stopper := impl.informerStopper[clusterId]
 	if stopper != nil {
 		close(stopper)
-		delete(impl.informerStopper, clusterName+string(rune(clusterId)))
+		delete(impl.informerStopper, clusterId)
 	}
 	return
 }
@@ -301,7 +301,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 		return err
 	}
 
-	if _, ok := impl.informerStopper[clusterInfo.ClusterName+string(rune(clusterId))]; ok {
+	if _, ok := impl.informerStopper[clusterId]; ok {
 		impl.logger.Debugw(fmt.Sprintf("informer for %s already exist", clusterInfo.ClusterName))
 		return errors.New(INFORMER_ALREADY_EXIST_MESSAGE)
 	}
@@ -418,7 +418,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 	})
 	informerFactory.Start(stopper)
 	impl.logger.Infow("informer started for cluster: ", "cluster_id", clusterInfo.Id, "cluster_name", clusterInfo.ClusterName)
-	impl.informerStopper[clusterInfo.ClusterName+string(rune(clusterInfo.Id))] = stopper
+	impl.informerStopper[clusterId] = stopper
 	return nil
 }
 
