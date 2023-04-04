@@ -333,6 +333,14 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 		return err
 	}
 
+	for k, v := range impl.HelmListClusterMap {
+		if int(v.EnvironmentDetail.ClusterId) == clusterId {
+			impl.mutex.Lock()
+			defer impl.mutex.Lock()
+			delete(impl.HelmListClusterMap, k)
+		}
+	}
+
 	informerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(clusterClient, time.Minute)
 	stopper := make(chan struct{})
 	secretInformer := informerFactory.Core().V1().Secrets()
