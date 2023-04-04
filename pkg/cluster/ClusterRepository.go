@@ -40,6 +40,7 @@ type ClusterRepositoryImpl struct {
 type ClusterRepository interface {
 	FindAllActive() ([]Cluster, error)
 	FindById(id int) (Cluster, error)
+	FindByIdWithActiveFalse(id int) (Cluster, error)
 }
 
 func (impl ClusterRepositoryImpl) FindAllActive() ([]Cluster, error) {
@@ -57,6 +58,16 @@ func (impl ClusterRepositoryImpl) FindById(id int) (Cluster, error) {
 		Model(&cluster).
 		Where("id= ? ", id).
 		Where("active =?", true).
+		Select()
+	return cluster, err
+}
+
+func (impl ClusterRepositoryImpl) FindByIdWithActiveFalse(id int) (Cluster, error) {
+	var cluster Cluster
+	err := impl.dbConnection.
+		Model(&cluster).
+		Where("id= ? ", id).
+		Where("active =?", false).
 		Select()
 	return cluster, err
 }

@@ -233,12 +233,12 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 					id_int, _ := strconv.Atoi(id)
 
 					if string(action) == "delete" {
-						deleteClusterInfo, err := impl.clusterRepository.FindById(id_int)
+						deleteClusterInfo, err := impl.clusterRepository.FindByIdWithActiveFalse(id_int)
 						if err != nil {
 							impl.logger.Errorw("Error in fetching cluster by id", "cluster-id ", id_int)
 							return
 						}
-						impl.StopInformer(deleteClusterInfo.ClusterName, 0)
+						impl.StopInformer(deleteClusterInfo.ClusterName, deleteClusterInfo.Id)
 						if err != nil {
 							impl.logger.Errorw("error in updating informer for cluster", "id", clusterInfo.ClusterId, "name", clusterInfo.ClusterName, "err", err)
 							return
