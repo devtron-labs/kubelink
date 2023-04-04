@@ -300,7 +300,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 	}
 
 	if _, ok := impl.informerStopper[clusterInfo.ClusterName+string(rune(clusterId))]; ok {
-		impl.logger.Debugw(fmt.Sprintf("informer for %s already exist"), clusterInfo.ClusterName)
+		impl.logger.Debugw(fmt.Sprintf("informer for %s already exist", clusterInfo.ClusterName))
 		return errors.New(INFORMER_ALREADY_EXIST_MESSAGE)
 	}
 
