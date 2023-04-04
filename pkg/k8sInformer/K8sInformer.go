@@ -170,6 +170,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 		secretInformer := informerFactory.Core().V1().Secrets()
 		secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
+				impl.logger.Infow("Event received in cluster secret Add informer", "time", time.Now())
 				if secretObject, ok := obj.(*coreV1.Secret); ok {
 					if secretObject.Type != CLUSTER_MODIFY_EVENT_SECRET_TYPE {
 						return
@@ -196,8 +197,8 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
+				impl.logger.Infow("Event received in cluster secret update informer", "time", time.Now())
 				if secretObject, ok := newObj.(*coreV1.Secret); ok {
-
 					if secretObject.Type != CLUSTER_MODIFY_EVENT_SECRET_TYPE {
 						return
 					}
@@ -223,6 +224,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
+				impl.logger.Infow("Event received in secret delete informer", "time", time.Now())
 				if secretObject, ok := obj.(*coreV1.Secret); ok {
 					if secretObject.Type != CLUSTER_MODIFY_EVENT_SECRET_TYPE {
 						return
@@ -342,6 +344,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 	secretInformer := informerFactory.Core().V1().Secrets()
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
+			impl.logger.Infow("Event received in Helm secret add informer", "time", time.Now())
 			if secretObject, ok := obj.(*coreV1.Secret); ok {
 
 				if secretObject.Type != HELM_RELEASE_SECRET_TYPE {
@@ -370,6 +373,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
+			impl.logger.Infow("Event received in Helm secret update informer", "time", time.Now())
 			if secretObject, ok := oldObj.(*coreV1.Secret); ok {
 				if secretObject.Type != HELM_RELEASE_SECRET_TYPE {
 					return
@@ -397,6 +401,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
+			impl.logger.Infow("Event received in Helm secret delete informer", "time", time.Now())
 			if secretObject, ok := obj.(*coreV1.Secret); ok {
 				if secretObject.Type != HELM_RELEASE_SECRET_TYPE {
 					return
