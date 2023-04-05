@@ -980,13 +980,18 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 			}
 		}
 
+		creationTimeStamp := ""
+		val, found, err := unstructured.NestedString(manifest.Object, "metadata", "creationTimestamp")
+		if found && err == nil {
+			creationTimeStamp = val
+		}
 		node := &bean.ResourceNode{
 			ResourceRef:     resourceRef,
 			ResourceVersion: manifest.GetResourceVersion(),
 			NetworkingInfo: &bean.ResourceNetworkingInfo{
 				Labels: manifest.GetLabels(),
 			},
-			CreatedAt: manifest.GetCreationTimestamp().String(),
+			CreatedAt: creationTimeStamp,
 		}
 
 		if parentResourceRef != nil {
