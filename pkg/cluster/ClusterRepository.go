@@ -38,13 +38,13 @@ type ClusterRepositoryImpl struct {
 }
 
 type ClusterRepository interface {
-	FindAllActive() ([]Cluster, error)
-	FindById(id int) (Cluster, error)
-	FindByIdWithActiveFalse(id int) (Cluster, error)
+	FindAllActive() ([]*Cluster, error)
+	FindById(id int) (*Cluster, error)
+	FindByIdWithActiveFalse(id int) (*Cluster, error)
 }
 
-func (impl ClusterRepositoryImpl) FindAllActive() ([]Cluster, error) {
-	var clusters []Cluster
+func (impl ClusterRepositoryImpl) FindAllActive() ([]*Cluster, error) {
+	var clusters []*Cluster
 	err := impl.dbConnection.
 		Model(&clusters).
 		Where("active=?", true).
@@ -52,8 +52,8 @@ func (impl ClusterRepositoryImpl) FindAllActive() ([]Cluster, error) {
 	return clusters, err
 }
 
-func (impl ClusterRepositoryImpl) FindById(id int) (Cluster, error) {
-	var cluster Cluster
+func (impl ClusterRepositoryImpl) FindById(id int) (*Cluster, error) {
+	var cluster *Cluster
 	err := impl.dbConnection.
 		Model(&cluster).
 		Where("id= ? ", id).
@@ -62,8 +62,8 @@ func (impl ClusterRepositoryImpl) FindById(id int) (Cluster, error) {
 	return cluster, err
 }
 
-func (impl ClusterRepositoryImpl) FindByIdWithActiveFalse(id int) (Cluster, error) {
-	var cluster Cluster
+func (impl ClusterRepositoryImpl) FindByIdWithActiveFalse(id int) (*Cluster, error) {
+	var cluster *Cluster
 	err := impl.dbConnection.
 		Model(&cluster).
 		Where("id= ? ", id).
