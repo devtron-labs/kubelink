@@ -170,7 +170,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 		secretInformer := informerFactory.Core().V1().Secrets()
 		secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				impl.logger.Info("Event received in cluster secret Add informer", "time", time.Now())
+				impl.logger.Debug("Event received in cluster secret Add informer", "time", time.Now())
 				if secretObject, ok := obj.(*coreV1.Secret); ok {
 					if secretObject.Type != CLUSTER_MODIFY_EVENT_SECRET_TYPE {
 						return
@@ -326,7 +326,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 
 	httpClientFor, err := rest.HTTPClientFor(restConfig)
 	if err != nil {
-		fmt.Println("error occurred while overriding k8s client", "reason", err)
+		impl.logger.Error("error occurred while overriding k8s client", "reason", err)
 		return err
 	}
 	clusterClient, err := kubernetes.NewForConfigAndClient(restConfig, httpClientFor)
@@ -344,7 +344,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 	secretInformer := informerFactory.Core().V1().Secrets()
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			impl.logger.Info("Event received in Helm secret add informer", "time", time.Now())
+			impl.logger.Debug("Event received in Helm secret add informer", "time", time.Now())
 			if secretObject, ok := obj.(*coreV1.Secret); ok {
 
 				if secretObject.Type != HELM_RELEASE_SECRET_TYPE {
@@ -373,7 +373,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			impl.logger.Info("Event received in Helm secret update informer", "time", time.Now())
+			impl.logger.Debug("Event received in Helm secret update informer", "time", time.Now())
 			if secretObject, ok := oldObj.(*coreV1.Secret); ok {
 				if secretObject.Type != HELM_RELEASE_SECRET_TYPE {
 					return
@@ -401,7 +401,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
-			impl.logger.Info("Event received in Helm secret delete informer", "time", time.Now())
+			impl.logger.Debug("Event received in Helm secret delete informer", "time", time.Now())
 			if secretObject, ok := obj.(*coreV1.Secret); ok {
 				if secretObject.Type != HELM_RELEASE_SECRET_TYPE {
 					return
@@ -425,11 +425,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 func (impl *K8sInformerImpl) GetAllReleaseByClusterId(clusterId int) []*client.DeployedAppDetail {
 
 	var deployedAppDetailList []*client.DeployedAppDetail
-
-	impl.mutex.Lock()
 	releaseMap := impl.HelmListClusterMap[clusterId]
-	impl.mutex.Unlock()
-
 	for _, v := range releaseMap {
 		deployedAppDetailList = append(deployedAppDetailList, v)
 	}
