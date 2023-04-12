@@ -55,7 +55,7 @@ func (impl ClusterRepositoryImpl) FindAllActive() ([]*Cluster, error) {
 func (impl ClusterRepositoryImpl) FindById(id int) (*Cluster, error) {
 	var cluster *Cluster
 	err := impl.dbConnection.
-		Model(&cluster).
+		Model(cluster).
 		Where("id= ? ", id).
 		Where("active =?", true).
 		Select()
@@ -65,7 +65,7 @@ func (impl ClusterRepositoryImpl) FindById(id int) (*Cluster, error) {
 func (impl ClusterRepositoryImpl) FindByIdWithActiveFalse(id int) (*Cluster, error) {
 	var cluster *Cluster
 	err := impl.dbConnection.
-		Model(&cluster).
+		Model(cluster).
 		Where("id= ? ", id).
 		Where("active =?", false).
 		Select()
