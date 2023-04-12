@@ -306,7 +306,7 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 		return errors.New(INFORMER_ALREADY_EXIST_MESSAGE)
 	}
 
-	impl.logger.Info("starting informer for cluster - ", "cluster-id", clusterInfo.Id, "cluster-name", clusterInfo.ClusterName)
+	impl.logger.Info("starting informer for cluster - ", "cluster-id ", clusterInfo.Id, "cluster-name ", clusterInfo.ClusterName)
 
 	restConfig := &rest.Config{}
 
