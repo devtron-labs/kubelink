@@ -17,6 +17,7 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	"io/ioutil"
 	coreV1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -339,7 +340,12 @@ func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error 
 	impl.HelmListClusterMap[clusterId] = make(map[string]*client.DeployedAppDetail)
 	impl.mutex.Unlock()
 
-	informerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(clusterClient, 15*time.Minute)
+	labelOptions := kubeinformers.WithTweakListOptions(func(opts *metav1.ListOptions) {
+		//kubectl  get  secret --field-selector type==helm.sh/release.v1 -l status=deployed  --all-namespaces
+		opts.LabelSelector = "status!=superseded"
+		opts.FieldSelector = "type==helm.sh/release.v1"
+	})
+	informerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(clusterClient, 15*time.Minute, labelOptions)
 	stopper := make(chan struct{})
 	secretInformer := informerFactory.Core().V1().Secrets()
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
