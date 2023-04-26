@@ -381,6 +381,7 @@ func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest
 				Sources:      chartMetadata.Sources,
 				Description:  chartMetadata.Description,
 			},
+			DeployedBy:   "fggvh",
 			DockerImages: dockerImages,
 			Version:      int32(helmRelease.Version),
 		}
