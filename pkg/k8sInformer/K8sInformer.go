@@ -32,13 +32,15 @@ const (
 	CLUSTER_MODIFY_EVENT_SECRET_TYPE = "cluster.request/modify"
 	DEFAULT_CLUSTER                  = "default_cluster"
 	INFORMER_ALREADY_EXIST_MESSAGE   = "INFORMER_ALREADY_EXIST"
+	ADD                              = "add"
+	UPDATE                           = "update"
 )
 
 type K8sInformer interface {
-	StartInformer(clusterInfo bean.ClusterInfo) error
-	SyncInformer(clusterId int) error
-	StopInformer(clusterName string, clusterId int)
-	StartInformerAndPopulateCache(clusterId int) error
+	startInformer(clusterInfo bean.ClusterInfo) error
+	syncInformer(clusterId int) error
+	stopInformer(clusterName string, clusterId int)
+	startInformerAndPopulateCache(clusterId int) error
 	GetAllReleaseByClusterId(clusterId int) []*client.DeployedAppDetail
 }
 
@@ -125,7 +127,7 @@ func (impl *K8sInformerImpl) BuildInformerForAllClusters() error {
 			BearerToken: bearerToken,
 			ServerUrl:   model.ServerUrl,
 		}
-		err := impl.StartInformer(*clusterInfo)
+		err := impl.startInformer(*clusterInfo)
 		if err != nil {
 			impl.logger.Error("error in starting informer for cluster ", "cluster-name ", clusterInfo.ClusterName, "err", err)
 			return err
@@ -136,7 +138,7 @@ func (impl *K8sInformerImpl) BuildInformerForAllClusters() error {
 	return nil
 }
 
-func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
+func (impl *K8sInformerImpl) startInformer(clusterInfo bean.ClusterInfo) error {
 
 	restConfig := &rest.Config{}
 	if clusterInfo.ClusterName == DEFAULT_CLUSTER {
@@ -166,7 +168,11 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 	// for default cluster adding an extra informer, this informer will add informer on new clusters
 	if clusterInfo.ClusterName == DEFAULT_CLUSTER {
 		impl.logger.Debug("Starting informer, reading new cluster request for default cluster")
-		informerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(clusterClient, 15*time.Minute)
+		labelOptions := kubeinformers.WithTweakListOptions(func(opts *metav1.ListOptions) {
+			//kubectl  get  secret --field-selector type==helm.sh/release.v1 -l status=deployed  --all-namespaces
+			opts.FieldSelector = "type==cluster.request/modify"
+		})
+		informerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(clusterClient, 15*time.Minute, labelOptions)
 		stopper := make(chan struct{})
 		secretInformer := informerFactory.Core().V1().Secrets()
 		secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -181,15 +187,15 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 					id := string(data["cluster_id"])
 					id_int, _ := strconv.Atoi(id)
 
-					if string(action) == "add" {
-						err = impl.StartInformerAndPopulateCache(id_int)
+					if string(action) == ADD {
+						err = impl.startInformerAndPopulateCache(id_int)
 						if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
 							impl.logger.Debug("error in adding informer for cluster", "id", id_int, "err", err)
 							return
 						}
 					}
-					if string(action) == "update" {
-						err = impl.SyncInformer(id_int)
+					if string(action) == UPDATE {
+						err = impl.syncInformer(id_int)
 						if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
 							impl.logger.Debug("error in updating informer for cluster", "id", clusterInfo.ClusterId, "name", clusterInfo.ClusterName, "err", err)
 							return
@@ -208,15 +214,15 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 					id := string(data["cluster_id"])
 					id_int, _ := strconv.Atoi(id)
 
-					if string(action) == "add" {
-						err = impl.StartInformerAndPopulateCache(clusterInfo.ClusterId)
+					if string(action) == ADD {
+						err = impl.startInformerAndPopulateCache(clusterInfo.ClusterId)
 						if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
 							impl.logger.Error("error in adding informer for cluster", "id", id_int, "err", err)
 							return
 						}
 					}
-					if string(action) == "update" {
-						err := impl.SyncInformer(id_int)
+					if string(action) == UPDATE {
+						err := impl.syncInformer(id_int)
 						if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
 							impl.logger.Error("error in updating informer for cluster", "id", clusterInfo.ClusterId, "name", clusterInfo.ClusterName, "err", err)
 							return
@@ -241,7 +247,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 							impl.logger.Error("Error in fetching cluster by id", "cluster-id ", id_int)
 							return
 						}
-						impl.StopInformer(deleteClusterInfo.ClusterName, deleteClusterInfo.Id)
+						impl.stopInformer(deleteClusterInfo.ClusterName, deleteClusterInfo.Id)
 						if err != nil {
 							impl.logger.Error("error in updating informer for cluster", "id", clusterInfo.ClusterId, "name", clusterInfo.ClusterName, "err", err)
 							return
@@ -256,7 +262,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 	}
 	// these informers will be used to populate helm release cache
 
-	err = impl.StartInformerAndPopulateCache(clusterInfo.ClusterId)
+	err = impl.startInformerAndPopulateCache(clusterInfo.ClusterId)
 	if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
 		impl.logger.Error("error in creating informer for new cluster", "err", err)
 		return err
@@ -265,7 +271,7 @@ func (impl *K8sInformerImpl) StartInformer(clusterInfo bean.ClusterInfo) error {
 	return nil
 }
 
-func (impl *K8sInformerImpl) SyncInformer(clusterId int) error {
+func (impl *K8sInformerImpl) syncInformer(clusterId int) error {
 
 	clusterInfo, err := impl.clusterRepository.FindById(clusterId)
 	if err != nil {
@@ -274,10 +280,10 @@ func (impl *K8sInformerImpl) SyncInformer(clusterId int) error {
 	}
 	//before creating new informer for cluster, close existing one
 	impl.logger.Debug("stopping informer for cluster - ", "cluster-name", clusterInfo.ClusterName, "cluster-id", clusterInfo.Id)
-	impl.StopInformer(clusterInfo.ClusterName, clusterInfo.Id)
+	impl.stopInformer(clusterInfo.ClusterName, clusterInfo.Id)
 	impl.logger.Debug("informer stopped", "cluster-name", clusterInfo.ClusterName, "cluster-id", clusterInfo.Id)
 	//create new informer for cluster with new config
-	err = impl.StartInformerAndPopulateCache(clusterId)
+	err = impl.startInformerAndPopulateCache(clusterId)
 	if err != nil {
 		impl.logger.Error("error in starting informer for ", "cluster name", clusterInfo.ClusterName)
 		return err
@@ -285,7 +291,7 @@ func (impl *K8sInformerImpl) SyncInformer(clusterId int) error {
 	return nil
 }
 
-func (impl *K8sInformerImpl) StopInformer(clusterName string, clusterId int) {
+func (impl *K8sInformerImpl) stopInformer(clusterName string, clusterId int) {
 	stopper := impl.informerStopper[clusterId]
 	if stopper != nil {
 		close(stopper)
@@ -294,7 +300,7 @@ func (impl *K8sInformerImpl) StopInformer(clusterName string, clusterId int) {
 	return
 }
 
-func (impl *K8sInformerImpl) StartInformerAndPopulateCache(clusterId int) error {
+func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error {
 
 	clusterInfo, err := impl.clusterRepository.FindById(clusterId)
 	if err != nil {
