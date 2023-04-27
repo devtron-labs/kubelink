@@ -169,7 +169,7 @@ func (impl *K8sInformerImpl) startInformer(clusterInfo bean.ClusterInfo) error {
 	if clusterInfo.ClusterName == DEFAULT_CLUSTER {
 		impl.logger.Debug("Starting informer, reading new cluster request for default cluster")
 		labelOptions := kubeinformers.WithTweakListOptions(func(opts *metav1.ListOptions) {
-			//kubectl  get  secret --field-selector type==helm.sh/release.v1 -l status=deployed  --all-namespaces
+			//kubectl  get  secret --field-selector type==cluster.request/modify --all-namespaces
 			opts.FieldSelector = "type==cluster.request/modify"
 		})
 		informerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(clusterClient, 15*time.Minute, labelOptions)
@@ -380,7 +380,6 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 				}
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
-				// adding cluster id with release name because there can be case when two cluster have release with same name
 				impl.HelmListClusterMap[clusterId][releaseDTO.Name+string(rune(clusterInfo.Id))] = appDetail
 			}
 		},
