@@ -49,7 +49,7 @@ const (
 type HelmAppService interface {
 	GetApplicationListForCluster(config *client.ClusterConfig) *client.DeployedAppList
 	BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error)
-	FetchApplicationStatus(req *client.AppDetailRequest) (*bean.HealthStatusCode, error)
+	FetchApplicationStatusWithLastDeployed(req *client.AppDetailRequest) (*AppStatusWithLastDeployment, error)
 	GetHelmAppValues(req *client.AppDetailRequest) (*client.ReleaseInfo, error)
 	ScaleObjects(ctx context.Context, clusterConfig *client.ClusterConfig, requests []*client.ObjectIdentifier, scaleDown bool) (*client.HibernateResponse, error)
 	GetDeploymentHistory(req *client.AppDetailRequest) (*client.HelmAppDeploymentHistory, error)
@@ -74,6 +74,11 @@ func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
 	cfg := &HelmReleaseConfig{}
 	err := env.Parse(cfg)
 	return cfg, err
+}
+
+type AppStatusWithLastDeployment struct {
+	appStatus        *bean.HealthStatusCode
+	lastDeployedTime *timestamppb.Timestamp
 }
 
 type HelmAppServiceImpl struct {
@@ -209,22 +214,24 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 	return appDetail, nil
 }
 
-func (impl *HelmAppServiceImpl) FetchApplicationStatus(req *client.AppDetailRequest) (*bean.HealthStatusCode, error) {
-	var appStatus *bean.HealthStatusCode
+func (impl *HelmAppServiceImpl) FetchApplicationStatusWithLastDeployed(req *client.AppDetailRequest) (*AppStatusWithLastDeployment, error) {
 	helmRelease, err := getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
 		impl.logger.Errorw("Error in getting helm release ", "err", err)
-		return appStatus, err
+		return &AppStatusWithLastDeployment{}, err
 	}
 	nodes, err := impl.getNodes(req, helmRelease)
 	if err != nil {
 		impl.logger.Errorw("Error in getting nodes", "err", err, "req", req)
-		return appStatus, err
+		return &AppStatusWithLastDeployment{}, err
 	}
 	//getting app status on basis of healthy/non-healthy as this api is used for deployment status
 	//in orchestrator and not for app status
-	appStatus = util.GetAppStatusOnBasisOfHealthyNonHealthy(nodes)
-	return appStatus, nil
+	appStatusWithLastDeployment := &AppStatusWithLastDeployment{
+		appStatus:        util.GetAppStatusOnBasisOfHealthyNonHealthy(nodes),
+		lastDeployedTime: timestamppb.New(helmRelease.Info.LastDeployed.Time),
+	}
+	return appStatusWithLastDeployment, nil
 }
 
 func (impl HelmAppServiceImpl) GetHelmAppValues(req *client.AppDetailRequest) (*client.ReleaseInfo, error) {

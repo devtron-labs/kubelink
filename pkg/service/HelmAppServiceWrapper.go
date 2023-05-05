@@ -80,14 +80,31 @@ func (impl *ApplicationServiceServerImpl) GetAppStatus(ctx context.Context, req 
 	impl.Logger.Infow("App detail request", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
 		"namespace", req.Namespace)
 
-	helmAppStatus, err := impl.HelmAppService.FetchApplicationStatus(req)
+	helmApp, err := impl.HelmAppService.FetchApplicationStatusWithLastDeployed(req)
 	if err != nil {
 		impl.Logger.Errorw("Error in getting app detail", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
 			"namespace", req.Namespace, "err", err)
 		return nil, err
 	}
 	appStatus := &client.AppStatus{
-		ApplicationStatus: *helmAppStatus,
+		ApplicationStatus: *helmApp.appStatus,
+	}
+	return appStatus, nil
+}
+
+func (impl *ApplicationServiceServerImpl) GetAppStatusWithLastDeployed(ctx context.Context, req *client.AppDetailRequest) (*client.AppStatusWithLastDeployed, error) {
+	impl.Logger.Infow("App detail request", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
+		"namespace", req.Namespace)
+
+	helmApp, err := impl.HelmAppService.FetchApplicationStatusWithLastDeployed(req)
+	if err != nil {
+		impl.Logger.Errorw("Error in getting app detail", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
+			"namespace", req.Namespace, "err", err)
+		return nil, err
+	}
+	appStatus := &client.AppStatusWithLastDeployed{
+		ApplicationStatus: *helmApp.appStatus,
+		LastDeployed:      helmApp.lastDeployedTime,
 	}
 	return appStatus, nil
 }
