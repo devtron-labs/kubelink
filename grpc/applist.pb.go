@@ -534,9 +534,27 @@ type AppStatus struct {
 
 	ApplicationStatus string `protobuf:"bytes,1,opt,name=applicationStatus,proto3" json:"applicationStatus,omitempty"`
 }
+type AppStatusWithLastDeployed struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	ApplicationStatus string `protobuf:"bytes,1,opt,name=applicationStatus,proto3" json:"applicationStatus,omitempty"`
+	LastDeployed         *timestamp.Timestamp  `protobuf:"bytes,6,opt,name=lastDeployed,proto3" json:"lastDeployed,omitempty"`
+
+}
 
 func (x *AppStatus) Reset() {
 	*x = AppStatus{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_grpc_applist_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *AppStatusWithLastDeployed) Reset() {
+	*x = AppStatusWithLastDeployed{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_grpc_applist_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -548,9 +566,27 @@ func (x *AppStatus) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
+func (x *AppStatusWithLastDeployed) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
 func (*AppStatus) ProtoMessage() {}
 
+func (*AppStatusWithLastDeployed) ProtoMessage() {}
+
 func (x *AppStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_grpc_applist_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *AppStatusWithLastDeployed) ProtoReflect() protoreflect.Message {
 	mi := &file_grpc_applist_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -567,7 +603,19 @@ func (*AppStatus) Descriptor() ([]byte, []int) {
 	return file_grpc_applist_proto_rawDescGZIP(), []int{7}
 }
 
+// Deprecated: Use AppStatusWithLastDeployed.ProtoReflect.Descriptor instead.
+func (*AppStatusWithLastDeployed) Descriptor() ([]byte, []int) {
+	return file_grpc_applist_proto_rawDescGZIP(), []int{7}
+}
+
 func (x *AppStatus) GetApplicationStatus() string {
+	if x != nil {
+		return x.ApplicationStatus
+	}
+	return ""
+}
+
+func (x *AppStatusWithLastDeployed) GetApplicationStatus() string {
 	if x != nil {
 		return x.ApplicationStatus
 	}

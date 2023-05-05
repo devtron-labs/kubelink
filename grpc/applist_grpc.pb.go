@@ -238,6 +238,7 @@ type ApplicationServiceServer interface {
 	ListApplications(*AppListRequest, ApplicationService_ListApplicationsServer) error
 	GetAppDetail(context.Context, *AppDetailRequest) (*AppDetail, error)
 	GetAppStatus(context.Context, *AppDetailRequest) (*AppStatus, error)
+	GetAppStatusWithLastDeployment(context.Context, *AppDetailRequest) (*AppStatusWithLastDeployed, error)
 	Hibernate(context.Context, *HibernateRequest) (*HibernateResponse, error)
 	UnHibernate(context.Context, *HibernateRequest) (*HibernateResponse, error)
 	GetDeploymentHistory(context.Context, *AppDetailRequest) (*HelmAppDeploymentHistory, error)
@@ -268,6 +269,9 @@ func (UnimplementedApplicationServiceServer) GetAppDetail(context.Context, *AppD
 }
 func (UnimplementedApplicationServiceServer) GetAppStatus(context.Context, *AppDetailRequest) (*AppStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAppStatus not implemented")
+}
+func (UnimplementedApplicationServiceServer) GetAppStatusWithLastDeployment(context.Context, *AppDetailRequest) (*AppStatusWithLastDeployed, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAppStatusWithLastDeployment not implemented")
 }
 func (UnimplementedApplicationServiceServer) Hibernate(context.Context, *HibernateRequest) (*HibernateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Hibernate not implemented")
@@ -380,6 +384,24 @@ func _ApplicationService_GetAppStatus_Handler(srv interface{}, ctx context.Conte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ApplicationServiceServer).GetAppStatus(ctx, req.(*AppDetailRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApplicationService_GetAppStatusWithLastDeployment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AppDetailRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApplicationServiceServer).GetAppStatusWithLastDeployment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/ApplicationService/GetAppStatusWithLastDeployment",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApplicationServiceServer).GetAppStatusWithLastDeployment(ctx, req.(*AppDetailRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -668,6 +690,10 @@ var ApplicationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetAppStatus",
 			Handler:    _ApplicationService_GetAppStatus_Handler,
+		},
+		{
+			MethodName: "GetAppStatusWithLastDeployment",
+			Handler:    _ApplicationService_GetAppStatusWithLastDeployment_Handler,
 		},
 		{
 			MethodName: "Hibernate",
