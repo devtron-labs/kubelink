@@ -92,7 +92,7 @@ func (impl *ApplicationServiceServerImpl) GetAppStatus(ctx context.Context, req 
 	return appStatus, nil
 }
 
-func (impl *ApplicationServiceServerImpl) GetAppStatusWithLastDeployment(ctx context.Context, req *client.AppDetailRequest) (*client.AppStatusWithLastDeployed, error) {
+func (impl *ApplicationServiceServerImpl) GetAppStatusWithLastDeployed(ctx context.Context, req *client.AppDetailRequest) (*client.AppStatusWithLastDeployed, error) {
 	impl.Logger.Infow("App detail request", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
 		"namespace", req.Namespace)
 
