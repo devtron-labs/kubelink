@@ -67,7 +67,8 @@ type HelmAppService interface {
 }
 
 type HelmReleaseConfig struct {
-	EnableHelmReleaseCache bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
+	ReleaseRevisionMaxHistoryLimit int  `env:"RELEASE_REVISION_MAX_HISTORY" envDefault:"10"`
+	EnableHelmReleaseCache         bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
 }
 
 func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
@@ -458,6 +459,7 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 		ReleaseName: releaseIdentifier.ReleaseName,
 		Namespace:   releaseIdentifier.ReleaseNamespace,
 		ValuesYaml:  request.ValuesYaml,
+		MaxHistory:  impl.helmReleaseConfig.ReleaseRevisionMaxHistoryLimit,
 	}
 
 	impl.logger.Debug("Upgrading release")
@@ -638,6 +640,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		Version:          request.ChartVersion,
 		DependencyUpdate: true,
 		UpgradeCRDs:      true,
+		MaxHistory:       impl.helmReleaseConfig.ReleaseRevisionMaxHistoryLimit,
 	}
 
 	impl.logger.Debug("Upgrading release with chart info")
