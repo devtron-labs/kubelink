@@ -458,6 +458,7 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 		ReleaseName: releaseIdentifier.ReleaseName,
 		Namespace:   releaseIdentifier.ReleaseNamespace,
 		ValuesYaml:  request.ValuesYaml,
+		MaxHistory:  int(request.HistoryMax),
 	}
 
 	impl.logger.Debug("Upgrading release")
@@ -638,6 +639,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		Version:          request.ChartVersion,
 		DependencyUpdate: true,
 		UpgradeCRDs:      true,
+		MaxHistory:       int(request.HistoryMax),
 	}
 
 	impl.logger.Debug("Upgrading release with chart info")
