@@ -41,7 +41,7 @@ var gvkVsChildGvrAndScope = map[schema.GroupVersionKind][]GvrAndScope{
 	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "ReplicaSet"}:           append(make([]GvrAndScope, 0), podsGvrAndScope),
 	schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "CronJob"}:             append(make([]GvrAndScope, 0), jobGvrAndScope),
 	schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}:                 append(make([]GvrAndScope, 0), podsGvrAndScope),
-	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}:          append(make([]GvrAndScope, 0), podsGvrAndScope),
+	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}:          append(make([]GvrAndScope, 0), podsGvrAndScope, pvcGvrAndScope),
 	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "DaemonSet"}:            append(make([]GvrAndScope, 0), podsGvrAndScope),
 	schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"}:                  append(make([]GvrAndScope, 0), endpointsGvrAndScope, endpointSliceV1Beta1GvrAndScope, endpointSliceV1GvrAndScope),
 }
