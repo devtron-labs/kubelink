@@ -34,6 +34,7 @@ var endpointSliceV1Beta1GvrAndScope = GvrAndScope{Gvr: schema.GroupVersionResour
 var endpointSliceV1GvrAndScope = GvrAndScope{Gvr: schema.GroupVersionResource{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"}, Scope: meta.RESTScopeNameNamespace}
 var pvGvrAndScope = GvrAndScope{Gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, Scope: meta.RESTScopeNameRoot}
 var pvcGvrAndScope = GvrAndScope{Gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumeclaims"}, Scope: meta.RESTScopeNameNamespace}
+var stsGvrAndScope = GvrAndScope{Gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}, Scope: meta.RESTScopeNameNamespace}
 
 var gvkVsChildGvrAndScope = map[schema.GroupVersionKind][]GvrAndScope{
 	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}:           append(make([]GvrAndScope, 0), replicaSetGvrAndScope),
@@ -41,7 +42,7 @@ var gvkVsChildGvrAndScope = map[schema.GroupVersionKind][]GvrAndScope{
 	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "ReplicaSet"}:           append(make([]GvrAndScope, 0), podsGvrAndScope),
 	schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "CronJob"}:             append(make([]GvrAndScope, 0), jobGvrAndScope),
 	schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}:                 append(make([]GvrAndScope, 0), podsGvrAndScope),
-	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}:          append(make([]GvrAndScope, 0), podsGvrAndScope, pvcGvrAndScope),
+	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}:          append(make([]GvrAndScope, 0), podsGvrAndScope, pvcGvrAndScope, stsGvrAndScope),
 	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "DaemonSet"}:            append(make([]GvrAndScope, 0), podsGvrAndScope),
 	schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"}:                  append(make([]GvrAndScope, 0), endpointsGvrAndScope, endpointSliceV1Beta1GvrAndScope, endpointSliceV1GvrAndScope),
 }
@@ -54,11 +55,13 @@ type GvrAndScope struct {
 }
 
 const (
-	DEFAULT_CLUSTER          = "default_cluster"
-	DEVTRON_SERVICE_NAME     = "devtron-service"
-	DEVTRON_APP_LABEL_KEY    = "app"
-	DEVTRON_APP_LABEL_VALUE1 = "devtron"
-	DEVTRON_APP_LABEL_VALUE2 = "orchestrator"
+	DEFAULT_CLUSTER                    = "default_cluster"
+	DEVTRON_SERVICE_NAME               = "devtron-service"
+	DEVTRON_APP_LABEL_KEY              = "app"
+	DEVTRON_APP_LABEL_VALUE1           = "devtron"
+	DEVTRON_APP_LABEL_VALUE2           = "orchestrator"
+	PersistentVolumeClaimsResourceType = "persistentvolumeclaims"
+	StatefulSetsResourceType           = "statefulsets"
 )
 
 func GetGvkVsChildGvrAndScope() map[schema.GroupVersionKind][]GvrAndScope {

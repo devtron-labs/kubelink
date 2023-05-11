@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	"github.com/devtron-labs/kubelink/bean"
 	gitops_engine "github.com/devtron-labs/kubelink/pkg/util/gitops-engine"
 	k8sUtils "github.com/devtron-labs/kubelink/pkg/util/k8s"
@@ -82,7 +83,7 @@ func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace st
 	if err != nil {
 		return nil, err
 	}
-	volumeParentRefMapping := make(map[string]*metav1.OwnerReference)
+	var pvcs []unstructured.Unstructured
 	var manifests []*unstructured.Unstructured
 	for _, gvrAndScope := range gvrAndScopes {
 		gvr := gvrAndScope.Gvr
@@ -103,20 +104,31 @@ func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace st
 		}
 
 		if objects != nil {
-			if parentGvk.Kind == "StatefulSet" && gvr.Resource == "pods" {
-				//special handling for statefulsets
-				volumeParentRefMapping, err = impl.createPvcParentMapping(objects, volumeParentRefMapping)
-				if err != nil {
-					return nil, err
-				}
-			} else if parentGvk.Kind == "StatefulSet" && gvr.Resource == "persistentvolumeclaims" {
-				manifests, err = impl.statefulSetPvcWorkaround(manifests, volumeParentRefMapping, objects, parentName, parentGvk.Kind, parentApiVersion)
-				if err != nil {
-					return manifests, err
-				}
-			}
 			for _, item := range objects.Items {
-				ownerRefs, _ := gitops_engine.ResolveResourceReferences(&item)
+				ownerRefs, isInferredParentOf := gitops_engine.ResolveResourceReferences(&item)
+				if parentGvk.Kind == kube.StatefulSetKind && gvr.Resource == k8sUtils.PersistentVolumeClaimsResourceType {
+					pvcs = append(pvcs, item)
+					continue
+				}
+				//special handling for pvcs created via statefulsets
+				if gvr.Resource == k8sUtils.StatefulSetsResourceType && isInferredParentOf != nil {
+					for _, pvc := range pvcs {
+						var pvcClaim coreV1.PersistentVolumeClaim
+						err := runtime.DefaultUnstructuredConverter.FromUnstructured(pvc.Object, &pvcClaim)
+						if err != nil {
+							return manifests, err
+						}
+						isCurrentStsParentOfPvc := isInferredParentOf(kube.ResourceKey{
+							Group:     "",
+							Kind:      pvcClaim.Kind,
+							Namespace: namespace,
+							Name:      pvcClaim.Name,
+						})
+						if isCurrentStsParentOfPvc {
+							manifests = append(manifests, pvc.DeepCopy())
+						}
+					}
+				}
 				item.SetOwnerReferences(ownerRefs)
 				for _, ownerRef := range item.GetOwnerReferences() {
 					if ownerRef.Name == parentName && ownerRef.Kind == parentGvk.Kind && ownerRef.APIVersion == parentApiVersion {
@@ -132,43 +144,6 @@ func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace st
 	return manifests, nil
 }
 
-func (impl K8sServiceImpl) createPvcParentMapping(objects *unstructured.UnstructuredList, volumeParentRefMapping map[string]*metav1.OwnerReference) (map[string]*metav1.OwnerReference, error) {
-
-	for _, item := range objects.Items {
-		var podSpec coreV1.Pod
-		err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.Object, &podSpec)
-		if err != nil {
-			return nil, err
-		}
-		for index, _ := range podSpec.Spec.Volumes {
-			if podSpec.Spec.Volumes[index].VolumeSource.PersistentVolumeClaim == nil {
-				continue
-			}
-			pvcName := podSpec.Spec.Volumes[index].VolumeSource.PersistentVolumeClaim.ClaimName
-			volumeParentRefMapping[pvcName] = &podSpec.ObjectMeta.OwnerReferences[0]
-		}
-	}
-	return volumeParentRefMapping, nil
-}
-
-func (impl K8sServiceImpl) statefulSetPvcWorkaround(manifests []*unstructured.Unstructured, volumeParentRefMapping map[string]*metav1.OwnerReference,
-	objects *unstructured.UnstructuredList, parentName string, parentKind string, parentApiVersion string) ([]*unstructured.Unstructured, error) {
-
-	for _, item := range objects.Items {
-		var pvcClaim coreV1.PersistentVolumeClaim
-		err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.Object, &pvcClaim)
-		if err != nil {
-			return manifests, err
-		}
-		if volumeParentRefMapping[pvcClaim.Name] != nil {
-			if volumeParentRefMapping[pvcClaim.Name].Name == parentName && volumeParentRefMapping[pvcClaim.Name].Kind == parentKind &&
-				volumeParentRefMapping[pvcClaim.Name].APIVersion == parentApiVersion {
-				manifests = append(manifests, item.DeepCopy())
-			}
-		}
-	}
-	return manifests, nil
-}
 func (impl K8sServiceImpl) PatchResource(ctx context.Context, restConfig *rest.Config, r *bean.KubernetesResourcePatchRequest) error {
 	impl.logger.Debugw("Patching resource ", "namespace", r.Namespace, "name", r.Name)
 
