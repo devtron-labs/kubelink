@@ -124,7 +124,7 @@ func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace st
 							Namespace: namespace,
 							Name:      pvcClaim.Name,
 						})
-						if isCurrentStsParentOfPvc {
+						if isCurrentStsParentOfPvc && item.GetName() == parentName {
 							manifests = append(manifests, pvc.DeepCopy())
 						}
 					}
