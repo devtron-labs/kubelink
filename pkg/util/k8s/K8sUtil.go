@@ -66,7 +66,7 @@ const (
 )
 
 var K8sNativeGroups = []string{"", "admissionregistration.k8s.io", "apiextensions.k8s.io", "apiregistration.k8s.io", "apps", "authentication.k8s.io", "authorization.k8s.io",
-	"autoscaling", "batch", "certificates.k8s.io", "coordination.k8s.io", "core", "discovery.k8s.io", "events.k8s.io", "flowcontrol.apiserver.k8s.io",
+	"autoscaling", "batch", "certificates.k8s.io", "coordination.k8s.io", "core", "discovery.k8s.io", "events.k8s.io", "flowcontrol.apiserver.k8s.io", "argoproj.io",
 	"internal.apiserver.k8s.io", "networking.k8s.io", "node.k8s.io", "policy", "rbac.authorization.k8s.io", "resource.k8s.io", "scheduling.k8s.io", "storage.k8s.io"}
 
 func GetGvkVsChildGvrAndScope() map[schema.GroupVersionKind][]GvrAndScope {

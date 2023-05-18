@@ -75,7 +75,7 @@ func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace st
 	impl.logger.Debugw("Getting child objects ", "namespace", namespace, "parentGvk", parentGvk, "parentName", parentName, "parentApiVersion", parentApiVersion)
 
 	var gvrAndScopes []k8sUtils.GvrAndScope
-	var ok bool
+	ok := true
 	if isCrd {
 		//if object is a custom resource then check for all possible child it creates
 		gvrAndScopes = append(gvrAndScopes, k8sUtils.PodsGvrAndScope, k8sUtils.ReplicaSetGvrAndScope, k8sUtils.JobGvrAndScope,

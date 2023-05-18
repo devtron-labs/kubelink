@@ -990,7 +990,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 
 		resourceRef := buildResourceRef(gvk, *manifest, _namespace)
 
-		if impl.k8sService.CanHaveChild(gvk) {
+		if impl.k8sService.CanHaveChild(gvk) || isCrd {
 			children, err := impl.k8sService.GetChildObjects(restConfig, _namespace, gvk, manifest.GetName(), manifest.GetAPIVersion(), isCrd)
 			if err != nil {
 				return nil, err
