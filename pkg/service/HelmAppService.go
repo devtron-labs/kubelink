@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/strings/slices"
 	"math/rand"
 	"net/http"
 	"os"
@@ -977,7 +978,11 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 	for _, desiredOrLiveManifest := range desiredOrLiveManifests {
 		manifest := desiredOrLiveManifest.Manifest
 		gvk := manifest.GroupVersionKind()
-
+		var isCrd bool
+		//if an object doesn't belong to K8s native group then it must be a custom resource
+		if !slices.Contains(k8sUtils.K8sNativeGroups, gvk.Group) {
+			isCrd = true
+		}
 		_namespace := manifest.GetNamespace()
 		if _namespace == "" {
 			_namespace = releaseNamespace
@@ -986,7 +991,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 		resourceRef := buildResourceRef(gvk, *manifest, _namespace)
 
 		if impl.k8sService.CanHaveChild(gvk) {
-			children, err := impl.k8sService.GetChildObjects(restConfig, _namespace, gvk, manifest.GetName(), manifest.GetAPIVersion())
+			children, err := impl.k8sService.GetChildObjects(restConfig, _namespace, gvk, manifest.GetName(), manifest.GetAPIVersion(), isCrd)
 			if err != nil {
 				return nil, err
 			}

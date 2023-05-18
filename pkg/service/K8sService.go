@@ -31,7 +31,7 @@ type ClusterConfig struct {
 type K8sService interface {
 	CanHaveChild(gvk schema.GroupVersionKind) bool
 	GetLiveManifest(restConfig *rest.Config, namespace string, gvk *schema.GroupVersionKind, name string) (*unstructured.Unstructured, *schema.GroupVersionResource, error)
-	GetChildObjects(restConfig *rest.Config, namespace string, parentGvk schema.GroupVersionKind, parentName string, parentApiVersion string) ([]*unstructured.Unstructured, error)
+	GetChildObjects(restConfig *rest.Config, namespace string, parentGvk schema.GroupVersionKind, parentName string, parentApiVersion string, isCrd bool) ([]*unstructured.Unstructured, error)
 	PatchResource(ctx context.Context, restConfig *rest.Config, r *bean.KubernetesResourcePatchRequest) error
 }
 
@@ -71,10 +71,19 @@ func (impl K8sServiceImpl) GetLiveManifest(restConfig *rest.Config, namespace st
 	}
 }
 
-func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace string, parentGvk schema.GroupVersionKind, parentName string, parentApiVersion string) ([]*unstructured.Unstructured, error) {
+func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace string, parentGvk schema.GroupVersionKind, parentName string, parentApiVersion string, isCrd bool) ([]*unstructured.Unstructured, error) {
 	impl.logger.Debugw("Getting child objects ", "namespace", namespace, "parentGvk", parentGvk, "parentName", parentName, "parentApiVersion", parentApiVersion)
 
-	gvrAndScopes, ok := k8sUtils.GetGvkVsChildGvrAndScope()[parentGvk]
+	var gvrAndScopes []k8sUtils.GvrAndScope
+	var ok bool
+	if isCrd {
+		//if object is a custom resource then check for all possible child it creates
+		gvrAndScopes = append(gvrAndScopes, k8sUtils.PodsGvrAndScope, k8sUtils.ReplicaSetGvrAndScope, k8sUtils.JobGvrAndScope,
+			k8sUtils.EndpointsGvrAndScope, k8sUtils.EndpointSliceV1Beta1GvrAndScope, k8sUtils.EndpointSliceV1GvrAndScope, k8sUtils.PvGvrAndScope,
+			k8sUtils.PvcGvrAndScope, k8sUtils.StsGvrAndScope)
+	} else {
+		gvrAndScopes, ok = k8sUtils.GetGvkVsChildGvrAndScope()[parentGvk]
+	}
 	if !ok {
 		return nil, errors.New("grv not found for given kind")
 	}
