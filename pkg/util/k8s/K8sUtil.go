@@ -35,9 +35,7 @@ var EndpointSliceV1GvrAndScope = GvrAndScope{Gvr: schema.GroupVersionResource{Gr
 var PvGvrAndScope = GvrAndScope{Gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, Scope: meta.RESTScopeNameRoot}
 var PvcGvrAndScope = GvrAndScope{Gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumeclaims"}, Scope: meta.RESTScopeNameNamespace}
 var StsGvrAndScope = GvrAndScope{Gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}, Scope: meta.RESTScopeNameNamespace}
-
-//var promGvrAndScope = GvrAndScope{Gvr: schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "prometheuses"}, Scope: meta.RESTScopeNameNamespace}
-//var amGvrAndScope = GvrAndScope{Gvr: schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "alertmanagers"}, Scope: meta.RESTScopeNameNamespace}
+var ConfigGvrAndScope = GvrAndScope{Gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}, Scope: meta.RESTScopeNameNamespace}
 
 var gvkVsChildGvrAndScope = map[schema.GroupVersionKind][]GvrAndScope{
 	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}:           append(make([]GvrAndScope, 0), ReplicaSetGvrAndScope),
@@ -48,8 +46,6 @@ var gvkVsChildGvrAndScope = map[schema.GroupVersionKind][]GvrAndScope{
 	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}:          append(make([]GvrAndScope, 0), PodsGvrAndScope, PvcGvrAndScope, StsGvrAndScope),
 	schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "DaemonSet"}:            append(make([]GvrAndScope, 0), PodsGvrAndScope),
 	schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"}:                  append(make([]GvrAndScope, 0), EndpointsGvrAndScope, EndpointSliceV1Beta1GvrAndScope, EndpointSliceV1GvrAndScope),
-	//schema.GroupVersionKind{Group: "monitoring.coreos.com", Version: "v1", Kind: "Prometheus"}:   append(make([]GvrAndScope, 0), StsGvrAndScope, PodsGvrAndScope),
-	//schema.GroupVersionKind{Group: "monitoring.coreos.com", Version: "v1", Kind: "Alertmanager"}: append(make([]GvrAndScope, 0), StsGvrAndScope, PodsGvrAndScope),
 }
 
 // constants end

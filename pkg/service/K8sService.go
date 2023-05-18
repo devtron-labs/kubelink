@@ -80,7 +80,7 @@ func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace st
 		//if object is a custom resource then check for all possible child it creates
 		gvrAndScopes = append(gvrAndScopes, k8sUtils.PodsGvrAndScope, k8sUtils.ReplicaSetGvrAndScope, k8sUtils.JobGvrAndScope,
 			k8sUtils.EndpointsGvrAndScope, k8sUtils.EndpointSliceV1Beta1GvrAndScope, k8sUtils.EndpointSliceV1GvrAndScope, k8sUtils.PvGvrAndScope,
-			k8sUtils.PvcGvrAndScope, k8sUtils.StsGvrAndScope)
+			k8sUtils.PvcGvrAndScope, k8sUtils.StsGvrAndScope, k8sUtils.ConfigGvrAndScope)
 	} else {
 		gvrAndScopes, ok = k8sUtils.GetGvkVsChildGvrAndScope()[parentGvk]
 	}
