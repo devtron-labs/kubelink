@@ -977,7 +977,6 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 	for _, desiredOrLiveManifest := range desiredOrLiveManifests {
 		manifest := desiredOrLiveManifest.Manifest
 		gvk := manifest.GroupVersionKind()
-
 		_namespace := manifest.GetNamespace()
 		if _namespace == "" {
 			_namespace = releaseNamespace
