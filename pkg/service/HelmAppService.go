@@ -553,6 +553,8 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 		DependencyUpdate: true,
 		UpgradeCRDs:      true,
 		CreateNamespace:  true,
+		Atomic:           true,
+		Timeout:          time.Minute,
 		DryRun:           dryRun,
 	}
 
