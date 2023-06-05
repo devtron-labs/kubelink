@@ -8,7 +8,7 @@ WORKDIR /go/src/github.com/devtron-labs/kubelink
 ADD . /go/src/github.com/devtron-labs/kubelink/
 RUN GOOS=linux make
 
-FROM ubuntu
+FROM ubuntu:22.04
 RUN apt update
 RUN apt install ca-certificates -y
 RUN apt clean autoclean
