@@ -642,6 +642,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		DependencyUpdate: true,
 		UpgradeCRDs:      true,
 		MaxHistory:       int(request.HistoryMax),
+		Force:            true,
 	}
 
 	impl.logger.Debug("Upgrading release with chart info")
