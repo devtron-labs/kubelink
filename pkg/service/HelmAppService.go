@@ -23,6 +23,7 @@ import (
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
+	"helm.sh/helm/v3/pkg/storage/driver"
 	"io/ioutil"
 	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
@@ -623,7 +624,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		InsecureSkipTLSverify: true,
 	}
 
-	impl.logger.Debug("Adding/Updating Chart repo")
+	impl.logger.Debug("Adding/Updating Chart repo", chartRepo)
 	err = helmClientObj.AddOrUpdateChartRepo(chartRepo)
 	if err != nil {
 		impl.logger.Errorw("Error in add/update chart repo ", "err", err)
@@ -645,17 +646,26 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 
 	impl.logger.Debug("Upgrading release with chart info")
 	_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
-	if fmt.Sprintf("%v", err) == (releaseIdentifier.ReleaseName + "has no deployed releases") {
-		_, err = helmClientObj.InstallChart(context.Background(), chartSpec)
-		if err != nil {
-			impl.logger.Errorw("Error in install release ", "err", err)
-			return nil, err
-		}
+	if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
+		if UpgradeErr != nil {
+			if UpgradeErr.Err == driver.ErrNoDeployedReleases {
+				_, err := helmClientObj.InstallChart(context.Background(), chartSpec)
+				if err != nil {
+					impl.logger.Errorw("Error in install release ", "err", err)
+					return nil, err
+				}
 
-	} else if err != nil {
-		impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
-		return nil, err
+			} else {
+				impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
+				return nil, err
+
+			}
+		}
 	}
+	//if err != nil {
+	//	impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
+	//	return nil, err
+	//}
 	// Update release ends
 
 	upgradeReleaseResponse := &client.UpgradeReleaseResponse{
