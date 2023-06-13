@@ -610,7 +610,6 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-
 	// Add or update chart repo starts
 	chartRepoRequest := request.ChartRepository
 	chartRepoName := chartRepoRequest.Name
@@ -642,11 +641,18 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		DependencyUpdate: true,
 		UpgradeCRDs:      true,
 		MaxHistory:       int(request.HistoryMax),
-		Force:            true,
 	}
 
 	impl.logger.Debug("Upgrading release with chart info")
 	_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
+	if fmt.Sprintf("%v", err) == (releaseIdentifier.ReleaseName + "has no deployed releases") {
+		_, err = helmClientObj.InstallChart(context.Background(), chartSpec)
+		if err != nil {
+			impl.logger.Errorw("Error in install release ", "err", err)
+			return nil, err
+		}
+
+	}
 	if err != nil {
 		impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
 		return nil, err
