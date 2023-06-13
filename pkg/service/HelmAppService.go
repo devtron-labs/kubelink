@@ -652,8 +652,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 			return nil, err
 		}
 
-	}
-	if err != nil {
+	} else if err != nil {
 		impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
 		return nil, err
 	}
