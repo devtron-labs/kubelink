@@ -624,7 +624,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		InsecureSkipTLSverify: true,
 	}
 
-	impl.logger.Debug("Adding/Updating Chart repo", chartRepo)
+	impl.logger.Debug("Adding/Updating Chart repo")
 	err = helmClientObj.AddOrUpdateChartRepo(chartRepo)
 	if err != nil {
 		impl.logger.Errorw("Error in add/update chart repo ", "err", err)
