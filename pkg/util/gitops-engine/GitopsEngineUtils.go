@@ -3,8 +3,8 @@ package gitops_engine
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/argoproj/gitops-engine/pkg/health"
-	"github.com/argoproj/gitops-engine/pkg/utils/kube"
+	"github.com/devtron-labs/kubelink/pkg/util/health"
+	"github.com/devtron-labs/kubelink/pkg/util/kube"
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -106,4 +106,3 @@ func isServiceAccountTokenSecret(un *unstructured.Unstructured) (bool, metav1.Ow
 	}
 	return ref.Name != "" && ref.UID != "", ref
 }
-

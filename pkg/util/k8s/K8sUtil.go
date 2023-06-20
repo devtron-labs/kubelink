@@ -18,8 +18,8 @@
 package k8sUtils
 
 import (
-	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	client "github.com/devtron-labs/kubelink/grpc"
+	"github.com/devtron-labs/kubelink/pkg/util/kube"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
