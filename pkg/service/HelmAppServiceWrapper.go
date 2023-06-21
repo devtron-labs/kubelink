@@ -378,12 +378,20 @@ func (impl *ApplicationServiceServerImpl) GetNotes(ctx context.Context, installR
 	return chartNotesResponse, nil
 }
 
-func (impl *ApplicationServiceServerImpl) ValidateOCIRegistry(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) client.OCIRegistryResponse {
-	isValid := impl.HelmAppService.validateOCIRegistryLogin(ctx, OCIRegistryRequest)
-	return isValid
+func (impl *ApplicationServiceServerImpl) ValidateOCIRegistry(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error) {
+	isValid, err := impl.HelmAppService.validateOCIRegistryLogin(ctx, OCIRegistryRequest)
+	if err != nil {
+		impl.Logger.Errorw("Error in fetching Notes ", "err", err)
+		return nil, err
+	}
+	return isValid, nil
 }
 
-func (impl *ApplicationServiceServerImpl) pushHelmChartToOCIRegistry(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) client.OCIRegistryResponse {
-	registryPushResponse := impl.HelmAppService.pushHelmChartToOCIRegistryRepo(ctx, OCIRegistryRequest)
-	return registryPushResponse
+func (impl *ApplicationServiceServerImpl) PushHelmChartToOCIRegistry(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error) {
+	registryPushResponse, err := impl.HelmAppService.pushHelmChartToOCIRegistryRepo(ctx, OCIRegistryRequest)
+	if err != nil {
+		impl.Logger.Errorw("Error in fetching Notes ", "err", err)
+		return nil, err
+	}
+	return registryPushResponse, nil
 }

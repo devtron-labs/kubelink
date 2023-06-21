@@ -76,9 +76,9 @@ type HelmAppService interface {
 	TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error)
 	InstallReleaseWithCustomChart(req *client.HelmInstallCustomRequest) (bool, error)
 	GetNotes(ctx context.Context, installReleaseRequest *client.InstallReleaseRequest) (string, error)
-	validateOCIRegistryLogin(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) client.OCIRegistryResponse
+	validateOCIRegistryLogin(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error)
 	OCIRegistryLogin(registryCredential *client.OCIRegistryRequest) error
-	pushHelmChartToOCIRegistryRepo(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) client.OCIRegistryResponse
+	pushHelmChartToOCIRegistryRepo(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error)
 }
 
 type HelmReleaseConfig struct {
@@ -1383,40 +1383,33 @@ func (impl HelmAppServiceImpl) OCIRegistryLogin(registryCredential *client.OCIRe
 }
 
 // validateOCIRegistryLogin validates the OCI registry credentials by login
-func (impl HelmAppServiceImpl) validateOCIRegistryLogin(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) client.OCIRegistryResponse {
+func (impl HelmAppServiceImpl) validateOCIRegistryLogin(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error) {
 	err := impl.OCIRegistryLogin(OCIRegistryRequest)
 	if err != nil {
-		return client.OCIRegistryResponse{
-			IsLoggedIn: false,
-			ErrorMsg:   err.Error(),
-		}
+		return nil, err
 	}
-	return client.OCIRegistryResponse{
+	return &client.OCIRegistryResponse{
 		IsLoggedIn: true,
-		ErrorMsg:   "",
-	}
+	}, err
 }
 
 // pushHelmChartToOCIRegistryRepo push the helm chart to the OCI registry and returns the generated digest and pushedUrl
-func (impl HelmAppServiceImpl) pushHelmChartToOCIRegistryRepo(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) client.OCIRegistryResponse {
+func (impl HelmAppServiceImpl) pushHelmChartToOCIRegistryRepo(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error) {
 	// Login to OCI registry
-	registryPushResponse := client.OCIRegistryResponse{}
+	registryPushResponse := &client.OCIRegistryResponse{}
 	err := impl.OCIRegistryLogin(OCIRegistryRequest)
 	if err != nil {
 		registryPushResponse.IsLoggedIn = false
-		registryPushResponse.ErrorMsg = err.Error()
-		return registryPushResponse
+		return registryPushResponse, err
 	}
 	// LoggedIn successfully
 	registryPushResponse.IsLoggedIn = true
-	registryPushResponse.ErrorMsg = ""
 
 	// creating Helm Client
 	client, err := registry.NewClient()
 	if err != nil {
 		impl.logger.Errorw("Error in creating helm client", "err", err)
-		registryPushResponse.Result.ErrorMsg = err.Error()
-		return registryPushResponse
+		return registryPushResponse, err
 	}
 	var pushOpts []registry.PushOption
 	provRef := fmt.Sprintf("%s.prov", OCIRegistryRequest.Chart)
@@ -1424,8 +1417,7 @@ func (impl HelmAppServiceImpl) pushHelmChartToOCIRegistryRepo(ctx context.Contex
 		provBytes, err := ioutil.ReadFile(provRef)
 		if err != nil {
 			impl.logger.Errorw("Error in extracting prov bytes", "err", err)
-			registryPushResponse.Result.ErrorMsg = err.Error()
-			return registryPushResponse
+			return registryPushResponse, err
 		}
 		pushOpts = append(pushOpts, registry.PushOptProvData(provBytes))
 	}
@@ -1437,10 +1429,14 @@ func (impl HelmAppServiceImpl) pushHelmChartToOCIRegistryRepo(ctx context.Contex
 	ref := fmt.Sprintf("%s:%s",
 		path.Join(strings.TrimPrefix(OCIRegistryRequest.RepoURL, fmt.Sprintf("%s://", registry.OCIScheme)), OCIRegistryRequest.ChartName),
 		OCIRegistryRequest.ChartVersion)
-	_, err = client.Push(OCIRegistryRequest.Chart, ref, withStrictMode)
+
+	pushResult, err := client.Push(OCIRegistryRequest.Chart, ref, withStrictMode)
 	if err != nil {
 		impl.logger.Errorw("Error in pushing helm chart to OCI registry", "err", err)
-		return registryPushResponse
+		return registryPushResponse, err
 	}
-	return registryPushResponse
+
+	registryPushResponse.PushResult.Digest = pushResult.Manifest.Digest
+	registryPushResponse.PushResult.PushedURL = pushResult.Ref
+	return registryPushResponse, err
 }
