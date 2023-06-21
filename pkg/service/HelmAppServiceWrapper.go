@@ -377,3 +377,13 @@ func (impl *ApplicationServiceServerImpl) GetNotes(ctx context.Context, installR
 	chartNotesResponse := &client.ChartNotesResponse{Notes: releaseNote}
 	return chartNotesResponse, nil
 }
+
+func (impl *ApplicationServiceServerImpl) ValidateOCIRegistry(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) client.OCIRegistryResponse {
+	isValid := impl.HelmAppService.validateOCIRegistryLogin(ctx, OCIRegistryRequest)
+	return isValid
+}
+
+func (impl *ApplicationServiceServerImpl) pushHelmChartToOCIRegistry(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) client.OCIRegistryResponse {
+	registryPushResponse := impl.HelmAppService.pushHelmChartToOCIRegistryRepo(ctx, OCIRegistryRequest)
+	return registryPushResponse
+}

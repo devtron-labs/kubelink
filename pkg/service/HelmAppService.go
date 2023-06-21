@@ -4,10 +4,20 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
+	"helm.sh/helm/v3/pkg/registry"
+	"path"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ecr"
+
 	"github.com/caarlos0/env"
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
@@ -37,6 +47,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -44,6 +55,7 @@ const (
 	hibernateReplicaAnnotation = "hibernator.devtron.ai/replicas"
 	hibernatePatch             = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
 	chartWorkingDirectory      = "/home/devtron/devtroncd/charts/"
+	REGISTRY_TYPE_ECR          = "ecr"
 )
 
 type HelmAppService interface {
@@ -64,6 +76,9 @@ type HelmAppService interface {
 	TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error)
 	InstallReleaseWithCustomChart(req *client.HelmInstallCustomRequest) (bool, error)
 	GetNotes(ctx context.Context, installReleaseRequest *client.InstallReleaseRequest) (string, error)
+	validateOCIRegistryLogin(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) client.OCIRegistryResponse
+	OCIRegistryLogin(registryCredential *client.OCIRegistryRequest) error
+	pushHelmChartToOCIRegistryRepo(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) client.OCIRegistryResponse
 }
 
 type HelmReleaseConfig struct {
@@ -1302,4 +1317,130 @@ func (impl HelmAppServiceImpl) InstallReleaseWithCustomChart(request *client.Hel
 	// Update release ends
 
 	return true, nil
+}
+
+func (impl HelmAppServiceImpl) OCIRegistryLogin(registryCredential *client.OCIRegistryRequest) error {
+	username := registryCredential.Username
+	pwd := registryCredential.Password
+	if registryCredential.RegistryType == REGISTRY_TYPE_ECR {
+		accessKey, secretKey := registryCredential.AccessKey, registryCredential.SecretKey
+		var creds *credentials.Credentials
+
+		if len(registryCredential.AccessKey) == 0 || len(registryCredential.SecretKey) == 0 {
+			sess, err := session.NewSession(&aws.Config{
+				Region: &registryCredential.AwsRegion,
+			})
+			if err != nil {
+				impl.logger.Errorw("Error in creating AWS client", "err", err)
+				return err
+			}
+			creds = ec2rolecreds.NewCredentials(sess)
+		} else {
+			creds = credentials.NewStaticCredentials(accessKey, secretKey, "")
+		}
+		sess, err := session.NewSession(&aws.Config{
+			Region:      &registryCredential.AwsRegion,
+			Credentials: creds,
+		})
+		if err != nil {
+			impl.logger.Errorw("Error in creating AWS client session", "err", err)
+			return err
+		}
+		svc := ecr.New(sess)
+		input := &ecr.GetAuthorizationTokenInput{}
+		authData, err := svc.GetAuthorizationToken(input)
+		if err != nil {
+			impl.logger.Errorw("Error fetching authData", "err", err)
+			return err
+		}
+		// decode token
+		token := authData.AuthorizationData[0].AuthorizationToken
+		decodedToken, err := base64.StdEncoding.DecodeString(*token)
+		if err != nil {
+			impl.logger.Errorw("Error in decoding auth token", "err", err)
+			return err
+		}
+		credsSlice := strings.Split(string(decodedToken), ":")
+		username = credsSlice[0]
+		pwd = credsSlice[1]
+
+	}
+
+	// helm registry login --username "" --password ""
+	client, err := registry.NewClient()
+	if err != nil {
+		impl.logger.Errorw("Error in creating Helm client", "err", err)
+		return err
+	}
+	err = client.Login(registryCredential.RegistryURL,
+		registry.LoginOptBasicAuth(username, pwd), registry.LoginOptInsecure(registryCredential.IsInsecure))
+	if err != nil {
+		impl.logger.Errorw("Error in OCI Registry login", "err", err)
+		return err
+	}
+
+	return nil
+}
+
+// validateOCIRegistryLogin validates the OCI registry credentials by login
+func (impl HelmAppServiceImpl) validateOCIRegistryLogin(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) client.OCIRegistryResponse {
+	err := impl.OCIRegistryLogin(OCIRegistryRequest)
+	if err != nil {
+		return client.OCIRegistryResponse{
+			IsLoggedIn: false,
+			ErrorMsg:   err.Error(),
+		}
+	}
+	return client.OCIRegistryResponse{
+		IsLoggedIn: true,
+		ErrorMsg:   "",
+	}
+}
+
+// pushHelmChartToOCIRegistryRepo push the helm chart to the OCI registry and returns the generated digest and pushedUrl
+func (impl HelmAppServiceImpl) pushHelmChartToOCIRegistryRepo(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) client.OCIRegistryResponse {
+	// Login to OCI registry
+	registryPushResponse := client.OCIRegistryResponse{}
+	err := impl.OCIRegistryLogin(OCIRegistryRequest)
+	if err != nil {
+		registryPushResponse.IsLoggedIn = false
+		registryPushResponse.ErrorMsg = err.Error()
+		return registryPushResponse
+	}
+	// LoggedIn successfully
+	registryPushResponse.IsLoggedIn = true
+	registryPushResponse.ErrorMsg = ""
+
+	// creating Helm Client
+	client, err := registry.NewClient()
+	if err != nil {
+		impl.logger.Errorw("Error in creating helm client", "err", err)
+		registryPushResponse.Result.ErrorMsg = err.Error()
+		return registryPushResponse
+	}
+	var pushOpts []registry.PushOption
+	provRef := fmt.Sprintf("%s.prov", OCIRegistryRequest.Chart)
+	if _, err := os.Stat(provRef); err == nil {
+		provBytes, err := ioutil.ReadFile(provRef)
+		if err != nil {
+			impl.logger.Errorw("Error in extracting prov bytes", "err", err)
+			registryPushResponse.Result.ErrorMsg = err.Error()
+			return registryPushResponse
+		}
+		pushOpts = append(pushOpts, registry.PushOptProvData(provBytes))
+	}
+
+	// disable strict mode for configuring chartName in repo
+	withStrictMode := registry.PushOptStrictMode(false)
+
+	// add chartName and version to url
+	ref := fmt.Sprintf("%s:%s",
+		path.Join(strings.TrimPrefix(OCIRegistryRequest.RepoURL, fmt.Sprintf("%s://", registry.OCIScheme)), OCIRegistryRequest.ChartName),
+		OCIRegistryRequest.ChartVersion)
+	_, err = client.Push(OCIRegistryRequest.Chart, ref, withStrictMode)
+	if err != nil {
+		impl.logger.Errorw("Error in pushing helm chart to OCI registry", "err", err)
+		return registryPushResponse
+	}
+	return registryPushResponse
 }
