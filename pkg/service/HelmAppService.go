@@ -68,6 +68,7 @@ type HelmAppService interface {
 
 type HelmReleaseConfig struct {
 	EnableHelmReleaseCache bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
+	MaxCountForHelmRelease int  `env:"MAX_COUNT_FOR_HELM_RELEASE" envDefault:"20"`
 }
 
 func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
@@ -355,7 +356,7 @@ func (impl HelmAppServiceImpl) ScaleObjects(ctx context.Context, clusterConfig *
 }
 
 func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest) (*client.HelmAppDeploymentHistory, error) {
-	helmReleases, err := getHelmReleaseHistory(req.ClusterConfig, req.Namespace, req.ReleaseName)
+	helmReleases, err := getHelmReleaseHistory(req.ClusterConfig, req.Namespace, req.ReleaseName, impl.helmReleaseConfig.MaxCountForHelmRelease)
 	if err != nil {
 		impl.logger.Errorw("Error in getting helm release history ", "err", err)
 		return nil, err
@@ -477,7 +478,7 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 
 func (impl HelmAppServiceImpl) GetDeploymentDetail(request *client.DeploymentDetailRequest) (*client.DeploymentDetailResponse, error) {
 	releaseIdentifier := request.ReleaseIdentifier
-	helmReleases, err := getHelmReleaseHistory(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName)
+	helmReleases, err := getHelmReleaseHistory(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName, impl.helmReleaseConfig.MaxCountForHelmRelease)
 	if err != nil {
 		impl.logger.Errorw("Error in getting helm release history ", "err", err)
 		return nil, err
@@ -749,7 +750,7 @@ func getHelmRelease(clusterConfig *client.ClusterConfig, namespace string, relea
 	return release, nil
 }
 
-func getHelmReleaseHistory(clusterConfig *client.ClusterConfig, releaseNamespace string, releaseName string) ([]*release.Release, error) {
+func getHelmReleaseHistory(clusterConfig *client.ClusterConfig, releaseNamespace string, releaseName string, countOfHelmReleaseHistory int) ([]*release.Release, error) {
 	conf, err := k8sUtils.GetRestConfig(clusterConfig)
 	if err != nil {
 		return nil, err
@@ -766,7 +767,7 @@ func getHelmReleaseHistory(clusterConfig *client.ClusterConfig, releaseNamespace
 		return nil, err
 	}
 
-	releases, err := helmClient.ListReleaseHistory(releaseName, 20)
+	releases, err := helmClient.ListReleaseHistory(releaseName, countOfHelmReleaseHistory)
 	if err != nil {
 		return nil, err
 	}
