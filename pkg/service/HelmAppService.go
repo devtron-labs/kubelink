@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
+	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
 	"path"
 
@@ -1422,13 +1423,27 @@ func (impl HelmAppServiceImpl) pushHelmChartToOCIRegistryRepo(ctx context.Contex
 		pushOpts = append(pushOpts, registry.PushOptProvData(provBytes))
 	}
 
-	// disable strict mode for configuring chartName in repo
-	withStrictMode := registry.PushOptStrictMode(false)
+	var ref string
+	withStrictMode := registry.PushOptStrictMode(true)
 
-	// add chartName and version to url
-	ref := fmt.Sprintf("%s:%s",
-		path.Join(strings.TrimPrefix(OCIRegistryRequest.RepoURL, fmt.Sprintf("%s://", registry.OCIScheme)), OCIRegistryRequest.ChartName),
-		OCIRegistryRequest.ChartVersion)
+	if OCIRegistryRequest.ChartName == "" || OCIRegistryRequest.ChartVersion == "" {
+		// extract meta data from chart
+		meta, err := loader.LoadArchive(bytes.NewReader(OCIRegistryRequest.Chart))
+		if err != nil {
+			return nil, err
+		}
+		// add chart name and version from the chart metadata
+		ref = fmt.Sprintf("%s:%s",
+			path.Join(strings.TrimPrefix(OCIRegistryRequest.RepoURL, fmt.Sprintf("%s://", registry.OCIScheme)), meta.Metadata.Name),
+			meta.Metadata.Version)
+	} else {
+		// disable strict mode for configuring chartName in repo
+		withStrictMode = registry.PushOptStrictMode(false)
+		// add chartName and version to url
+		ref = fmt.Sprintf("%s:%s",
+			path.Join(strings.TrimPrefix(OCIRegistryRequest.RepoURL, fmt.Sprintf("%s://", registry.OCIScheme)), OCIRegistryRequest.ChartName),
+			OCIRegistryRequest.ChartVersion)
+	}
 
 	pushResult, err := client.Push(OCIRegistryRequest.Chart, ref, withStrictMode)
 	if err != nil {
