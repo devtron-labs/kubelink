@@ -23,6 +23,7 @@ import (
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
+	"helm.sh/helm/v3/pkg/storage/driver"
 	"io/ioutil"
 	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
@@ -553,6 +554,8 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 		DependencyUpdate: true,
 		UpgradeCRDs:      true,
 		CreateNamespace:  true,
+		Atomic:           true,
+		Timeout:          time.Minute,
 		DryRun:           dryRun,
 	}
 
@@ -608,7 +611,6 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-
 	// Add or update chart repo starts
 	chartRepoRequest := request.ChartRepository
 	chartRepoName := chartRepoRequest.Name
@@ -644,9 +646,21 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 
 	impl.logger.Debug("Upgrading release with chart info")
 	_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
-	if err != nil {
-		impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
-		return nil, err
+	if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
+		if UpgradeErr != nil {
+			if UpgradeErr.Err == driver.ErrNoDeployedReleases {
+				_, err := helmClientObj.InstallChart(context.Background(), chartSpec)
+				if err != nil {
+					impl.logger.Errorw("Error in install release ", "err", err)
+					return nil, err
+				}
+
+			} else {
+				impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
+				return nil, err
+
+			}
+		}
 	}
 	// Update release ends
 
