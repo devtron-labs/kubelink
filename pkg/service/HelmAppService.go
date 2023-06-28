@@ -1374,7 +1374,7 @@ func (impl HelmAppServiceImpl) OCIRegistryLogin(registryCredential *client.OCIRe
 		return err
 	}
 	err = client.Login(registryCredential.RegistryURL,
-		registry.LoginOptBasicAuth(username, pwd), registry.LoginOptInsecure(registryCredential.IsInsecure))
+		registry.LoginOptBasicAuth(username, pwd), registry.LoginOptInsecure(false))
 	if err != nil {
 		impl.logger.Errorw("Error in OCI Registry login", "err", err)
 		return err
@@ -1407,7 +1407,7 @@ func (impl HelmAppServiceImpl) pushHelmChartToOCIRegistryRepo(ctx context.Contex
 	registryPushResponse.IsLoggedIn = true
 
 	// creating Helm Client
-	client, err := registry.NewClient()
+	helmOCIClient, err := registry.NewClient()
 	if err != nil {
 		impl.logger.Errorw("Error in creating helm client", "err", err)
 		return registryPushResponse, err
@@ -1445,13 +1445,15 @@ func (impl HelmAppServiceImpl) pushHelmChartToOCIRegistryRepo(ctx context.Contex
 			OCIRegistryRequest.ChartVersion)
 	}
 
-	pushResult, err := client.Push(OCIRegistryRequest.Chart, ref, withStrictMode)
+	pushResult, err := helmOCIClient.Push(OCIRegistryRequest.Chart, ref, withStrictMode)
 	if err != nil {
 		impl.logger.Errorw("Error in pushing helm chart to OCI registry", "err", err)
 		return registryPushResponse, err
 	}
+	registryPushResponse.PushResult = &client.OCIRegistryPushResponse{
+		Digest:    pushResult.Manifest.Digest,
+		PushedURL: pushResult.Ref,
+	}
 
-	registryPushResponse.PushResult.Digest = pushResult.Manifest.Digest
-	registryPushResponse.PushResult.PushedURL = pushResult.Ref
 	return registryPushResponse, err
 }
