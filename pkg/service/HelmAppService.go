@@ -443,36 +443,44 @@ func (impl HelmAppServiceImpl) UninstallRelease(releaseIdentifier *client.Releas
 }
 
 func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *client.UpgradeReleaseRequest) (*client.UpgradeReleaseResponse, error) {
-	releaseIdentifier := request.ReleaseIdentifier
-	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
-	if err != nil {
-		return nil, err
+	upgradeReleaseResponse := &client.UpgradeReleaseResponse{
+		Success: true,
 	}
+	if request.ChartContent == nil {
+		releaseIdentifier := request.ReleaseIdentifier
+		helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
+		if err != nil {
+			return nil, err
+		}
 
-	helmRelease, err := getHelmRelease(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName)
-	if err != nil {
-		impl.logger.Errorw("Error in getting helm release ", "err", err)
-		return nil, err
+		helmRelease, err := getHelmRelease(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName)
+		if err != nil {
+			impl.logger.Errorw("Error in getting helm release ", "err", err)
+			return nil, err
+		}
+
+		updateChartSpec := &helmClient.ChartSpec{
+			ReleaseName: releaseIdentifier.ReleaseName,
+			Namespace:   releaseIdentifier.ReleaseNamespace,
+			ValuesYaml:  request.ValuesYaml,
+			MaxHistory:  int(request.HistoryMax),
+		}
+
+		impl.logger.Debug("Upgrading release")
+		_, err = helmClientObj.UpgradeRelease(context.Background(), helmRelease.Chart, updateChartSpec)
+		if err != nil {
+			impl.logger.Errorw("Error in upgrade release ", "err", err)
+			return nil, err
+		}
+
+		return upgradeReleaseResponse, nil
 	}
-
-	updateChartSpec := &helmClient.ChartSpec{
-		ReleaseName: releaseIdentifier.ReleaseName,
-		Namespace:   releaseIdentifier.ReleaseNamespace,
-		ValuesYaml:  request.ValuesYaml,
-		MaxHistory:  int(request.HistoryMax),
-	}
-
-	impl.logger.Debug("Upgrading release")
-	_, err = helmClientObj.UpgradeRelease(context.Background(), helmRelease.Chart, updateChartSpec)
+	res, err := impl.UpgradeReleaseWithCustomChart(context.Background(), request)
 	if err != nil {
 		impl.logger.Errorw("Error in upgrade release ", "err", err)
 		return nil, err
 	}
-
-	upgradeReleaseResponse := &client.UpgradeReleaseResponse{
-		Success: true,
-	}
-
+	upgradeReleaseResponse.Success = res
 	return upgradeReleaseResponse, nil
 }
 
