@@ -44,6 +44,7 @@ const (
 	hibernateReplicaAnnotation = "hibernator.devtron.ai/replicas"
 	hibernatePatch             = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
 	chartWorkingDirectory      = "/home/devtron/devtroncd/charts/"
+	ReadmeFileName             = "README.md"
 )
 
 type HelmAppService interface {
@@ -778,47 +779,31 @@ func getHelmReleaseHistory(clusterConfig *client.ClusterConfig, releaseNamespace
 func buildReleaseInfoBasicData(helmRelease *release.Release) (*client.ReleaseInfo, error) {
 	defaultValues := helmRelease.Chart.Values
 	overrideValues := helmRelease.Config
-	var mergedValues map[string]interface{}
+	var defaultValString, overrideValuesString, mergedValuesString []byte
+	var err error
+	defaultValString, err = json.Marshal(defaultValues)
+	if err != nil {
+		return nil, err
+	}
 	if overrideValues == nil {
-		mergedValues = defaultValues
+		mergedValuesString = defaultValString
 	} else {
-		defaultValuesByteArr, err := json.Marshal(defaultValues)
+		overrideValuesString, err = json.Marshal(overrideValues)
 		if err != nil {
 			return nil, err
 		}
-		overrideValuesByteArr, err := json.Marshal(overrideValues)
+		mergedValuesString, err = jsonpatch.MergePatch(defaultValString, overrideValuesString)
 		if err != nil {
 			return nil, err
 		}
-		mergedValuesByteArr, err := jsonpatch.MergePatch(defaultValuesByteArr, overrideValuesByteArr)
-		if err != nil {
-			return nil, err
-		}
-		err = json.Unmarshal(mergedValuesByteArr, &mergedValues)
-		if err != nil {
-			return nil, err
-		}
-	}
-	defaultValString, err := json.Marshal(defaultValues)
-	if err != nil {
-		return nil, err
-	}
-	overrideValuesString, err := json.Marshal(overrideValues)
-	if err != nil {
-		return nil, err
-	}
-	mergedValuesString, err := json.Marshal(mergedValues)
-	if err != nil {
-		return nil, err
 	}
 	var readme string
 	for _, file := range helmRelease.Chart.Files {
-		if file.Name == "README.md" {
+		if file.Name == ReadmeFileName {
 			readme = string(file.Data)
 			break
 		}
 	}
-
 	res := &client.ReleaseInfo{
 		DefaultValues:    string(defaultValString),
 		OverrideValues:   string(overrideValuesString),
