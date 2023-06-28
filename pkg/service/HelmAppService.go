@@ -64,6 +64,7 @@ type HelmAppService interface {
 	TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error)
 	InstallReleaseWithCustomChart(req *client.HelmInstallCustomRequest) (bool, error)
 	GetNotes(ctx context.Context, installReleaseRequest *client.InstallReleaseRequest) (string, error)
+	UpgradeReleaseWithCustomChart(ctx context.Context, request *client.UpgradeReleaseRequest) (bool, error)
 }
 
 type HelmReleaseConfig struct {
@@ -1301,5 +1302,59 @@ func (impl HelmAppServiceImpl) InstallReleaseWithCustomChart(request *client.Hel
 	}
 	// Update release ends
 
+	return true, nil
+}
+
+func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context, request *client.UpgradeReleaseRequest) (bool, error) {
+	releaseIdentifier := request.ReleaseIdentifier
+	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
+	if err != nil {
+		impl.logger.Errorw("error on helm install custom while writing chartContent", "err", err)
+		return false, err
+	}
+	var b bytes.Buffer
+	writer := gzip.NewWriter(&b)
+	_, err = writer.Write(request.ChartContent.Content)
+	if err != nil {
+		impl.logger.Errorw("error on helm install custom while writing chartContent", "err", err)
+		return false, err
+	}
+	err = writer.Close()
+	if err != nil {
+		impl.logger.Errorw("error on helm install custom while writing chartContent", "err", err)
+		return false, err
+	}
+
+	if _, err := os.Stat(chartWorkingDirectory); os.IsNotExist(err) {
+		err := os.MkdirAll(chartWorkingDirectory, os.ModePerm)
+		if err != nil {
+			impl.logger.Errorw("err in creating dir", "err", err)
+			return false, err
+		}
+	}
+	dir := impl.GetRandomString()
+	referenceChartDir := filepath.Join(chartWorkingDirectory, dir)
+	referenceChartDir = fmt.Sprintf("%s.tgz", referenceChartDir)
+	defer impl.CleanDir(referenceChartDir)
+	err = ioutil.WriteFile(referenceChartDir, b.Bytes(), os.ModePerm)
+	if err != nil {
+		impl.logger.Errorw("error on helm install custom while writing chartContent", "err", err)
+		return false, err
+	}
+	impl.logger.Debugw("tar file write at", "referenceChartDir", referenceChartDir)
+	// Update release starts
+	updateChartSpec := &helmClient.ChartSpec{
+		ReleaseName: releaseIdentifier.ReleaseName,
+		Namespace:   releaseIdentifier.ReleaseNamespace,
+		ValuesYaml:  request.ValuesYaml,
+		ChartName:   referenceChartDir,
+	}
+
+	impl.logger.Debug("Upgrading release")
+	_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), updateChartSpec)
+	if err != nil {
+		impl.logger.Errorw("Error in upgrade release ", "err", err)
+		return false, err
+	}
 	return true, nil
 }
