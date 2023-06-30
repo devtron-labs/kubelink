@@ -219,14 +219,14 @@ func (impl *HelmAppServiceImpl) FetchApplicationStatus(req *client.AppDetailRequ
 		impl.logger.Errorw("Error in getting helm release ", "err", err)
 		return appStatus, err
 	}
-	nodes, err := impl.getNodes(req, helmRelease)
+	_, healthStatusArray, err := impl.getNodes(req, helmRelease)
 	if err != nil {
 		impl.logger.Errorw("Error in getting nodes", "err", err, "req", req)
 		return appStatus, err
 	}
 	//getting app status on basis of healthy/non-healthy as this api is used for deployment status
 	//in orchestrator and not for app status
-	appStatus = util.GetAppStatusOnBasisOfHealthyNonHealthy(nodes)
+	appStatus = util.GetAppStatusOnBasisOfHealthyNonHealthy(healthStatusArray)
 	return appStatus, nil
 }
 
@@ -829,26 +829,26 @@ func buildReleaseInfoBasicData(helmRelease *release.Release) (*client.ReleaseInf
 	return res, nil
 }
 
-func (impl *HelmAppServiceImpl) getNodes(appDetailRequest *client.AppDetailRequest, release *release.Release) ([]*bean.ResourceNode, error) {
+func (impl *HelmAppServiceImpl) getNodes(appDetailRequest *client.AppDetailRequest, release *release.Release) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
 	conf, err := k8sUtils.GetRestConfig(appDetailRequest.ClusterConfig)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	manifests, err := util.SplitYAMLs([]byte(release.Manifest))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// get live manifests from kubernetes
 	desiredOrLiveManifests, err := impl.getDesiredOrLiveManifests(conf, manifests, appDetailRequest.Namespace)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// build resource nodes
-	nodes, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
+	nodes, healthStatusArray, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return nodes, nil
+	return nodes, healthStatusArray, nil
 }
 
 func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDetailRequest, release *release.Release) (*bean.ResourceTreeResponse, error) {
@@ -866,7 +866,7 @@ func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDet
 		return nil, err
 	}
 	// build resource nodes
-	nodes, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
+	nodes, _, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -972,8 +972,9 @@ func (impl HelmAppServiceImpl) getDesiredOrLiveManifests(restConfig *rest.Config
 	return desiredOrLiveManifests, nil
 }
 
-func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef) ([]*bean.ResourceNode, error) {
+func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
 	var nodes []*bean.ResourceNode
+	var healthStatusArray []*bean.HealthStatus
 	for _, desiredOrLiveManifest := range desiredOrLiveManifests {
 		manifest := desiredOrLiveManifest.Manifest
 		gvk := manifest.GroupVersionKind()
@@ -987,7 +988,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 		if impl.k8sService.CanHaveChild(gvk) {
 			children, err := impl.k8sService.GetChildObjects(restConfig, _namespace, gvk, manifest.GetName(), manifest.GetAPIVersion())
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			var desiredOrLiveManifestsChildren []*bean.DesiredOrLiveManifest
 			for _, child := range children {
@@ -995,13 +996,14 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 					Manifest: child,
 				})
 			}
-			childNodes, err := impl.buildNodes(restConfig, desiredOrLiveManifestsChildren, releaseNamespace, resourceRef)
+			childNodes, _, err := impl.buildNodes(restConfig, desiredOrLiveManifestsChildren, releaseNamespace, resourceRef)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
 			for _, childNode := range childNodes {
 				nodes = append(nodes, childNode)
+				healthStatusArray = append(healthStatusArray, childNode.Health)
 			}
 		}
 
@@ -1087,9 +1089,10 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 		}
 
 		nodes = append(nodes, node)
+		healthStatusArray = append(healthStatusArray, node.Health)
 	}
 
-	return nodes, nil
+	return nodes, healthStatusArray, nil
 }
 
 func buildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstructured, namespace string) *bean.ResourceRef {

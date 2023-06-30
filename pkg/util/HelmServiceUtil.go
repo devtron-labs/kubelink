@@ -77,10 +77,10 @@ func BuildAppHealthStatus(nodes []*bean.ResourceNode) *bean.HealthStatusCode {
 	return &appHealthStatus
 }
 
-func GetAppStatusOnBasisOfHealthyNonHealthy(nodes []*bean.ResourceNode) *bean.HealthStatusCode {
+func GetAppStatusOnBasisOfHealthyNonHealthy(healthStatusArray []*bean.HealthStatus) *bean.HealthStatusCode {
 	appHealthStatus := bean.HealthStatusHealthy
-	for _, node := range nodes {
-		nodeHealth := node.Health
+	for _, node := range healthStatusArray {
+		nodeHealth := node
 		if nodeHealth == nil {
 			continue
 		}
