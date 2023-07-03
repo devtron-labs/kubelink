@@ -377,3 +377,13 @@ func (impl *ApplicationServiceServerImpl) GetNotes(ctx context.Context, installR
 	chartNotesResponse := &client.ChartNotesResponse{Notes: releaseNote}
 	return chartNotesResponse, nil
 }
+
+func (impl *ApplicationServiceServerImpl) UpgradeReleaseWithCustomChart(ctx context.Context, request *client.UpgradeReleaseRequest) (*client.UpgradeReleaseResponse, error) {
+	response, err := impl.HelmAppService.UpgradeReleaseWithCustomChart(ctx, request)
+	if err != nil {
+		impl.Logger.Errorw("Error in fetching Notes ", "err", err)
+		return nil, err
+	}
+	resp := &client.UpgradeReleaseResponse{Success: response}
+	return resp, nil
+}
