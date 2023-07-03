@@ -363,7 +363,7 @@ func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest
 		impl.logger.Errorw("Error in getting helm release history ", "err", err)
 		return nil, err
 	}
-	var helmAppDeployments []*client.HelmAppDeploymentDetail
+	helmAppDeployments := make([]*client.HelmAppDeploymentDetail, 0, len(helmReleases))
 	for _, helmRelease := range helmReleases {
 		chartMetadata := helmRelease.Chart.Metadata
 		manifests := helmRelease.Manifest
@@ -898,7 +898,7 @@ func (impl HelmAppServiceImpl) filterNodes(resourceTreeFilter *client.ResourceTr
 		return nodes
 	}
 
-	var filteredNodes []*bean.ResourceNode
+	filteredNodes := make([]*bean.ResourceNode, 0, len(nodes))
 
 	// handle global
 	if globalFilter != nil && len(globalFilter.Labels) > 0 {
@@ -938,7 +938,7 @@ func (impl HelmAppServiceImpl) filterNodes(resourceTreeFilter *client.ResourceTr
 
 func (impl HelmAppServiceImpl) getDesiredOrLiveManifests(restConfig *rest.Config, desiredManifests []unstructured.Unstructured, releaseNamespace string) ([]*bean.DesiredOrLiveManifest, error) {
 
-	var desiredOrLiveManifests []*bean.DesiredOrLiveManifest
+	desiredOrLiveManifests := make([]*bean.DesiredOrLiveManifest, 0, len(desiredManifests))
 	for _, desiredManifest := range desiredManifests {
 		gvk := desiredManifest.GroupVersionKind()
 
@@ -990,7 +990,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 			if err != nil {
 				return nil, nil, err
 			}
-			var desiredOrLiveManifestsChildren []*bean.DesiredOrLiveManifest
+			desiredOrLiveManifestsChildren := make([]*bean.DesiredOrLiveManifest, 0, len(children))
 			for _, child := range children {
 				desiredOrLiveManifestsChildren = append(desiredOrLiveManifestsChildren, &bean.DesiredOrLiveManifest{
 					Manifest: child,
@@ -1109,7 +1109,7 @@ func buildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstruc
 }
 
 func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
-	var podsMetadata []*bean.PodMetadata
+	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
 	for _, node := range nodes {
 		if node.Kind != kube.PodKind {
 			continue
@@ -1183,9 +1183,9 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 		}
 
 		// set containers,initContainers and ephemeral container names
-		var containerNames []string
-		var initContainerNames []string
-		var ephemeralContainers []string
+		containerNames := make([]string, 0, len(pod.Spec.Containers))
+		initContainerNames := make([]string, 0, len(pod.Spec.InitContainers))
+		ephemeralContainers := make([]string, 0, len(pod.Spec.EphemeralContainers))
 		for _, container := range pod.Spec.Containers {
 			containerNames = append(containerNames, container.Name)
 		}
@@ -1222,7 +1222,7 @@ func getMatchingNode(nodes []*bean.ResourceNode, kind string, name string) *bean
 }
 
 func getMatchingNodes(nodes []*bean.ResourceNode, kind string) []*bean.ResourceNode {
-	var nodesRes []*bean.ResourceNode
+	nodesRes := make([]*bean.ResourceNode, 0, len(nodes))
 	for _, node := range nodes {
 		if node.Kind == kind {
 			nodesRes = append(nodesRes, node)
