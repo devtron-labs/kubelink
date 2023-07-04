@@ -390,7 +390,7 @@ func (impl *ApplicationServiceServerImpl) ValidateOCIRegistry(ctx context.Contex
 func (impl *ApplicationServiceServerImpl) PushHelmChartToOCIRegistry(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error) {
 	registryPushResponse, err := impl.HelmAppService.pushHelmChartToOCIRegistryRepo(ctx, OCIRegistryRequest)
 	if err != nil {
-		impl.Logger.Errorw("Error in fetching Notes ", "err", err)
+		impl.Logger.Errorw("Error in pushing helm chart ", "chartName", OCIRegistryRequest.ChartName, "err", err)
 		return nil, err
 	}
 	return registryPushResponse, nil

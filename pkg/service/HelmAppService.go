@@ -1400,6 +1400,7 @@ func (impl HelmAppServiceImpl) pushHelmChartToOCIRegistryRepo(ctx context.Contex
 	registryPushResponse := &client.OCIRegistryResponse{}
 	err := impl.OCIRegistryLogin(OCIRegistryRequest)
 	if err != nil {
+		impl.logger.Errorw("Failed to login to registry", "registryURL", OCIRegistryRequest.RegistryURL, "err", err)
 		registryPushResponse.IsLoggedIn = false
 		return registryPushResponse, err
 	}
@@ -1430,6 +1431,7 @@ func (impl HelmAppServiceImpl) pushHelmChartToOCIRegistryRepo(ctx context.Contex
 		// extract meta data from chart
 		meta, err := loader.LoadArchive(bytes.NewReader(OCIRegistryRequest.Chart))
 		if err != nil {
+			impl.logger.Errorw("Error in loading chart bytes", "err", err)
 			return nil, err
 		}
 		// add chart name and version from the chart metadata
