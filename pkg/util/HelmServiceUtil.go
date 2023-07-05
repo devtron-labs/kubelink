@@ -60,7 +60,7 @@ func BuildAppHealthStatus(nodes []*bean.ResourceNode) *bean.HealthStatusCode {
 		if nodeHealth == nil {
 			continue
 		}
-		if health.IsWorse(health.HealthStatusCode(appHealthStatus), health.HealthStatusCode(nodeHealth.Status)) {
+		if health.IsWorseStatus(health.HealthStatusCode(appHealthStatus), health.HealthStatusCode(nodeHealth.Status)) {
 			appHealthStatus = nodeHealth.Status
 		}
 	}
@@ -85,7 +85,7 @@ func GetAppStatusOnBasisOfHealthyNonHealthy(healthStatusArray []*bean.HealthStat
 			continue
 		}
 		//if any node's health is worse than healthy then we break the loop and return
-		if health.IsWorse(health.HealthStatusCode(appHealthStatus), health.HealthStatusCode(nodeHealth.Status)) {
+		if health.IsWorseStatus(health.HealthStatusCode(appHealthStatus), health.HealthStatusCode(nodeHealth.Status)) {
 			appHealthStatus = nodeHealth.Status
 			break
 		}

@@ -46,16 +46,14 @@ var healthOrder = []HealthStatusCode{
 	HealthStatusDegraded,
 	HealthStatusUnknown,
 }
-
-// Have to Discuss this global as loop is for 6 iterations as o(6) constant only
-//var healthOrderMap = map[HealthStatusCode]int{
-//	HealthStatusHealthy:     0,
-//	HealthStatusSuspended:   1,
-//	HealthStatusProgressing: 2,
-//	HealthStatusMissing:     3,
-//	HealthStatusDegraded:    4,
-//	HealthStatusUnknown:     5,
-//}
+var healthOrderMap = map[HealthStatusCode]int{
+	HealthStatusHealthy:     0,
+	HealthStatusSuspended:   1,
+	HealthStatusProgressing: 2,
+	HealthStatusMissing:     3,
+	HealthStatusDegraded:    4,
+	HealthStatusUnknown:     5,
+}
 
 // IsWorse returns whether or not the new health status code is a worse condition than the current
 func IsWorse(current, new HealthStatusCode) bool {
@@ -78,11 +76,9 @@ func IsWorse(current, new HealthStatusCode) bool {
 	}
 }
 
-// Have to discuss this..
-
-//func isWorseStatus(current, new HealthStatusCode) bool {
-//	return healthOrderMap[new] > healthOrderMap[current]
-//}
+func IsWorseStatus(current, new HealthStatusCode) bool {
+	return healthOrderMap[new] > healthOrderMap[current]
+}
 
 // GetResourceHealth returns the health of a k8s resource
 func GetResourceHealth(obj *unstructured.Unstructured, healthOverride HealthOverride) (health *HealthStatus, err error) {
