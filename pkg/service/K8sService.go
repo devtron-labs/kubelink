@@ -3,10 +3,10 @@ package service
 import (
 	"context"
 	"errors"
-	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	"github.com/devtron-labs/kubelink/bean"
 	gitops_engine "github.com/devtron-labs/kubelink/pkg/util/gitops-engine"
 	k8sUtils "github.com/devtron-labs/kubelink/pkg/util/k8s"
+	"github.com/devtron-labs/kubelink/pkg/util/kube"
 	"go.uber.org/zap"
 	coreV1 "k8s.io/api/core/v1"
 	errors2 "k8s.io/apimachinery/pkg/api/errors"

@@ -2,8 +2,8 @@ package util
 
 import (
 	"fmt"
-	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/devtron-labs/kubelink/bean"
+	"github.com/devtron-labs/kubelink/pkg/util/health"
 	"helm.sh/helm/v3/pkg/release"
 )
 
