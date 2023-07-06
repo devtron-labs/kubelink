@@ -378,6 +378,16 @@ func (impl *ApplicationServiceServerImpl) GetNotes(ctx context.Context, installR
 	return chartNotesResponse, nil
 }
 
+func (impl *ApplicationServiceServerImpl) UpgradeReleaseWithCustomChart(ctx context.Context, request *client.UpgradeReleaseRequest) (*client.UpgradeReleaseResponse, error) {
+	response, err := impl.HelmAppService.UpgradeReleaseWithCustomChart(ctx, request)
+	if err != nil {
+		impl.Logger.Errorw("Error in fetching Notes ", "err", err)
+		return nil, err
+	}
+	resp := &client.UpgradeReleaseResponse{Success: response}
+	return resp, nil
+}
+
 func (impl *ApplicationServiceServerImpl) ValidateOCIRegistry(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error) {
 	isValid, err := impl.HelmAppService.validateOCIRegistryLogin(ctx, OCIRegistryRequest)
 	if err != nil {
