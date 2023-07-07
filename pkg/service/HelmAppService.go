@@ -44,6 +44,7 @@ const (
 	hibernateReplicaAnnotation = "hibernator.devtron.ai/replicas"
 	hibernatePatch             = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
 	chartWorkingDirectory      = "/home/devtron/devtroncd/charts/"
+	ReadmeFileName             = "README.md"
 )
 
 type HelmAppService interface {
@@ -69,6 +70,7 @@ type HelmAppService interface {
 
 type HelmReleaseConfig struct {
 	EnableHelmReleaseCache bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
+	MaxCountForHelmRelease int  `env:"MAX_COUNT_FOR_HELM_RELEASE" envDefault:"20"`
 }
 
 func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
@@ -217,14 +219,14 @@ func (impl *HelmAppServiceImpl) FetchApplicationStatus(req *client.AppDetailRequ
 		impl.logger.Errorw("Error in getting helm release ", "err", err)
 		return appStatus, err
 	}
-	nodes, err := impl.getNodes(req, helmRelease)
+	_, healthStatusArray, err := impl.getNodes(req, helmRelease)
 	if err != nil {
 		impl.logger.Errorw("Error in getting nodes", "err", err, "req", req)
 		return appStatus, err
 	}
 	//getting app status on basis of healthy/non-healthy as this api is used for deployment status
 	//in orchestrator and not for app status
-	appStatus = util.GetAppStatusOnBasisOfHealthyNonHealthy(nodes)
+	appStatus = util.GetAppStatusOnBasisOfHealthyNonHealthy(healthStatusArray)
 	return appStatus, nil
 }
 
@@ -356,12 +358,12 @@ func (impl HelmAppServiceImpl) ScaleObjects(ctx context.Context, clusterConfig *
 }
 
 func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest) (*client.HelmAppDeploymentHistory, error) {
-	helmReleases, err := getHelmReleaseHistory(req.ClusterConfig, req.Namespace, req.ReleaseName)
+	helmReleases, err := getHelmReleaseHistory(req.ClusterConfig, req.Namespace, req.ReleaseName, impl.helmReleaseConfig.MaxCountForHelmRelease)
 	if err != nil {
 		impl.logger.Errorw("Error in getting helm release history ", "err", err)
 		return nil, err
 	}
-	var helmAppDeployments []*client.HelmAppDeploymentDetail
+	helmAppDeployments := make([]*client.HelmAppDeploymentDetail, 0, len(helmReleases))
 	for _, helmRelease := range helmReleases {
 		chartMetadata := helmRelease.Chart.Metadata
 		manifests := helmRelease.Manifest
@@ -486,7 +488,7 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 
 func (impl HelmAppServiceImpl) GetDeploymentDetail(request *client.DeploymentDetailRequest) (*client.DeploymentDetailResponse, error) {
 	releaseIdentifier := request.ReleaseIdentifier
-	helmReleases, err := getHelmReleaseHistory(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName)
+	helmReleases, err := getHelmReleaseHistory(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName, impl.helmReleaseConfig.MaxCountForHelmRelease)
 	if err != nil {
 		impl.logger.Errorw("Error in getting helm release history ", "err", err)
 		return nil, err
@@ -757,7 +759,7 @@ func getHelmRelease(clusterConfig *client.ClusterConfig, namespace string, relea
 	return release, nil
 }
 
-func getHelmReleaseHistory(clusterConfig *client.ClusterConfig, releaseNamespace string, releaseName string) ([]*release.Release, error) {
+func getHelmReleaseHistory(clusterConfig *client.ClusterConfig, releaseNamespace string, releaseName string, countOfHelmReleaseHistory int) ([]*release.Release, error) {
 	conf, err := k8sUtils.GetRestConfig(clusterConfig)
 	if err != nil {
 		return nil, err
@@ -774,7 +776,7 @@ func getHelmReleaseHistory(clusterConfig *client.ClusterConfig, releaseNamespace
 		return nil, err
 	}
 
-	releases, err := helmClient.ListReleaseHistory(releaseName, 20)
+	releases, err := helmClient.ListReleaseHistory(releaseName, countOfHelmReleaseHistory)
 	if err != nil {
 		return nil, err
 	}
@@ -785,47 +787,31 @@ func getHelmReleaseHistory(clusterConfig *client.ClusterConfig, releaseNamespace
 func buildReleaseInfoBasicData(helmRelease *release.Release) (*client.ReleaseInfo, error) {
 	defaultValues := helmRelease.Chart.Values
 	overrideValues := helmRelease.Config
-	var mergedValues map[string]interface{}
+	var defaultValString, overrideValuesString, mergedValuesString []byte
+	var err error
+	defaultValString, err = json.Marshal(defaultValues)
+	if err != nil {
+		return nil, err
+	}
 	if overrideValues == nil {
-		mergedValues = defaultValues
+		mergedValuesString = defaultValString
 	} else {
-		defaultValuesByteArr, err := json.Marshal(defaultValues)
+		overrideValuesString, err = json.Marshal(overrideValues)
 		if err != nil {
 			return nil, err
 		}
-		overrideValuesByteArr, err := json.Marshal(overrideValues)
+		mergedValuesString, err = jsonpatch.MergePatch(defaultValString, overrideValuesString)
 		if err != nil {
 			return nil, err
 		}
-		mergedValuesByteArr, err := jsonpatch.MergePatch(defaultValuesByteArr, overrideValuesByteArr)
-		if err != nil {
-			return nil, err
-		}
-		err = json.Unmarshal(mergedValuesByteArr, &mergedValues)
-		if err != nil {
-			return nil, err
-		}
-	}
-	defaultValString, err := json.Marshal(defaultValues)
-	if err != nil {
-		return nil, err
-	}
-	overrideValuesString, err := json.Marshal(overrideValues)
-	if err != nil {
-		return nil, err
-	}
-	mergedValuesString, err := json.Marshal(mergedValues)
-	if err != nil {
-		return nil, err
 	}
 	var readme string
 	for _, file := range helmRelease.Chart.Files {
-		if file.Name == "README.md" {
+		if file.Name == ReadmeFileName {
 			readme = string(file.Data)
 			break
 		}
 	}
-
 	res := &client.ReleaseInfo{
 		DefaultValues:    string(defaultValString),
 		OverrideValues:   string(overrideValuesString),
@@ -837,26 +823,26 @@ func buildReleaseInfoBasicData(helmRelease *release.Release) (*client.ReleaseInf
 	return res, nil
 }
 
-func (impl *HelmAppServiceImpl) getNodes(appDetailRequest *client.AppDetailRequest, release *release.Release) ([]*bean.ResourceNode, error) {
+func (impl *HelmAppServiceImpl) getNodes(appDetailRequest *client.AppDetailRequest, release *release.Release) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
 	conf, err := k8sUtils.GetRestConfig(appDetailRequest.ClusterConfig)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	manifests, err := util.SplitYAMLs([]byte(release.Manifest))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// get live manifests from kubernetes
 	desiredOrLiveManifests, err := impl.getDesiredOrLiveManifests(conf, manifests, appDetailRequest.Namespace)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// build resource nodes
-	nodes, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
+	nodes, healthStatusArray, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return nodes, nil
+	return nodes, healthStatusArray, nil
 }
 
 func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDetailRequest, release *release.Release) (*bean.ResourceTreeResponse, error) {
@@ -874,7 +860,7 @@ func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDet
 		return nil, err
 	}
 	// build resource nodes
-	nodes, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
+	nodes, _, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -906,7 +892,7 @@ func (impl HelmAppServiceImpl) filterNodes(resourceTreeFilter *client.ResourceTr
 		return nodes
 	}
 
-	var filteredNodes []*bean.ResourceNode
+	filteredNodes := make([]*bean.ResourceNode, 0, len(nodes))
 
 	// handle global
 	if globalFilter != nil && len(globalFilter.Labels) > 0 {
@@ -946,7 +932,7 @@ func (impl HelmAppServiceImpl) filterNodes(resourceTreeFilter *client.ResourceTr
 
 func (impl HelmAppServiceImpl) getDesiredOrLiveManifests(restConfig *rest.Config, desiredManifests []unstructured.Unstructured, releaseNamespace string) ([]*bean.DesiredOrLiveManifest, error) {
 
-	var desiredOrLiveManifests []*bean.DesiredOrLiveManifest
+	desiredOrLiveManifests := make([]*bean.DesiredOrLiveManifest, 0, len(desiredManifests))
 	for _, desiredManifest := range desiredManifests {
 		gvk := desiredManifest.GroupVersionKind()
 
@@ -980,8 +966,9 @@ func (impl HelmAppServiceImpl) getDesiredOrLiveManifests(restConfig *rest.Config
 	return desiredOrLiveManifests, nil
 }
 
-func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef) ([]*bean.ResourceNode, error) {
+func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
 	var nodes []*bean.ResourceNode
+	var healthStatusArray []*bean.HealthStatus
 	for _, desiredOrLiveManifest := range desiredOrLiveManifests {
 		manifest := desiredOrLiveManifest.Manifest
 		gvk := manifest.GroupVersionKind()
@@ -995,21 +982,22 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 		if impl.k8sService.CanHaveChild(gvk) {
 			children, err := impl.k8sService.GetChildObjects(restConfig, _namespace, gvk, manifest.GetName(), manifest.GetAPIVersion())
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
-			var desiredOrLiveManifestsChildren []*bean.DesiredOrLiveManifest
+			desiredOrLiveManifestsChildren := make([]*bean.DesiredOrLiveManifest, 0, len(children))
 			for _, child := range children {
 				desiredOrLiveManifestsChildren = append(desiredOrLiveManifestsChildren, &bean.DesiredOrLiveManifest{
 					Manifest: child,
 				})
 			}
-			childNodes, err := impl.buildNodes(restConfig, desiredOrLiveManifestsChildren, releaseNamespace, resourceRef)
+			childNodes, _, err := impl.buildNodes(restConfig, desiredOrLiveManifestsChildren, releaseNamespace, resourceRef)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
 			for _, childNode := range childNodes {
 				nodes = append(nodes, childNode)
+				healthStatusArray = append(healthStatusArray, childNode.Health)
 			}
 		}
 
@@ -1095,9 +1083,10 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 		}
 
 		nodes = append(nodes, node)
+		healthStatusArray = append(healthStatusArray, node.Health)
 	}
 
-	return nodes, nil
+	return nodes, healthStatusArray, nil
 }
 
 func buildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstructured, namespace string) *bean.ResourceRef {
@@ -1114,7 +1103,7 @@ func buildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstruc
 }
 
 func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
-	var podsMetadata []*bean.PodMetadata
+	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
 	for _, node := range nodes {
 		if node.Kind != kube.PodKind {
 			continue
@@ -1188,9 +1177,9 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 		}
 
 		// set containers,initContainers and ephemeral container names
-		var containerNames []string
-		var initContainerNames []string
-		var ephemeralContainers []string
+		containerNames := make([]string, 0, len(pod.Spec.Containers))
+		initContainerNames := make([]string, 0, len(pod.Spec.InitContainers))
+		ephemeralContainers := make([]string, 0, len(pod.Spec.EphemeralContainers))
 		for _, container := range pod.Spec.Containers {
 			containerNames = append(containerNames, container.Name)
 		}
@@ -1227,7 +1216,7 @@ func getMatchingNode(nodes []*bean.ResourceNode, kind string, name string) *bean
 }
 
 func getMatchingNodes(nodes []*bean.ResourceNode, kind string) []*bean.ResourceNode {
-	var nodesRes []*bean.ResourceNode
+	nodesRes := make([]*bean.ResourceNode, 0, len(nodes))
 	for _, node := range nodes {
 		if node.Kind == kind {
 			nodesRes = append(nodesRes, node)
