@@ -1187,8 +1187,20 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 			initContainerNames = append(initContainerNames, initContainer.Name)
 		}
 
-		for _, ephemeralContainer := range pod.Spec.EphemeralContainers {
-			ephemeralContainers = append(ephemeralContainers, ephemeralContainer.Name)
+		ephemeralContainerStatusMap := make(map[string]bool)
+		for _, c := range pod.Status.EphemeralContainerStatuses {
+			//c.state contains three states running,waiting and terminated
+			// at any point of time only one state will be there
+			if c.State.Running != nil {
+				ephemeralContainerStatusMap[c.Name] = true
+			}
+		}
+
+		//sending only running ephemeral containers in the list
+		for _, ec := range pod.Spec.EphemeralContainers {
+			if _, ok := ephemeralContainerStatusMap[ec.Name]; ok {
+				ephemeralContainers = append(ephemeralContainers, ec.Name)
+			}
 		}
 
 		podMetadata := &bean.PodMetadata{
