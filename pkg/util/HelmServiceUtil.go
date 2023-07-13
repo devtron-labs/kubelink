@@ -2,8 +2,8 @@ package util
 
 import (
 	"fmt"
-	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/devtron-labs/kubelink/bean"
+	"github.com/devtron-labs/kubelink/pkg/util/health"
 	"helm.sh/helm/v3/pkg/release"
 )
 
@@ -60,7 +60,7 @@ func BuildAppHealthStatus(nodes []*bean.ResourceNode) *bean.HealthStatusCode {
 		if nodeHealth == nil {
 			continue
 		}
-		if health.IsWorse(health.HealthStatusCode(appHealthStatus), health.HealthStatusCode(nodeHealth.Status)) {
+		if health.IsWorseStatus(health.HealthStatusCode(appHealthStatus), health.HealthStatusCode(nodeHealth.Status)) {
 			appHealthStatus = nodeHealth.Status
 		}
 	}
@@ -77,15 +77,15 @@ func BuildAppHealthStatus(nodes []*bean.ResourceNode) *bean.HealthStatusCode {
 	return &appHealthStatus
 }
 
-func GetAppStatusOnBasisOfHealthyNonHealthy(nodes []*bean.ResourceNode) *bean.HealthStatusCode {
+func GetAppStatusOnBasisOfHealthyNonHealthy(healthStatusArray []*bean.HealthStatus) *bean.HealthStatusCode {
 	appHealthStatus := bean.HealthStatusHealthy
-	for _, node := range nodes {
-		nodeHealth := node.Health
+	for _, node := range healthStatusArray {
+		nodeHealth := node
 		if nodeHealth == nil {
 			continue
 		}
 		//if any node's health is worse than healthy then we break the loop and return
-		if health.IsWorse(health.HealthStatusCode(appHealthStatus), health.HealthStatusCode(nodeHealth.Status)) {
+		if health.IsWorseStatus(health.HealthStatusCode(appHealthStatus), health.HealthStatusCode(nodeHealth.Status)) {
 			appHealthStatus = nodeHealth.Status
 			break
 		}

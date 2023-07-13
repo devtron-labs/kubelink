@@ -324,7 +324,7 @@ func (impl *ApplicationServiceServerImpl) AppDetailAdaptor(req *bean.AppDetail) 
 		resourceNodes = append(resourceNodes, resourceNode)
 	}
 
-	var podMetadatas []*client.PodMetadata
+	podMetadatas := make([]*client.PodMetadata, 0, len(req.ResourceTreeResponse.PodMetadata))
 	for _, pm := range req.ResourceTreeResponse.PodMetadata {
 		podMetadata := &client.PodMetadata{
 			Name:           pm.Name,
@@ -361,7 +361,7 @@ func (impl *ApplicationServiceServerImpl) AppDetailAdaptor(req *bean.AppDetail) 
 }
 
 func (impl *ApplicationServiceServerImpl) buildInfoItems(infoItemBeans []bean.InfoItem) []*client.InfoItem {
-	var infoItems []*client.InfoItem
+	infoItems := make([]*client.InfoItem, 0, len(infoItemBeans))
 	for _, infoItemBean := range infoItemBeans {
 		infoItems = append(infoItems, &client.InfoItem{Name: infoItemBean.Name, Value: infoItemBean.Value})
 	}

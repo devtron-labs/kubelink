@@ -1,7 +1,7 @@
 package util
 
 import (
-	"github.com/argoproj/gitops-engine/pkg/utils/kube"
+	"github.com/devtron-labs/kubelink/pkg/util/kube"
 	appsV1 "k8s.io/api/apps/v1"
 	batchV1 "k8s.io/api/batch/v1"
 	coreV1 "k8s.io/api/core/v1"
