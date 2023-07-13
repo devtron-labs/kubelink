@@ -327,11 +327,12 @@ func (impl *ApplicationServiceServerImpl) AppDetailAdaptor(req *bean.AppDetail) 
 	podMetadatas := make([]*client.PodMetadata, 0, len(req.ResourceTreeResponse.PodMetadata))
 	for _, pm := range req.ResourceTreeResponse.PodMetadata {
 		podMetadata := &client.PodMetadata{
-			Name:           pm.Name,
-			Uid:            pm.UID,
-			Containers:     pm.Containers,
-			InitContainers: pm.InitContainers,
-			IsNew:          pm.IsNew,
+			Name:                pm.Name,
+			Uid:                 pm.UID,
+			Containers:          pm.Containers,
+			InitContainers:      pm.InitContainers,
+			EphemeralContainers: pm.EphemeralContainers,
+			IsNew:               pm.IsNew,
 		}
 		podMetadatas = append(podMetadatas, podMetadata)
 	}

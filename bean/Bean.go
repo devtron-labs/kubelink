@@ -134,8 +134,8 @@ type PodMetadata struct {
 	UID                 string   `json:"uid"`
 	Containers          []string `json:"containers"`
 	InitContainers      []string `json:"initContainers"`
-	EphemeralContainers []string `json:"ephemeralContainers"`
 	IsNew               bool     `json:"isNew"`
+	EphemeralContainers []string `json:"ephemeralContainers"`
 }
 
 type HelmReleaseDetailRequest struct {
