@@ -130,12 +130,12 @@ const (
 )
 
 type PodMetadata struct {
-	Name                string                   `json:"name"`
-	UID                 string                   `json:"uid"`
-	Containers          []string                 `json:"containers"`
-	InitContainers      []string                 `json:"initContainers"`
-	IsNew               bool                     `json:"isNew"`
-	EphemeralContainers []EphemeralContainerData `json:"ephemeralContainers"`
+	Name                string                    `json:"name"`
+	UID                 string                    `json:"uid"`
+	Containers          []string                  `json:"containers"`
+	InitContainers      []string                  `json:"initContainers"`
+	IsNew               bool                      `json:"isNew"`
+	EphemeralContainers []*EphemeralContainerData `json:"ephemeralContainers"`
 }
 
 type EphemeralContainerData struct {
