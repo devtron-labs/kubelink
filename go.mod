@@ -3,7 +3,9 @@ module github.com/devtron-labs/kubelink
 go 1.20
 
 require (
+	github.com/aws/aws-sdk-go v1.44.285
 	github.com/caarlos0/env v3.5.0+incompatible
+	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/go-pg/pg v6.15.1+incompatible
 	github.com/golang/protobuf v1.5.3
@@ -45,7 +47,6 @@ require (
 	github.com/docker/cli v20.10.21+incompatible // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/docker/docker v20.10.24+incompatible // indirect
-	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
@@ -75,6 +76,7 @@ require (
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/jmoiron/sqlx v1.3.5 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
