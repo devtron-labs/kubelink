@@ -38,6 +38,8 @@ const (
 	ApplicationService_InstallReleaseWithCustomChart_FullMethodName = "/ApplicationService/InstallReleaseWithCustomChart"
 	ApplicationService_GetNotes_FullMethodName                      = "/ApplicationService/GetNotes"
 	ApplicationService_UpgradeReleaseWithCustomChart_FullMethodName = "/ApplicationService/UpgradeReleaseWithCustomChart"
+	ApplicationService_ValidateOCIRegistry_FullMethodName           = "/ApplicationService/ValidateOCIRegistry"
+	ApplicationService_PushHelmChartToOCIRegistry_FullMethodName    = "/ApplicationService/PushHelmChartToOCIRegistry"
 )
 
 // ApplicationServiceClient is the client API for ApplicationService service.
@@ -271,7 +273,7 @@ func (c *applicationServiceClient) UpgradeReleaseWithCustomChart(ctx context.Con
 
 func (c *applicationServiceClient) ValidateOCIRegistry(ctx context.Context, in *OCIRegistryRequest, opts ...grpc.CallOption) (*OCIRegistryResponse, error) {
 	out := new(OCIRegistryResponse)
-	err := c.cc.Invoke(ctx, "/ApplicationService/ValidateOCIRegistry", in, out, opts...)
+	err := c.cc.Invoke(ctx, ApplicationService_ValidateOCIRegistry_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +282,7 @@ func (c *applicationServiceClient) ValidateOCIRegistry(ctx context.Context, in *
 
 func (c *applicationServiceClient) PushHelmChartToOCIRegistry(ctx context.Context, in *OCIRegistryRequest, opts ...grpc.CallOption) (*OCIRegistryResponse, error) {
 	out := new(OCIRegistryResponse)
-	err := c.cc.Invoke(ctx, "/ApplicationService/PushHelmChartToOCIRegistry", in, out, opts...)
+	err := c.cc.Invoke(ctx, ApplicationService_PushHelmChartToOCIRegistry_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -750,7 +752,7 @@ func _ApplicationService_ValidateOCIRegistry_Handler(srv interface{}, ctx contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/ApplicationService/ValidateOCIRegistry",
+		FullMethod: ApplicationService_ValidateOCIRegistry_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ApplicationServiceServer).ValidateOCIRegistry(ctx, req.(*OCIRegistryRequest))
@@ -768,7 +770,7 @@ func _ApplicationService_PushHelmChartToOCIRegistry_Handler(srv interface{}, ctx
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/ApplicationService/PushHelmChartToOCIRegistry",
+		FullMethod: ApplicationService_PushHelmChartToOCIRegistry_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ApplicationServiceServer).PushHelmChartToOCIRegistry(ctx, req.(*OCIRegistryRequest))
