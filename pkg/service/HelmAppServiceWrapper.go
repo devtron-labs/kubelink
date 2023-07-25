@@ -397,7 +397,7 @@ func (impl *ApplicationServiceServerImpl) UpgradeReleaseWithCustomChart(ctx cont
 }
 
 func (impl *ApplicationServiceServerImpl) ValidateOCIRegistry(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error) {
-	isValid, err := impl.HelmAppService.validateOCIRegistryLogin(ctx, OCIRegistryRequest)
+	isValid, err := impl.HelmAppService.ValidateOCIRegistryLogin(ctx, OCIRegistryRequest)
 	if err != nil {
 		impl.Logger.Errorw("Error in fetching Notes ", "err", err)
 		return nil, err
@@ -406,7 +406,7 @@ func (impl *ApplicationServiceServerImpl) ValidateOCIRegistry(ctx context.Contex
 }
 
 func (impl *ApplicationServiceServerImpl) PushHelmChartToOCIRegistry(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error) {
-	registryPushResponse, err := impl.HelmAppService.pushHelmChartToOCIRegistryRepo(ctx, OCIRegistryRequest)
+	registryPushResponse, err := impl.HelmAppService.PushHelmChartToOCIRegistryRepo(ctx, OCIRegistryRequest)
 	if err != nil {
 		impl.Logger.Errorw("Error in pushing helm chart ", "chartName", OCIRegistryRequest.ChartName, "err", err)
 		return nil, err
