@@ -331,12 +331,15 @@ message OCIRegistryRequest {
 }
 
 message RegistryCredential {
-  string Username = 1;
-  string Password = 2;
-  string AwsRegion = 3;
-  string AccessKey = 4;
-  string SecretKey = 5;
-  string RegistryType = 6;
+  string RegistryUrl = 1;
+  string Username = 2;
+  string Password = 3;
+  string AwsRegion = 4;
+  string AccessKey = 5;
+  string SecretKey = 6;
+  string RegistryType = 7;
+  string RepoName = 8;
+  bool IsPublic = 9;
 }
 
 message OCIRegistryResponse {
