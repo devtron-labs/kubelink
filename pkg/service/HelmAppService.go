@@ -735,6 +735,7 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 		MaxHistory:    0,    // limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
 		RepoURL:       request.ChartRepository.Url,
 		Version:       request.ChartVersion,
+		ValuesYaml:    request.ValuesYaml,
 	}
 
 	HelmTemplateOptions := &helmClient.HelmTemplateOptions{}
