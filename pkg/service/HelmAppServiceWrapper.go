@@ -396,7 +396,7 @@ func (impl *ApplicationServiceServerImpl) UpgradeReleaseWithCustomChart(ctx cont
 	return resp, nil
 }
 
-func (impl *ApplicationServiceServerImpl) ValidateOCIRegistry(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error) {
+func (impl *ApplicationServiceServerImpl) ValidateOCIRegistry(ctx context.Context, OCIRegistryRequest *client.RegistryCredential) (*client.OCIRegistryResponse, error) {
 	isValid, err := impl.HelmAppService.ValidateOCIRegistryLogin(ctx, OCIRegistryRequest)
 	if err != nil {
 		impl.Logger.Errorw("Error in fetching Notes ", "err", err)
