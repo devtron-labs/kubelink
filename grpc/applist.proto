@@ -263,6 +263,7 @@ message InstallReleaseRequest {
   string K8sVersion = 6;
   int32 historyMax = 7;
   RegistryCredential RegistryCredential = 8;
+  bool IsOCIRepo = 9;
 }
 
 message InstallReleaseResponse {

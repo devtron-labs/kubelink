@@ -84,7 +84,7 @@ type HelmAppService interface {
 	// ExtractCredentialsForRegistry Takes client.RegistryCredential and extracts credentials for the provided registry details
 	ExtractCredentialsForRegistry(registryCredential *client.RegistryCredential) (string, string, error)
 	// OCIRegistryLogin Takes client.OCIRegistryRequest and helm client, Performs registry login for the given client session and return err if fails
-	OCIRegistryLogin(client *registry.Client, registryURL string, registryCredential *client.RegistryCredential) error
+	OCIRegistryLogin(client *registry.Client, registryCredential *client.RegistryCredential) error
 	// PushHelmChartToOCIRegistryRepo Pushes the helm chart to the OCI registry and returns the generated digest and pushedUrl
 	PushHelmChartToOCIRegistryRepo(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error)
 }
@@ -548,49 +548,68 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 
 }
 func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequest, dryRun bool) (*release.Release, error) {
-	// RegistryCredential cannot be nil for OCI private registries
-	if request.RegistryCredential != nil {
-		username, password, err := impl.ExtractCredentialsForRegistry(request.RegistryCredential)
-		if err != nil {
-			return nil, err
-		}
-		// Updating registry credentials
-		request.ChartRepository.Username = username
-		request.ChartRepository.Password = password
-	}
+
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	if err != nil {
 		return nil, err
 	}
 
-	// Add or update chart repo starts
 	chartRepoRequest := request.ChartRepository
 	chartRepoName := chartRepoRequest.Name
-	chartRepo := repo.Entry{
-		Name:     chartRepoName,
-		URL:      chartRepoRequest.Url,
-		Username: chartRepoRequest.Username,
-		Password: chartRepoRequest.Password,
-		// Since helm 3.6.1 it is necessary to pass 'PassCredentialsAll = true'.
-		PassCredentialsAll:    true,
-		InsecureSkipTLSverify: true,
-	}
 
-	impl.logger.Debug("Adding/Updating Chart repo")
-	err = helmClientObj.AddOrUpdateChartRepo(chartRepo)
-	if err != nil {
-		impl.logger.Errorw("Error in add/update chart repo ", "err", err)
-		return nil, err
-	}
-	// Add or update chart repo ends
+	//oci registry client
+	var registryClient *registry.Client
 
+	switch request.IsOCIRepo {
+	case true:
+		username, password, err := impl.ExtractCredentialsForRegistry(request.RegistryCredential)
+		if err != nil {
+			return nil, err
+		}
+		// Updating registry credentials
+		request.RegistryCredential.Username = username
+		request.RegistryCredential.Password = password
+		registryClient, err = registry.NewClient()
+		if err != nil {
+			impl.logger.Errorw("Error in creating Helm client", "err", err)
+			return nil, err
+		}
+		err = impl.OCIRegistryLogin(registryClient, request.RegistryCredential)
+		if err != nil {
+			return nil, err
+		}
+	case false:
+		// Add or update chart repo starts
+		chartRepo := repo.Entry{
+			Name:     chartRepoName,
+			URL:      chartRepoRequest.Url,
+			Username: chartRepoRequest.Username,
+			Password: chartRepoRequest.Password,
+			// Since helm 3.6.1 it is necessary to pass 'PassCredentialsAll = true'.
+			PassCredentialsAll:    true,
+			InsecureSkipTLSverify: true,
+		}
+		impl.logger.Debug("Adding/Updating Chart repo")
+		err = helmClientObj.AddOrUpdateChartRepo(chartRepo)
+		if err != nil {
+			impl.logger.Errorw("Error in add/update chart repo ", "err", err)
+			return nil, err
+		}
+		// Add or update chart repo ends
+	}
+	var chartName string
+	if request.IsOCIRepo {
+		chartName = fmt.Sprintf("%s/%s", chartRepoName, request.ChartName)
+	} else {
+		chartName = ""
+	}
 	// Install release starts
 	chartSpec := &helmClient.ChartSpec{
 		ReleaseName:      releaseIdentifier.ReleaseName,
 		Namespace:        releaseIdentifier.ReleaseNamespace,
 		ValuesYaml:       request.ValuesYaml,
-		ChartName:        fmt.Sprintf("%s/%s", chartRepoName, request.ChartName),
+		ChartName:        chartName,
 		Version:          request.ChartVersion,
 		DependencyUpdate: true,
 		UpgradeCRDs:      true,
@@ -599,7 +618,7 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 	}
 
 	impl.logger.Debugw("Installing release", "name", releaseIdentifier.ReleaseName, "namespace", releaseIdentifier.ReleaseNamespace, "dry-run", dryRun)
-	rel, err := helmClientObj.InstallChart(context.Background(), chartSpec)
+	rel, err := helmClientObj.InstallChart(context.Background(), chartSpec, registryClient)
 	if err != nil {
 		impl.logger.Errorw("Error in install release ", "err", err)
 		return nil, err
@@ -1350,7 +1369,7 @@ func (impl HelmAppServiceImpl) InstallReleaseWithCustomChart(request *client.Hel
 	}
 
 	//	impl.logger.Debug("Upgrading release with chart info")
-	_, err = helmClientObj.InstallChart(context.Background(), chartSpec)
+	_, err = helmClientObj.InstallChart(context.Background(), chartSpec, nil)
 	if err != nil {
 		impl.logger.Errorw("Error in install chart", "err", err)
 		return false, err
@@ -1463,16 +1482,16 @@ func (impl HelmAppServiceImpl) ExtractCredentialsForRegistry(registryCredential 
 	return username, pwd, nil
 }
 
-func (impl HelmAppServiceImpl) OCIRegistryLogin(client *registry.Client, registryURL string, registryCredential *client.RegistryCredential) error {
+func (impl HelmAppServiceImpl) OCIRegistryLogin(client *registry.Client, registryCredential *client.RegistryCredential) error {
 	username, pwd, err := impl.ExtractCredentialsForRegistry(registryCredential)
 	if err != nil {
 		return err
 	}
 	// helm registry login --username "" --password ""
-	err = client.Login(registryURL,
+	err = client.Login(registryCredential.RegistryUrl,
 		registry.LoginOptBasicAuth(username, pwd), registry.LoginOptInsecure(false))
 	if err != nil {
-		impl.logger.Errorw("Failed to login to registry", "registryURL", registryURL, "err", err)
+		impl.logger.Errorw("Failed to login to registry", "registryURL", registryCredential.RegistryUrl, "err", err)
 		return err
 	}
 	return nil
@@ -1484,7 +1503,7 @@ func (impl HelmAppServiceImpl) ValidateOCIRegistryLogin(ctx context.Context, OCI
 		impl.logger.Errorw("Error in creating Helm client", "err", err)
 		return nil, err
 	}
-	err = impl.OCIRegistryLogin(helmClient, OCIRegistryRequest.RegistryURL, OCIRegistryRequest.RegistryCredential)
+	err = impl.OCIRegistryLogin(helmClient, OCIRegistryRequest.RegistryCredential)
 	if err != nil {
 		return nil, err
 	}
@@ -1501,7 +1520,7 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 		impl.logger.Errorw("Error in creating Helm client", "err", err)
 		return nil, err
 	}
-	err = impl.OCIRegistryLogin(helmClient, OCIRegistryRequest.RegistryURL, OCIRegistryRequest.RegistryCredential)
+	err = impl.OCIRegistryLogin(helmClient, OCIRegistryRequest.RegistryCredential)
 	if err != nil {
 		registryPushResponse.IsLoggedIn = false
 		return registryPushResponse, err

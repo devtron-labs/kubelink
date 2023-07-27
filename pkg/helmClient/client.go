@@ -11,6 +11,7 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/downloader"
 	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -177,8 +178,12 @@ func (c *HelmClient) AddOrUpdateChartRepo(entry repo.Entry) error {
 
 // InstallChart installs the provided chart and returns the corresponding release.
 // Namespace and other context is provided via the helmclient.Options struct when instantiating a client.
-func (c *HelmClient) InstallChart(ctx context.Context, spec *ChartSpec) (*release.Release, error) {
+func (c *HelmClient) InstallChart(ctx context.Context, spec *ChartSpec, registryClient *registry.Client) (*release.Release, error) {
 	// if not dry-run, then only check if the release is installed or not
+
+	// adding registry client in action config
+	c.ActionConfig.RegistryClient = registryClient
+
 	if !spec.DryRun {
 		installed, err := c.chartIsInstalled(spec.ReleaseName, spec.Namespace)
 		if err != nil {
