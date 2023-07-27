@@ -1528,12 +1528,6 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 	// LoggedIn successfully
 	registryPushResponse.IsLoggedIn = true
 
-	// creating Helm Client
-	helmOCIClient, err := registry.NewClient()
-	if err != nil {
-		impl.logger.Errorw("Error in creating helm client", "err", err)
-		return registryPushResponse, err
-	}
 	var pushOpts []registry.PushOption
 	provRef := fmt.Sprintf("%s.prov", OCIRegistryRequest.Chart)
 	if _, err := os.Stat(provRef); err == nil {
@@ -1568,7 +1562,7 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 			OCIRegistryRequest.ChartVersion)
 	}
 
-	pushResult, err := helmOCIClient.Push(OCIRegistryRequest.Chart, ref, withStrictMode)
+	pushResult, err := helmClient.Push(OCIRegistryRequest.Chart, ref, withStrictMode)
 	if err != nil {
 		impl.logger.Errorw("Error in pushing helm chart to OCI registry", "err", err)
 		return registryPushResponse, err
