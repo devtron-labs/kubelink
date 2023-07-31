@@ -231,6 +231,8 @@ message UpgradeReleaseRequest {
   string valuesYaml = 2;
   int32 historyMax = 3;
   ChartContent chartContent = 4;
+  RegistryCredential RegistryCredential = 5;
+  bool IsOCIRepo  = 6;
 }
 
 message UpgradeReleaseResponse {

@@ -23,8 +23,8 @@ import (
 var storage = repo.File{}
 
 const (
-	defaultCachePath            = "/home/devtron/devtroncd/.helmcache"
-	defaultRepositoryConfigPath = "/home/devtron/devtroncd/.helmrepo"
+	defaultCachePath            = "/Users/ayushmaheshwari/devtroncd/.helmcache"
+	defaultRepositoryConfigPath = "/Users/ayushmaheshwari/devtroncd/.helmrepo"
 )
 
 // NewClientFromRestConf returns a new Helm client constructed with the provided REST config options
@@ -144,7 +144,8 @@ func (c *HelmClient) UninstallReleaseByName(name string) error {
 
 // UpgradeRelease upgrades the provided chart and returns the corresponding release.
 // Namespace and other context is provided via the helmclient.Options struct when instantiating a client.
-func (c *HelmClient) UpgradeRelease(ctx context.Context, chart *chart.Chart, updatedChartSpec *ChartSpec) (*release.Release, error) {
+func (c *HelmClient) UpgradeRelease(ctx context.Context, chart *chart.Chart, updatedChartSpec *ChartSpec, registryClient *registry.Client) (*release.Release, error) {
+	c.ActionConfig.RegistryClient = registryClient
 	return c.upgrade(ctx, chart, updatedChartSpec)
 }
 
@@ -565,7 +566,8 @@ func (c *HelmClient) GetNotes(spec *ChartSpec, options *HelmTemplateOptions) ([]
 	return out.Bytes(), err
 
 }
-func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions) ([]byte, error) {
+func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions, registryClient *registry.Client) ([]byte, error) {
+	c.ActionConfig.RegistryClient = registryClient
 	client := action.NewInstall(c.ActionConfig)
 	mergeInstallOptions(spec, client)
 

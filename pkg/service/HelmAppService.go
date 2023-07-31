@@ -55,7 +55,7 @@ import (
 const (
 	hibernateReplicaAnnotation = "hibernator.devtron.ai/replicas"
 	hibernatePatch             = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
-	chartWorkingDirectory      = "/home/devtron/devtroncd/charts/"
+	chartWorkingDirectory      = "/Users/ayushmaheshwari/devtroncd/charts/"
 	ReadmeFileName             = "README.md"
 	REGISTRY_TYPE_ECR          = "ecr"
 )
@@ -475,6 +475,25 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 		if err != nil {
 			return nil, err
 		}
+		var registryClient *registry.Client
+		if request.IsOCIRepo {
+			username, password, err := impl.ExtractCredentialsForRegistry(request.RegistryCredential)
+			if err != nil {
+				return nil, err
+			}
+			// Updating registry credentials
+			request.RegistryCredential.Username = username
+			request.RegistryCredential.Password = password
+			registryClient, err = registry.NewClient()
+			if err != nil {
+				impl.logger.Errorw("Error in creating Helm client", "err", err)
+				return nil, err
+			}
+			err = impl.OCIRegistryLogin(registryClient, request.RegistryCredential)
+			if err != nil {
+				return nil, err
+			}
+		}
 
 		helmRelease, err := getHelmRelease(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName)
 		if err != nil {
@@ -490,7 +509,7 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 		}
 
 		impl.logger.Debug("Upgrading release")
-		_, err = helmClientObj.UpgradeRelease(context.Background(), helmRelease.Chart, updateChartSpec)
+		_, err = helmClientObj.UpgradeRelease(context.Background(), helmRelease.Chart, updateChartSpec, registryClient)
 		if err != nil {
 			impl.logger.Errorw("Error in upgrade release ", "err", err)
 			return nil, err
@@ -555,11 +574,9 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 		return nil, err
 	}
 
-	chartRepoRequest := request.ChartRepository
-	chartRepoName := chartRepoRequest.Name
-
 	//oci registry client
 	var registryClient *registry.Client
+	var chartName string
 
 	switch request.IsOCIRepo {
 	case true:
@@ -579,7 +596,10 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 		if err != nil {
 			return nil, err
 		}
+		chartName = fmt.Sprintf("%s://%s/%s", "oci", request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
 	case false:
+		chartRepoRequest := request.ChartRepository
+		chartRepoName := chartRepoRequest.Name
 		// Add or update chart repo starts
 		chartRepo := repo.Entry{
 			Name:     chartRepoName,
@@ -596,14 +616,10 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 			impl.logger.Errorw("Error in add/update chart repo ", "err", err)
 			return nil, err
 		}
+		chartName = fmt.Sprintf("%s/%s", chartRepoName, request.ChartName)
 		// Add or update chart repo ends
 	}
-	var chartName string
-	if request.IsOCIRepo {
-		chartName = fmt.Sprintf("%s/%s", chartRepoName, request.ChartName)
-	} else {
-		chartName = ""
-	}
+
 	// Install release starts
 	chartSpec := &helmClient.ChartSpec{
 		ReleaseName:      releaseIdentifier.ReleaseName,
@@ -761,6 +777,28 @@ func (impl HelmAppServiceImpl) RollbackRelease(request *client.RollbackReleaseRe
 func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error) {
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
+	if err != nil {
+		impl.logger.Errorw("error in getting helm app client")
+	}
+	var registryClient *registry.Client
+	if request.IsOCIRepo {
+		username, password, err := impl.ExtractCredentialsForRegistry(request.RegistryCredential)
+		if err != nil {
+			return "", err
+		}
+		// Updating registry credentials
+		request.RegistryCredential.Username = username
+		request.RegistryCredential.Password = password
+		registryClient, err = registry.NewClient()
+		if err != nil {
+			impl.logger.Errorw("Error in creating Helm client", "err", err)
+			return "", err
+		}
+		err = impl.OCIRegistryLogin(registryClient, request.RegistryCredential)
+		if err != nil {
+			return "", err
+		}
+	}
 	chartSpec := &helmClient.ChartSpec{
 		ReleaseName:   releaseIdentifier.ReleaseName,
 		Namespace:     releaseIdentifier.ReleaseNamespace,
@@ -776,7 +814,7 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 			Version: request.K8SVersion,
 		}
 	}
-	rel, err := helmClientObj.TemplateChart(chartSpec, HelmTemplateOptions)
+	rel, err := helmClientObj.TemplateChart(chartSpec, HelmTemplateOptions, registryClient)
 	if err != nil {
 		impl.logger.Errorw("error occured while generating manifest in helm app service", "err:", err)
 		return "", err

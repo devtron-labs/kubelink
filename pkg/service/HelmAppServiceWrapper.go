@@ -195,8 +195,10 @@ func (impl *ApplicationServiceServerImpl) InstallRelease(ctx context.Context, in
 	impl.Logger.Infow("Install release request", "clusterName", releaseIdentifier.ClusterConfig.ClusterName, "releaseName", releaseIdentifier.ReleaseName,
 		"namespace", releaseIdentifier.ReleaseNamespace)
 
-	impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
-	defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
+	if in.ChartRepository != nil {
+		impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
+		defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
+	}
 
 	res, err := impl.HelmAppService.InstallRelease(ctx, in)
 	if err != nil {
