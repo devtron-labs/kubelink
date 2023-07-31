@@ -328,9 +328,7 @@ message OCIRegistryRequest {
   string ChartName = 2;
   string ChartVersion = 3;
   bool IsInsecure = 4;
-  string RepoURL = 5;
-  string RegistryURL = 6;
-  RegistryCredential RegistryCredential = 7;
+  RegistryCredential RegistryCredential = 5;
 }
 
 message RegistryCredential {
