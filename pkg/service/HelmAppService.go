@@ -1541,6 +1541,7 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 
 	var ref string
 	withStrictMode := registry.PushOptStrictMode(true)
+	repoURL := path.Join(OCIRegistryRequest.RegistryCredential.RegistryUrl, OCIRegistryRequest.RegistryCredential.RepoName)
 
 	if OCIRegistryRequest.ChartName == "" || OCIRegistryRequest.ChartVersion == "" {
 		// extract meta data from chart
@@ -1551,14 +1552,14 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 		}
 		// add chart name and version from the chart metadata
 		ref = fmt.Sprintf("%s:%s",
-			path.Join(strings.TrimPrefix(OCIRegistryRequest.RepoURL, fmt.Sprintf("%s://", registry.OCIScheme)), meta.Metadata.Name),
+			path.Join(strings.TrimPrefix(repoURL, fmt.Sprintf("%s://", registry.OCIScheme)), meta.Metadata.Name),
 			meta.Metadata.Version)
 	} else {
 		// disable strict mode for configuring chartName in repo
 		withStrictMode = registry.PushOptStrictMode(false)
 		// add chartName and version to url
 		ref = fmt.Sprintf("%s:%s",
-			path.Join(strings.TrimPrefix(OCIRegistryRequest.RepoURL, fmt.Sprintf("%s://", registry.OCIScheme)), OCIRegistryRequest.ChartName),
+			path.Join(strings.TrimPrefix(repoURL, fmt.Sprintf("%s://", registry.OCIScheme)), OCIRegistryRequest.ChartName),
 			OCIRegistryRequest.ChartVersion)
 	}
 
