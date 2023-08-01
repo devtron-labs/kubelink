@@ -595,6 +595,7 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 	}
 
 	client.ChartPathOptions.RepoURL = spec.RepoURL
+	client.ChartPathOptions.Version = spec.Version
 	helmChart, chartPath, err := c.getChart(spec.ChartName, &client.ChartPathOptions)
 	if err != nil {
 		fmt.Errorf("error in getting helm chart and chart path for chart %q and repo Url %q",
