@@ -214,9 +214,10 @@ func (impl *ApplicationServiceServerImpl) UpgradeReleaseWithChartInfo(ctx contex
 	impl.Logger.Infow("Upgrade release with chart Info request", "clusterName", releaseIdentifier.ClusterConfig.ClusterName, "releaseName", releaseIdentifier.ReleaseName,
 		"namespace", releaseIdentifier.ReleaseNamespace)
 
-	impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
-	defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
-
+	if in.ChartRepository != nil {
+		impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
+		defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
+	}
 	res, err := impl.HelmAppService.UpgradeReleaseWithChartInfo(ctx, in)
 	if err != nil {
 		impl.Logger.Errorw("Error in Upgrade release request with Chart Info", "err", err)
@@ -263,10 +264,10 @@ func (impl *ApplicationServiceServerImpl) TemplateChart(ctx context.Context, in 
 	releaseIdentifier := in.ReleaseIdentifier
 	impl.Logger.Infow("Template chart request", "clusterName", releaseIdentifier.ClusterConfig.ClusterName, "releaseName", releaseIdentifier.ReleaseName,
 		"namespace", releaseIdentifier.ReleaseNamespace)
-
-	impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
-	defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
-
+	if in.ChartRepository != nil {
+		impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
+		defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
+	}
 	manifest, err := impl.HelmAppService.TemplateChart(ctx, in)
 	if err != nil {
 		impl.Logger.Errorw("Error in Template chart request", "err", err)

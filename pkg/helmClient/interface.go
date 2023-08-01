@@ -19,7 +19,7 @@ type Client interface {
 	UninstallReleaseByName(name string) error
 	UpgradeRelease(ctx context.Context, chart *chart.Chart, updatedChartSpec *ChartSpec, registryClient *registry.Client) (*release.Release, error)
 	AddOrUpdateChartRepo(entry repo.Entry) error
-	InstallChart(ctx context.Context, spec *ChartSpec, registryClient *registry.Client) (*release.Release, error)
+	InstallChart(ctx context.Context, spec *ChartSpec) (*release.Release, error)
 	UpgradeReleaseWithChartInfo(ctx context.Context, spec *ChartSpec) (*release.Release, error)
 	IsReleaseInstalled(ctx context.Context, releaseName string, releaseNamespace string) (bool, error)
 	RollbackRelease(spec *ChartSpec, version int) error
