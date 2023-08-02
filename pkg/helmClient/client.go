@@ -560,6 +560,58 @@ func (c *HelmClient) GetNotes(spec *ChartSpec, options *HelmTemplateOptions) ([]
 	return out.Bytes(), err
 
 }
+func (c *HelmClient) TemplateChartForBaseDeploymentTemplate(chartData []byte, spec *ChartSpec, options *HelmTemplateOptions) ([]byte, error) {
+	// Load the Helm chart from the byte data
+	chart, err := loader.LoadArchive(bytes.NewReader(chartData))
+	if err != nil {
+		return nil, err
+	}
+
+	client := action.NewInstall(c.ActionConfig)
+	mergeInstallOptions(spec, client)
+
+	client.DryRun = true
+	client.ReleaseName = spec.ReleaseName
+	client.Replace = true // Skip the name check
+	client.ClientOnly = true
+	client.IncludeCRDs = true
+
+	if options != nil {
+		client.KubeVersion = options.KubeVersion
+		client.APIVersions = options.APIVersions
+	}
+
+	// NameAndChart returns either the TemplateName if set,
+	// the ReleaseName if set or the generatedName as the first return value.
+	releaseName, _, err := client.NameAndChart([]string{chart.Name()})
+	if err != nil {
+		return nil, err
+	}
+	client.ReleaseName = releaseName
+
+	if client.Version == "" {
+		client.Version = ">0.0.0-0"
+	}
+
+	values, err := getValuesMap(spec)
+	if err != nil {
+		return nil, err
+	}
+
+	out := new(bytes.Buffer)
+	rel, err := client.Run(chart, values)
+	if err != nil {
+		fmt.Errorf("error in fetching release for helm chart %q",
+			chart.Name(),
+		)
+		return nil, err
+	}
+
+	fmt.Fprintf(out, "%s", rel.Manifest)
+
+	return out.Bytes(), err
+}
+
 func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions) ([]byte, error) {
 	client := action.NewInstall(c.ActionConfig)
 	mergeInstallOptions(spec, client)

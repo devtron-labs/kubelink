@@ -23,5 +23,6 @@ type Client interface {
 	IsReleaseInstalled(ctx context.Context, releaseName string, releaseNamespace string) (bool, error)
 	RollbackRelease(spec *ChartSpec, version int) error
 	TemplateChart(spec *ChartSpec, options *HelmTemplateOptions) ([]byte, error)
+	TemplateChartForBaseDeploymentTemplate(chartData []byte, spec *ChartSpec, options *HelmTemplateOptions) ([]byte, error)
 	GetNotes(spec *ChartSpec, options *HelmTemplateOptions) ([]byte, error)
 }
