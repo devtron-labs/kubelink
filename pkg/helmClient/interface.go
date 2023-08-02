@@ -3,7 +3,6 @@ package helmClient
 import (
 	"context"
 	"helm.sh/helm/v3/pkg/chart"
-	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
 )
@@ -17,12 +16,12 @@ type Client interface {
 	ListReleaseHistory(name string, max int) ([]*release.Release, error)
 	ListAllReleases() ([]*release.Release, error)
 	UninstallReleaseByName(name string) error
-	UpgradeRelease(ctx context.Context, chart *chart.Chart, updatedChartSpec *ChartSpec, registryClient *registry.Client) (*release.Release, error)
+	UpgradeRelease(ctx context.Context, chart *chart.Chart, updatedChartSpec *ChartSpec) (*release.Release, error)
 	AddOrUpdateChartRepo(entry repo.Entry) error
 	InstallChart(ctx context.Context, spec *ChartSpec) (*release.Release, error)
 	UpgradeReleaseWithChartInfo(ctx context.Context, spec *ChartSpec) (*release.Release, error)
 	IsReleaseInstalled(ctx context.Context, releaseName string, releaseNamespace string) (bool, error)
 	RollbackRelease(spec *ChartSpec, version int) error
-	TemplateChart(spec *ChartSpec, options *HelmTemplateOptions, registryClient *registry.Client) ([]byte, error)
+	TemplateChart(spec *ChartSpec, options *HelmTemplateOptions) ([]byte, error)
 	GetNotes(spec *ChartSpec, options *HelmTemplateOptions) ([]byte, error)
 }

@@ -502,14 +502,15 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 		}
 
 		updateChartSpec := &helmClient.ChartSpec{
-			ReleaseName: releaseIdentifier.ReleaseName,
-			Namespace:   releaseIdentifier.ReleaseNamespace,
-			ValuesYaml:  request.ValuesYaml,
-			MaxHistory:  int(request.HistoryMax),
+			ReleaseName:    releaseIdentifier.ReleaseName,
+			Namespace:      releaseIdentifier.ReleaseNamespace,
+			ValuesYaml:     request.ValuesYaml,
+			MaxHistory:     int(request.HistoryMax),
+			RegistryClient: registryClient,
 		}
 
 		impl.logger.Debug("Upgrading release")
-		_, err = helmClientObj.UpgradeRelease(context.Background(), helmRelease.Chart, updateChartSpec, registryClient)
+		_, err = helmClientObj.UpgradeRelease(context.Background(), helmRelease.Chart, updateChartSpec)
 		if err != nil {
 			impl.logger.Errorw("Error in upgrade release ", "err", err)
 			return nil, err
@@ -566,6 +567,13 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 	return installReleaseResponse, nil
 
 }
+
+func (impl HelmAppServiceImpl) GetOCIChartName(registryUrl, repoName string) string {
+	// helm package expects chart name to be in this format
+	chartName := fmt.Sprintf("%s://%s/%s", "oci", registryUrl, repoName)
+	return chartName
+}
+
 func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequest, dryRun bool) (*release.Release, error) {
 
 	releaseIdentifier := request.ReleaseIdentifier
@@ -596,7 +604,7 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 		if err != nil {
 			return nil, err
 		}
-		chartName = fmt.Sprintf("%s://%s/%s", "oci", request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+		chartName = impl.GetOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
 	case false:
 		chartRepoRequest := request.ChartRepository
 		chartRepoName := chartRepoRequest.Name
@@ -825,20 +833,21 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 		if err != nil {
 			return "", err
 		}
-		chartName = fmt.Sprintf("%s://%s/%s", "oci", request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+		chartName = impl.GetOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
 	} else {
 		chartName = request.ChartName
 		repoURL = request.ChartRepository.Url
 	}
 	chartSpec := &helmClient.ChartSpec{
-		ReleaseName:   releaseIdentifier.ReleaseName,
-		Namespace:     releaseIdentifier.ReleaseNamespace,
-		ChartName:     chartName,
-		CleanupOnFail: true, // allow deletion of new resources created in this rollback when rollback fails
-		MaxHistory:    0,    // limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
-		RepoURL:       repoURL,
-		Version:       request.ChartVersion,
-		ValuesYaml:    request.ValuesYaml,
+		ReleaseName:    releaseIdentifier.ReleaseName,
+		Namespace:      releaseIdentifier.ReleaseNamespace,
+		ChartName:      chartName,
+		CleanupOnFail:  true, // allow deletion of new resources created in this rollback when rollback fails
+		MaxHistory:     0,    // limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
+		RepoURL:        repoURL,
+		Version:        request.ChartVersion,
+		ValuesYaml:     request.ValuesYaml,
+		RegistryClient: registryClient,
 	}
 
 	HelmTemplateOptions := &helmClient.HelmTemplateOptions{}
@@ -847,7 +856,7 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 			Version: request.K8SVersion,
 		}
 	}
-	rel, err := helmClientObj.TemplateChart(chartSpec, HelmTemplateOptions, registryClient)
+	rel, err := helmClientObj.TemplateChart(chartSpec, HelmTemplateOptions)
 	if err != nil {
 		impl.logger.Errorw("error occured while generating manifest in helm app service", "err:", err)
 		return "", err

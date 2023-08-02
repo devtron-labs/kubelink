@@ -11,7 +11,6 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/downloader"
 	"helm.sh/helm/v3/pkg/getter"
-	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -144,8 +143,8 @@ func (c *HelmClient) UninstallReleaseByName(name string) error {
 
 // UpgradeRelease upgrades the provided chart and returns the corresponding release.
 // Namespace and other context is provided via the helmclient.Options struct when instantiating a client.
-func (c *HelmClient) UpgradeRelease(ctx context.Context, chart *chart.Chart, updatedChartSpec *ChartSpec, registryClient *registry.Client) (*release.Release, error) {
-	c.ActionConfig.RegistryClient = registryClient
+func (c *HelmClient) UpgradeRelease(ctx context.Context, chart *chart.Chart, updatedChartSpec *ChartSpec) (*release.Release, error) {
+	c.ActionConfig.RegistryClient = updatedChartSpec.RegistryClient
 	return c.upgrade(ctx, chart, updatedChartSpec)
 }
 
@@ -566,8 +565,8 @@ func (c *HelmClient) GetNotes(spec *ChartSpec, options *HelmTemplateOptions) ([]
 	return out.Bytes(), err
 
 }
-func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions, registryClient *registry.Client) ([]byte, error) {
-	c.ActionConfig.RegistryClient = registryClient
+func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions) ([]byte, error) {
+	c.ActionConfig.RegistryClient = spec.RegistryClient
 	client := action.NewInstall(c.ActionConfig)
 	mergeInstallOptions(spec, client)
 
