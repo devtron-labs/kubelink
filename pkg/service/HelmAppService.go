@@ -477,13 +477,6 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 		}
 		var registryClient *registry.Client
 		if request.IsOCIRepo {
-			username, password, err := impl.ExtractCredentialsForRegistry(request.RegistryCredential)
-			if err != nil {
-				return nil, err
-			}
-			// Updating registry credentials
-			request.RegistryCredential.Username = username
-			request.RegistryCredential.Password = password
 			registryClient, err = registry.NewClient()
 			if err != nil {
 				impl.logger.Errorw("Error in creating Helm client", "err", err)
@@ -588,13 +581,6 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 
 	switch request.IsOCIRepo {
 	case true:
-		username, password, err := impl.ExtractCredentialsForRegistry(request.RegistryCredential)
-		if err != nil {
-			return nil, err
-		}
-		// Updating registry credentials
-		request.RegistryCredential.Username = username
-		request.RegistryCredential.Password = password
 		registryClient, err = registry.NewClient()
 		if err != nil {
 			impl.logger.Errorw("Error in creating Helm client", "err", err)
@@ -817,13 +803,6 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 	var registryClient *registry.Client
 	var chartName, repoURL string
 	if request.IsOCIRepo {
-		username, password, err := impl.ExtractCredentialsForRegistry(request.RegistryCredential)
-		if err != nil {
-			return "", err
-		}
-		// Updating registry credentials
-		request.RegistryCredential.Username = username
-		request.RegistryCredential.Password = password
 		registryClient, err = registry.NewClient()
 		if err != nil {
 			impl.logger.Errorw("Error in creating Helm client", "err", err)
