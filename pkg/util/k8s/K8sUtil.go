@@ -18,11 +18,15 @@
 package k8sUtils
 
 import (
+	"flag"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/pkg/util/kube"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"os/user"
+	"path/filepath"
 )
 
 // constants starts
@@ -74,17 +78,30 @@ const (
 	StatefulSetsResourceType           = "statefulsets"
 )
 
-//var K8sNativeGroups = []string{"", "admissionregistration.k8s.io", "apiextensions.k8s.io", "apiregistration.k8s.io", "apps", "authentication.k8s.io", "authorization.k8s.io",
+// var K8sNativeGroups = []string{"", "admissionregistration.k8s.io", "apiextensions.k8s.io", "apiregistration.k8s.io", "apps", "authentication.k8s.io", "authorization.k8s.io",
+//
 //	"autoscaling", "batch", "certificates.k8s.io", "coordination.k8s.io", "core", "discovery.k8s.io", "events.k8s.io", "flowcontrol.apiserver.k8s.io", "argoproj.io",
 //	"internal.apiserver.k8s.io", "networking.k8s.io", "node.k8s.io", "policy", "rbac.authorization.k8s.io", "resource.k8s.io", "scheduling.k8s.io", "storage.k8s.io"}
+var kubeconfig *string = nil
 
 func GetGvkVsChildGvrAndScope() map[schema.GroupVersionKind][]GvrAndScope {
 	return gvkVsChildGvrAndScope
 }
 
 func GetRestConfig(config *client.ClusterConfig) (restConfig *rest.Config, err error) {
+
+	flag.Parse()
 	if config.ClusterName == DEFAULT_CLUSTER && len(config.Token) == 0 {
-		restConfig, err = rest.InClusterConfig()
+		usr, err := user.Current()
+		if err != nil {
+			return nil, err
+		}
+		if kubeconfig == nil {
+			kubeconfig = flag.String("kubeconfig-authenticator-xyz", filepath.Join(usr.HomeDir, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+			flag.Parse()
+		}
+		restConfig, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
+		//restConfig, err = rest.InClusterConfig()
 		if err != nil {
 			return nil, err
 		}
