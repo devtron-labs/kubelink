@@ -118,7 +118,6 @@ func (impl *K8sInformerImpl) BuildInformerForAllClusters() error {
 		return err
 	}
 
-	models = []*repository.Cluster{}
 	if len(models) == 0 {
 		clusterInfo := &bean.ClusterInfo{
 			ClusterId:   1,
