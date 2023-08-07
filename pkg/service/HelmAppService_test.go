@@ -464,8 +464,8 @@ func TestHelmAppServiceImpl_HelmInstall(t *testing.T) {
 				IsOCIRepo: true,
 				RegistryCredential: &client.RegistryCredential{
 					RegistryUrl:  "registry-1.docker.io",
-					Username:     "ayushm10",
-					Password:     "dckr_pat_FQIiOMMQvCxdT2Q_MbdI-K5F7hY",
+					Username:     "",
+					Password:     "",
 					AwsRegion:    "",
 					AccessKey:    "",
 					SecretKey:    "",
