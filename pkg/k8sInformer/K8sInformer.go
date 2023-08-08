@@ -117,6 +117,20 @@ func (impl *K8sInformerImpl) BuildInformerForAllClusters() error {
 		impl.logger.Error("error in fetching clusters", "err", err)
 		return err
 	}
+
+	if len(models) == 0 {
+		clusterInfo := &bean.ClusterInfo{
+			ClusterId:   1,
+			ClusterName: DEFAULT_CLUSTER,
+		}
+		err := impl.startInformer(*clusterInfo)
+		if err != nil {
+			impl.logger.Error("error in starting informer for cluster ", "cluster-name ", clusterInfo.ClusterName, "err", err)
+			return err
+		}
+		return nil
+	}
+
 	for _, model := range models {
 
 		bearerToken := model.Config["bearer_token"]
