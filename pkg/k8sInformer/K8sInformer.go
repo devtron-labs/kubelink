@@ -12,6 +12,7 @@ import (
 	client "github.com/devtron-labs/kubelink/grpc"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/util"
+	k8sUtils "github.com/devtron-labs/kubelink/pkg/util/k8s"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"helm.sh/helm/v3/pkg/release"
@@ -132,15 +133,7 @@ func (impl *K8sInformerImpl) BuildInformerForAllClusters() error {
 	}
 
 	for _, model := range models {
-
-		bearerToken := model.Config["bearer_token"]
-
-		clusterInfo := &bean.ClusterInfo{
-			ClusterId:   model.Id,
-			ClusterName: model.ClusterName,
-			BearerToken: bearerToken,
-			ServerUrl:   model.ServerUrl,
-		}
+		clusterInfo := GetClusterInfo(model)
 		err := impl.startInformer(*clusterInfo)
 		if err != nil {
 			impl.logger.Error("error in starting informer for cluster ", "cluster-name ", clusterInfo.ClusterName, "err", err)
@@ -152,22 +145,28 @@ func (impl *K8sInformerImpl) BuildInformerForAllClusters() error {
 	return nil
 }
 
-func (impl *K8sInformerImpl) startInformer(clusterInfo bean.ClusterInfo) error {
-
-	restConfig := &rest.Config{}
-	if clusterInfo.ClusterName == DEFAULT_CLUSTER {
-		config, err := rest.InClusterConfig()
-		if err != nil {
-			impl.logger.Error("error in fetch default cluster config", "err", err, "servername", restConfig.ServerName)
-			return err
+func GetClusterInfo(c *repository.Cluster) *bean.ClusterInfo {
+	clusterInfo := &bean.ClusterInfo{}
+	if c != nil {
+		bearerToken := c.Config["bearer_token"]
+		clusterInfo = &bean.ClusterInfo{
+			ClusterId:   c.Id,
+			ClusterName: c.ClusterName,
+			BearerToken: bearerToken,
+			ServerUrl:   c.ServerUrl,
+			ProxyUrl:    c.ProxyUrl,
 		}
-		restConfig = config
-	} else {
-		restConfig.BearerToken = clusterInfo.BearerToken
-		restConfig.Host = clusterInfo.ServerUrl
-		restConfig.Insecure = true
 	}
+	return clusterInfo
+}
 
+func (impl *K8sInformerImpl) startInformer(clusterInfo bean.ClusterInfo) error {
+	clusterConfig := clusterInfo.GetClusterConfig()
+	restConfig, err := k8sUtils.GetRestConfig(clusterConfig)
+	if err != nil {
+		impl.logger.Error("error in getting rest config", "err", err, "clusterId", clusterConfig.ClusterId)
+		return err
+	}
 	httpClientFor, err := rest.HTTPClientFor(restConfig)
 	if err != nil {
 		impl.logger.Error("error occurred while overriding k8s client", "reason", err)
@@ -316,35 +315,26 @@ func (impl *K8sInformerImpl) stopInformer(clusterName string, clusterId int) {
 
 func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error {
 
-	clusterInfo, err := impl.clusterRepository.FindById(clusterId)
+	clusterModel, err := impl.clusterRepository.FindById(clusterId)
 	if err != nil {
 		impl.logger.Error("error in fetching cluster by cluster ids")
 		return err
 	}
 
 	if _, ok := impl.informerStopper[clusterId]; ok {
-		impl.logger.Debug(fmt.Sprintf("informer for %s already exist", clusterInfo.ClusterName))
+		impl.logger.Debug(fmt.Sprintf("informer for %s already exist", clusterModel.ClusterName))
 		return errors.New(INFORMER_ALREADY_EXIST_MESSAGE)
 	}
 
-	impl.logger.Info("starting informer for cluster - ", "cluster-id ", clusterInfo.Id, "cluster-name ", clusterInfo.ClusterName)
+	impl.logger.Info("starting informer for cluster - ", "cluster-id ", clusterModel.Id, "cluster-name ", clusterModel.ClusterName)
 
-	restConfig := &rest.Config{}
-
-	if clusterInfo.ClusterName == DEFAULT_CLUSTER {
-		restConfig, err = rest.InClusterConfig()
-		if err != nil {
-			impl.logger.Error("error in fetch default cluster config", "err", err, "clusterName", clusterInfo.ClusterName)
-			return err
-		}
-	} else {
-		restConfig = &rest.Config{
-			Host:            clusterInfo.ServerUrl,
-			BearerToken:     clusterInfo.Config["bearer_token"],
-			TLSClientConfig: rest.TLSClientConfig{Insecure: true},
-		}
+	clusterInfo := GetClusterInfo(clusterModel)
+	clusterConfig := clusterInfo.GetClusterConfig()
+	restConfig, err := k8sUtils.GetRestConfig(clusterConfig)
+	if err != nil {
+		impl.logger.Error("error in getting rest config", "err", err, "clusterId", clusterConfig.ClusterId)
+		return err
 	}
-
 	httpClientFor, err := rest.HTTPClientFor(restConfig)
 	if err != nil {
 		impl.logger.Error("error occurred while overriding k8s client", "reason", err)
@@ -381,20 +371,20 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 					impl.logger.Error("error in decoding release")
 				}
 				appDetail := &client.DeployedAppDetail{
-					AppId:        util.GetAppId(int32(clusterInfo.Id), releaseDTO),
+					AppId:        util.GetAppId(int32(clusterModel.Id), releaseDTO),
 					AppName:      releaseDTO.Name,
 					ChartName:    releaseDTO.Chart.Name(),
 					ChartAvatar:  releaseDTO.Chart.Metadata.Icon,
 					LastDeployed: timestamppb.New(releaseDTO.Info.LastDeployed.Time),
 					EnvironmentDetail: &client.EnvironmentDetails{
-						ClusterId:   int32(clusterInfo.Id),
-						ClusterName: clusterInfo.ClusterName,
+						ClusterId:   int32(clusterModel.Id),
+						ClusterName: clusterModel.ClusterName,
 						Namespace:   releaseDTO.Namespace,
 					},
 				}
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
-				impl.HelmListClusterMap[clusterId][releaseDTO.Name+string(rune(clusterInfo.Id))] = appDetail
+				impl.HelmListClusterMap[clusterId][releaseDTO.Name+string(rune(clusterModel.Id))] = appDetail
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
@@ -408,21 +398,21 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 					impl.logger.Error("error in decoding release")
 				}
 				appDetail := &client.DeployedAppDetail{
-					AppId:        util.GetAppId(int32(clusterInfo.Id), releaseDTO),
+					AppId:        util.GetAppId(int32(clusterModel.Id), releaseDTO),
 					AppName:      releaseDTO.Name,
 					ChartName:    releaseDTO.Chart.Name(),
 					ChartAvatar:  releaseDTO.Chart.Metadata.Icon,
 					LastDeployed: timestamppb.New(releaseDTO.Info.LastDeployed.Time),
 					EnvironmentDetail: &client.EnvironmentDetails{
-						ClusterId:   int32(clusterInfo.Id),
-						ClusterName: clusterInfo.ClusterName,
+						ClusterId:   int32(clusterModel.Id),
+						ClusterName: clusterModel.ClusterName,
 						Namespace:   releaseDTO.Namespace,
 					},
 				}
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
 				// adding cluster id with release name because there can be case when two cluster have release with same name
-				impl.HelmListClusterMap[clusterId][releaseDTO.Name+string(rune(clusterInfo.Id))] = appDetail
+				impl.HelmListClusterMap[clusterId][releaseDTO.Name+string(rune(clusterModel.Id))] = appDetail
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -437,12 +427,12 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 				}
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
-				delete(impl.HelmListClusterMap[clusterId], releaseDTO.Name+string(rune(clusterInfo.Id)))
+				delete(impl.HelmListClusterMap[clusterId], releaseDTO.Name+string(rune(clusterModel.Id)))
 			}
 		},
 	})
 	informerFactory.Start(stopper)
-	impl.logger.Info("informer started for cluster: ", "cluster_id", clusterInfo.Id, "cluster_name", clusterInfo.ClusterName)
+	impl.logger.Info("informer started for cluster: ", "cluster_id", clusterModel.Id, "cluster_name", clusterModel.ClusterName)
 	impl.informerStopper[clusterId] = stopper
 	return nil
 }
