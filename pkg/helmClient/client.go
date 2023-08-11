@@ -588,6 +588,7 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 	}
 	ChartPathOptions := action.ChartPathOptions{
 		RepoURL: spec.RepoURL,
+		Version: spec.Version,
 	}
 	client.ChartPathOptions = ChartPathOptions
 	helmChart, chartPath, err := c.getChart(spec.ChartName, &client.ChartPathOptions)

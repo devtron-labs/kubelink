@@ -195,4 +195,19 @@ type ClusterInfo struct {
 	ClusterName string `json:"clusterName"`
 	BearerToken string `json:"bearerToken"`
 	ServerUrl   string `json:"serverUrl"`
+	ProxyUrl    string `json:"proxyUrl"`
+}
+
+func (cluster *ClusterInfo) GetClusterConfig() *client.ClusterConfig {
+	clusterConfig := &client.ClusterConfig{}
+	if cluster != nil {
+		clusterConfig = &client.ClusterConfig{
+			ApiServerUrl: cluster.ServerUrl,
+			Token:        cluster.BearerToken,
+			ClusterId:    int32(cluster.ClusterId),
+			ClusterName:  cluster.ClusterName,
+			ProxyUrl:     cluster.ProxyUrl,
+		}
+	}
+	return clusterConfig
 }
