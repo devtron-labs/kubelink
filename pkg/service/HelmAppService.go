@@ -53,11 +53,14 @@ import (
 )
 
 const (
-	hibernateReplicaAnnotation = "hibernator.devtron.ai/replicas"
-	hibernatePatch             = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
-	chartWorkingDirectory      = "/home/devtron/devtroncd/charts/"
-	ReadmeFileName             = "README.md"
-	REGISTRY_TYPE_ECR          = "ecr"
+	hibernateReplicaAnnotation            = "hibernator.devtron.ai/replicas"
+	hibernatePatch                        = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
+	chartWorkingDirectory                 = "/home/devtron/devtroncd/charts/"
+	ReadmeFileName                        = "README.md"
+	REGISTRY_TYPE_ECR                     = "ecr"
+	REGISTRYTYPE_GCR                      = "gcr"
+	REGISTRYTYPE_ARTIFACT_REGISTRY        = "artifact-registry"
+	JSON_KEY_USERNAME              string = "_json_key"
 )
 
 type HelmAppService interface {
@@ -1505,6 +1508,14 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 func (impl HelmAppServiceImpl) ExtractCredentialsForRegistry(registryCredential *client.RegistryCredential) (string, string, error) {
 	username := registryCredential.Username
 	pwd := registryCredential.Password
+	if (registryCredential.RegistryType == REGISTRYTYPE_GCR || registryCredential.RegistryType == REGISTRYTYPE_ARTIFACT_REGISTRY) && username == JSON_KEY_USERNAME {
+		if strings.HasPrefix(pwd, "'") {
+			pwd = pwd[1:]
+		}
+		if strings.HasSuffix(pwd, "'") {
+			pwd = pwd[:len(pwd)-1]
+		}
+	}
 	if registryCredential.RegistryType == REGISTRY_TYPE_ECR {
 		accessKey, secretKey := registryCredential.AccessKey, registryCredential.SecretKey
 		var creds *credentials.Credentials
