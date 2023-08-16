@@ -529,12 +529,13 @@ func (impl HelmAppServiceImpl) GetDeploymentDetail(request *client.DeploymentDet
 
 func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *client.InstallReleaseRequest) (*client.InstallReleaseResponse, error) {
 	// Install release starts
-	_, err := impl.installRelease(request, false)
-	if err != nil {
-		return nil, err
-	}
+	go func() {
+		_, err := impl.installRelease(request, false)
+		if err != nil {
+			return
+		}
+	}()
 	// Install release ends
-
 	installReleaseResponse := &client.InstallReleaseResponse{
 		Success: true,
 	}
