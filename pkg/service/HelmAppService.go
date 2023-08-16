@@ -1098,7 +1098,58 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 		if _namespace == "" {
 			_namespace = releaseNamespace
 		}
-
+		ports := make([]int64, 0)
+		if k8sUtils.IsService(gvk) || gvk.Kind == "Service" {
+			if manifest.Object["spec"] != nil {
+				spec := manifest.Object["spec"].(map[string]interface{})
+				if spec["ports"] != nil {
+					portList := spec["ports"].([]interface{})
+					for _, portItem := range portList {
+						if portItem.(map[string]interface{}) != nil {
+							_portNumber := portItem.(map[string]interface{})["port"]
+							portNumber := _portNumber.(int64)
+							if portNumber != 0 {
+								ports = append(ports, portNumber)
+							} else {
+								impl.logger.Errorw("there is no port", "err", portNumber)
+							}
+						} else {
+							impl.logger.Errorw("there are no port list availabe", "err", portItem)
+						}
+					}
+				}
+			}
+		}
+		if manifest.Object["kind"] == "EndpointSlice" {
+			if manifest.Object["ports"] != nil {
+				endPointsSlicePorts := manifest.Object["ports"].([]interface{})
+				for _, val := range endPointsSlicePorts {
+					_portNumber := val.(map[string]interface{})["port"]
+					portNumber := _portNumber.(int64)
+					if portNumber != 0 {
+						ports = append(ports, portNumber)
+					}
+				}
+			}
+		}
+		if gvk.Kind == "Endpoints" {
+			if manifest.Object["subsets"] != nil {
+				subsets := manifest.Object["subsets"].([]interface{})
+				for _, subset := range subsets {
+					subsetObj := subset.(map[string]interface{})
+					if subsetObj != nil {
+						portsIfs := subsetObj["ports"].([]interface{})
+						for _, portsIf := range portsIfs {
+							portsIfObj := portsIf.(map[string]interface{})
+							if portsIfObj != nil {
+								port := portsIfObj["port"].(int64)
+								ports = append(ports, port)
+							}
+						}
+					}
+				}
+			}
+		}
 		resourceRef := buildResourceRef(gvk, *manifest, _namespace)
 
 		if impl.k8sService.CanHaveChild(gvk) {
@@ -1135,6 +1186,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 				Labels: manifest.GetLabels(),
 			},
 			CreatedAt: creationTimeStamp,
+			Port:      ports,
 		}
 
 		if parentResourceRef != nil {
@@ -1155,7 +1207,9 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 				}
 			}
 		} else {
+			//TODO: verify
 			if k8sUtils.IsService(gvk) && node.Name == k8sUtils.DEVTRON_SERVICE_NAME && k8sUtils.IsDevtronApp(node.NetworkingInfo.Labels) {
+
 				node.Health = &bean.HealthStatus{
 					Status: bean.HealthStatusHealthy,
 				}

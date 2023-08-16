@@ -92,6 +92,7 @@ type ResourceNode struct {
 	IsHibernated    bool                    `json:"isHibernated"`
 	CanBeHibernated bool                    `json:"canBeHibernated"`
 	Info            []InfoItem              `json:"info,omitempty"`
+	Port            []int64                 `json: "port,omitempty"`
 	CreatedAt       string                  `json:"createdAt,omitempty"`
 }
 
@@ -194,4 +195,19 @@ type ClusterInfo struct {
 	ClusterName string `json:"clusterName"`
 	BearerToken string `json:"bearerToken"`
 	ServerUrl   string `json:"serverUrl"`
+	ProxyUrl    string `json:"proxyUrl"`
+}
+
+func (cluster *ClusterInfo) GetClusterConfig() *client.ClusterConfig {
+	clusterConfig := &client.ClusterConfig{}
+	if cluster != nil {
+		clusterConfig = &client.ClusterConfig{
+			ApiServerUrl: cluster.ServerUrl,
+			Token:        cluster.BearerToken,
+			ClusterId:    int32(cluster.ClusterId),
+			ClusterName:  cluster.ClusterName,
+			ProxyUrl:     cluster.ProxyUrl,
+		}
+	}
+	return clusterConfig
 }
