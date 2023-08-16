@@ -61,6 +61,7 @@ const (
 	REGISTRYTYPE_GCR                      = "gcr"
 	REGISTRYTYPE_ARTIFACT_REGISTRY        = "artifact-registry"
 	JSON_KEY_USERNAME              string = "_json_key"
+	HELM_CLIENT_ERROR                     = "Error in creating Helm client"
 )
 
 type HelmAppService interface {
@@ -480,7 +481,7 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 		}
 		registryClient, err := registry.NewClient()
 		if err != nil {
-			impl.logger.Errorw("Error in creating Helm client", "err", err)
+			impl.logger.Errorw(HELM_CLIENT_ERROR, "err", err)
 			return nil, err
 		}
 		if request.IsOCIRepo && request.RegistryCredential != nil && request.RegistryCredential.IsPublic {
@@ -580,11 +581,10 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 	//oci registry client
 	registryClient, err := registry.NewClient()
 	if err != nil {
-		impl.logger.Errorw("Error in creating Helm client", "err", err)
+		impl.logger.Errorw(HELM_CLIENT_ERROR, "err", err)
 		return nil, err
 	}
 	var chartName string
-
 	switch request.IsOCIRepo {
 	case true:
 		chartName = impl.GetOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
@@ -697,7 +697,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		request.RegistryCredential.Password = password
 		registryClient, err = registry.NewClient()
 		if err != nil {
-			impl.logger.Errorw("Error in creating Helm client", "err", err)
+			impl.logger.Errorw(HELM_CLIENT_ERROR, "err", err)
 			return nil, err
 		}
 		err = impl.OCIRegistryLogin(registryClient, request.RegistryCredential)
@@ -808,7 +808,7 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 
 	registryClient, err := registry.NewClient()
 	if err != nil {
-		impl.logger.Errorw("Error in creating Helm client", "err", err)
+		impl.logger.Errorw(HELM_CLIENT_ERROR, "err", err)
 		return "", err
 	}
 
@@ -1580,7 +1580,7 @@ func (impl HelmAppServiceImpl) OCIRegistryLogin(client *registry.Client, registr
 func (impl HelmAppServiceImpl) ValidateOCIRegistryLogin(ctx context.Context, OCIRegistryRequest *client.RegistryCredential) (*client.OCIRegistryResponse, error) {
 	helmClient, err := registry.NewClient()
 	if err != nil {
-		impl.logger.Errorw("Error in creating Helm client", "err", err)
+		impl.logger.Errorw(HELM_CLIENT_ERROR, "err", err)
 		return nil, err
 	}
 	err = impl.OCIRegistryLogin(helmClient, OCIRegistryRequest)
@@ -1597,7 +1597,7 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 	registryPushResponse := &client.OCIRegistryResponse{}
 	helmClient, err := registry.NewClient()
 	if err != nil {
-		impl.logger.Errorw("Error in creating Helm client", "err", err)
+		impl.logger.Errorw(HELM_CLIENT_ERROR, "err", err)
 		return nil, err
 	}
 	err = impl.OCIRegistryLogin(helmClient, OCIRegistryRequest.RegistryCredential)
