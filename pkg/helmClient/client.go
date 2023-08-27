@@ -17,13 +17,14 @@ import (
 	"log"
 	"os"
 	"sigs.k8s.io/yaml"
+	"time"
 )
 
 var storage = repo.File{}
 
 const (
-	defaultCachePath            = "/home/devtron/devtroncd/.helmcache"
-	defaultRepositoryConfigPath = "/home/devtron/devtroncd/.helmrepo"
+	defaultCachePath            = "/Users/ayushmaheshwari/devtroncd/.helmcache"
+	defaultRepositoryConfigPath = "/Users/ayushmaheshwari/devtroncd/.helmrepo"
 )
 
 // NewClientFromRestConf returns a new Helm client constructed with the provided REST config options
@@ -334,13 +335,13 @@ func copyInstallOptions(chartSpec *ChartSpec, installOptions *action.Install) {
 	installOptions.Replace = chartSpec.Replace
 	installOptions.Wait = chartSpec.Wait
 	installOptions.DependencyUpdate = chartSpec.DependencyUpdate
-	installOptions.Timeout = chartSpec.Timeout
+	installOptions.Timeout = time.Duration(3600)
 	installOptions.Namespace = chartSpec.Namespace
 	installOptions.ReleaseName = chartSpec.ReleaseName
 	installOptions.Version = chartSpec.Version
 	installOptions.GenerateName = chartSpec.GenerateName
 	installOptions.NameTemplate = chartSpec.NameTemplate
-	installOptions.Atomic = chartSpec.Atomic
+	installOptions.Atomic = true
 	installOptions.SkipCRDs = chartSpec.SkipCRDs
 	installOptions.DryRun = chartSpec.DryRun
 	installOptions.SubNotes = chartSpec.SubNotes

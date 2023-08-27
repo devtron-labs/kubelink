@@ -56,12 +56,13 @@ func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
 }
 
 type K8sInformerImpl struct {
-	logger             *zap.SugaredLogger
-	HelmListClusterMap map[int]map[string]*client.DeployedAppDetail
-	mutex              sync.Mutex
-	informerStopper    map[int]chan struct{}
-	clusterRepository  repository.ClusterRepository
-	helmReleaseConfig  *HelmReleaseConfig
+	logger               *zap.SugaredLogger
+	HelmListClusterMap   map[int]map[string]*client.DeployedAppDetail
+	mutex                sync.Mutex
+	informerStopper      map[int]chan struct{}
+	clusterRepository    repository.ClusterRepository
+	helmReleaseConfig    *HelmReleaseConfig
+	HelmReleaseStatusMap map[int]map[string]*release.Info
 }
 
 func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.ClusterRepository, helmReleaseConfig *HelmReleaseConfig) *K8sInformerImpl {
@@ -71,6 +72,7 @@ func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.
 		helmReleaseConfig: helmReleaseConfig,
 	}
 	informerFactory.HelmListClusterMap = make(map[int]map[string]*client.DeployedAppDetail)
+	informerFactory.HelmReleaseStatusMap = make(map[int]map[string]*release.Info)
 	informerFactory.informerStopper = make(map[int]chan struct{})
 	if helmReleaseConfig.EnableHelmReleaseCache {
 		go informerFactory.BuildInformerForAllClusters()
@@ -348,6 +350,7 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 
 	impl.mutex.Lock()
 	impl.HelmListClusterMap[clusterId] = make(map[string]*client.DeployedAppDetail)
+	impl.HelmReleaseStatusMap[clusterId] = make(map[string]*release.Info)
 	impl.mutex.Unlock()
 
 	labelOptions := kubeinformers.WithTweakListOptions(func(opts *metav1.ListOptions) {
@@ -384,6 +387,7 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 				}
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
+				impl.HelmReleaseStatusMap[clusterId][releaseDTO.Name+string(rune(clusterModel.Id))] = releaseDTO.Info
 				impl.HelmListClusterMap[clusterId][releaseDTO.Name+string(rune(clusterModel.Id))] = appDetail
 			}
 		},
@@ -412,6 +416,7 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
 				// adding cluster id with release name because there can be case when two cluster have release with same name
+				impl.HelmReleaseStatusMap[clusterId][releaseDTO.Name+string(rune(clusterModel.Id))] = releaseDTO.Info
 				impl.HelmListClusterMap[clusterId][releaseDTO.Name+string(rune(clusterModel.Id))] = appDetail
 			}
 		},
@@ -428,6 +433,7 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
 				delete(impl.HelmListClusterMap[clusterId], releaseDTO.Name+string(rune(clusterModel.Id)))
+				delete(impl.HelmReleaseStatusMap[clusterId], releaseDTO.Name+string(rune(clusterModel.Id)))
 			}
 		},
 	})
@@ -435,6 +441,10 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 	impl.logger.Info("informer started for cluster: ", "cluster_id", clusterModel.Id, "cluster_name", clusterModel.ClusterName)
 	impl.informerStopper[clusterId] = stopper
 	return nil
+}
+
+func (impl *K8sInformerImpl) GetReleaseStatusByClusterIdAndReleaseName(clusterId int, releaseName string) *release.Info {
+	return impl.HelmReleaseStatusMap[clusterId][releaseName+string(rune(clusterId))]
 }
 
 func (impl *K8sInformerImpl) GetAllReleaseByClusterId(clusterId int) []*client.DeployedAppDetail {

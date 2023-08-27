@@ -86,10 +86,12 @@ func GetGvkVsChildGvrAndScope() map[schema.GroupVersionKind][]GvrAndScope {
 
 func GetRestConfig(config *client.ClusterConfig) (restConfig *rest.Config, err error) {
 	if config.ClusterName == DEFAULT_CLUSTER && len(config.Token) == 0 {
-		restConfig, err = rest.InClusterConfig()
-		if err != nil {
-			return nil, err
-		}
+		//restConfig, err = rest.InClusterConfig()
+		//if err != nil {
+		//	return nil, err
+		//}
+		//return restConfig, err
+		restConfig = &rest.Config{Host: "https://20.119.53.88:16443", BearerToken: "SllJTi9qalZOQWIvWlgyOVUwcnlBRkxKSE9NeEJoa1Z5Ym5Ec1RPdWFXWT0K", TLSClientConfig: rest.TLSClientConfig{Insecure: true}}
 		return restConfig, err
 	} else {
 		restConfig = &rest.Config{Host: config.ApiServerUrl, BearerToken: config.Token, TLSClientConfig: rest.TLSClientConfig{Insecure: true}}

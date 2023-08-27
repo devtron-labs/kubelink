@@ -17,8 +17,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
-
 	"github.com/caarlos0/env"
+	"github.com/devtron-labs/common-lib/pubsub-lib"
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/pkg/helmClient"
@@ -55,7 +55,7 @@ import (
 const (
 	hibernateReplicaAnnotation = "hibernator.devtron.ai/replicas"
 	hibernatePatch             = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
-	chartWorkingDirectory      = "/home/devtron/devtroncd/charts/"
+	chartWorkingDirectory      = "/Users/ayushmaheshwari/devtroncd/charts/"
 	ReadmeFileName             = "README.md"
 	REGISTRY_TYPE_ECR          = "ecr"
 )
@@ -101,9 +101,10 @@ type HelmAppServiceImpl struct {
 	randSource        rand.Source
 	K8sInformer       k8sInformer.K8sInformer
 	helmReleaseConfig *HelmReleaseConfig
+	pubsubClient      *pubsub_lib.PubSubClientServiceImpl
 }
 
-func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService, k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig) *HelmAppServiceImpl {
+func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService, k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig, pubsubClient *pubsub_lib.PubSubClientServiceImpl) *HelmAppServiceImpl {
 
 	helmAppServiceImpl := &HelmAppServiceImpl{
 		logger:            logger,
@@ -111,6 +112,7 @@ func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService, k8s
 		randSource:        rand.NewSource(time.Now().UnixNano()),
 		K8sInformer:       k8sInformer,
 		helmReleaseConfig: helmReleaseConfig,
+		pubsubClient:      pubsubClient,
 	}
 	err := os.MkdirAll(chartWorkingDirectory, os.ModePerm)
 	if err != nil {
@@ -532,6 +534,17 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 	go func() {
 		_, err := impl.installRelease(request, false)
 		if err != nil {
+			helmInstallMessage := HelmInstallNatsMessage{
+				InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
+				Message:                    err.Error(),
+				IsReleaseInstalled:         false,
+			}
+			data, err := json.Marshal(helmInstallMessage)
+			if err != nil {
+				impl.logger.Errorw("error in marshalling nats message")
+			}
+			// in case of err we will communicate about the error to orchestrator
+			_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
 			return
 		}
 	}()
