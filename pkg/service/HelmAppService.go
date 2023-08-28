@@ -531,23 +531,10 @@ func (impl HelmAppServiceImpl) GetDeploymentDetail(request *client.DeploymentDet
 
 func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *client.InstallReleaseRequest) (*client.InstallReleaseResponse, error) {
 	// Install release starts
-	go func() {
-		_, err := impl.installRelease(request, false)
-		if err != nil {
-			helmInstallMessage := HelmInstallNatsMessage{
-				InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
-				Message:                    err.Error(),
-				IsReleaseInstalled:         false,
-			}
-			data, err := json.Marshal(helmInstallMessage)
-			if err != nil {
-				impl.logger.Errorw("error in marshalling nats message")
-			}
-			// in case of err we will communicate about the error to orchestrator
-			_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
-			return
-		}
-	}()
+	_, err := impl.installRelease(request, false)
+	if err != nil {
+		return nil, err
+	}
 	// Install release ends
 	installReleaseResponse := &client.InstallReleaseResponse{
 		Success: true,
@@ -598,13 +585,26 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 	}
 
 	impl.logger.Debugw("Installing release", "name", releaseIdentifier.ReleaseName, "namespace", releaseIdentifier.ReleaseNamespace, "dry-run", dryRun)
-	rel, err := helmClientObj.InstallChart(context.Background(), chartSpec)
-	if err != nil {
-		impl.logger.Errorw("Error in install release ", "err", err)
-		return nil, err
-	}
+	go func() {
+		_, err := helmClientObj.InstallChart(context.Background(), chartSpec)
+		if err != nil {
+			impl.logger.Errorw("Error in install release ", "err", err)
+			helmInstallMessage := HelmInstallNatsMessage{
+				InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
+				Message:                    err.Error(),
+				IsReleaseInstalled:         false,
+			}
+			data, err := json.Marshal(helmInstallMessage)
+			if err != nil {
+				impl.logger.Errorw("error in marshalling nats message")
+			}
+			// in case of err we will communicate about the error to orchestrator
+			_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
+			return
+		}
+	}()
 	// Install release ends
-	return rel, nil
+	return nil, nil
 }
 
 // 1. run this method using main
@@ -682,13 +682,26 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		MaxHistory:       int(request.HistoryMax),
 	}
 
-	impl.logger.Debug("Upgrading release with chart info")
-	_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
-	if err != nil {
-		impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
-		return nil, err
-	}
-	// Update release ends
+	go func() {
+		impl.logger.Debug("Upgrading release with chart info")
+		_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
+		if err != nil {
+			impl.logger.Errorw("Error in update release ", "err", err)
+			helmInstallMessage := HelmInstallNatsMessage{
+				InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
+				Message:                    err.Error(),
+				IsReleaseInstalled:         false,
+			}
+			data, err := json.Marshal(helmInstallMessage)
+			if err != nil {
+				impl.logger.Errorw("error in marshalling nats message")
+			}
+			// in case of err we will communicate about the error to orchestrator
+			_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
+			return
+		}
+		// Update release ends
+	}()
 
 	upgradeReleaseResponse := &client.UpgradeReleaseResponse{
 		Success: true,
