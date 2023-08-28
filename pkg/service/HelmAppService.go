@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
+	"helm.sh/helm/v3/pkg/storage/driver"
 	"path"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -196,6 +197,9 @@ func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.Clus
 func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error) {
 	helmRelease, err := getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
+		if errors.Is(err, driver.ErrReleaseNotFound) {
+			return &bean.AppDetail{ReleaseExists: false}, err
+		}
 		impl.logger.Errorw("Error in getting helm release ", "err", err)
 		return nil, err
 	}
@@ -225,6 +229,7 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 			ClusterId:   req.ClusterConfig.ClusterId,
 			Namespace:   helmRelease.Namespace,
 		},
+		ReleaseExists: true,
 	}
 
 	return appDetail, nil
