@@ -55,7 +55,7 @@ import (
 const (
 	hibernateReplicaAnnotation = "hibernator.devtron.ai/replicas"
 	hibernatePatch             = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
-	chartWorkingDirectory      = "/Users/ayushmaheshwari/devtroncd/charts/"
+	chartWorkingDirectory      = "/home/devtron/devtroncd/charts/"
 	ReadmeFileName             = "README.md"
 	REGISTRY_TYPE_ECR          = "ecr"
 )
