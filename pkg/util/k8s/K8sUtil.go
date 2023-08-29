@@ -25,6 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"net/http"
+	"net/url"
 	"os/user"
 	"path/filepath"
 )
@@ -108,6 +110,13 @@ func GetRestConfig(config *client.ClusterConfig) (restConfig *rest.Config, err e
 		return restConfig, err
 	} else {
 		restConfig = &rest.Config{Host: config.ApiServerUrl, BearerToken: config.Token, TLSClientConfig: rest.TLSClientConfig{Insecure: true}}
+		if len(config.ProxyUrl) > 0 {
+			proxy, err := url.Parse(config.ProxyUrl)
+			if err != nil {
+				return nil, err
+			}
+			restConfig.Proxy = http.ProxyURL(proxy)
+		}
 		return restConfig, err
 	}
 	return nil, nil
