@@ -17,7 +17,6 @@ import (
 	"log"
 	"os"
 	"sigs.k8s.io/yaml"
-	"time"
 )
 
 var storage = repo.File{}
@@ -335,13 +334,13 @@ func copyInstallOptions(chartSpec *ChartSpec, installOptions *action.Install) {
 	installOptions.Replace = chartSpec.Replace
 	installOptions.Wait = chartSpec.Wait
 	installOptions.DependencyUpdate = chartSpec.DependencyUpdate
-	installOptions.Timeout = time.Duration(3600)
+	installOptions.Timeout = chartSpec.Timeout
 	installOptions.Namespace = chartSpec.Namespace
 	installOptions.ReleaseName = chartSpec.ReleaseName
 	installOptions.Version = chartSpec.Version
 	installOptions.GenerateName = chartSpec.GenerateName
 	installOptions.NameTemplate = chartSpec.NameTemplate
-	installOptions.Atomic = true
+	installOptions.Atomic = chartSpec.Atomic
 	installOptions.SkipCRDs = chartSpec.SkipCRDs
 	installOptions.DryRun = chartSpec.DryRun
 	installOptions.SubNotes = chartSpec.SubNotes
