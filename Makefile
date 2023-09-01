@@ -21,7 +21,8 @@ wire:
 	wire
 
 clean:
-	rm -f kubelink
+	rm -rf kubelink
+	#export GOFLAGS=-buildvcs=false
 
 run: build
 	./kubelink
