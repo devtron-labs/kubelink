@@ -41,7 +41,7 @@ type ApplicationServiceClient interface {
 	InstallReleaseWithCustomChart(ctx context.Context, in *HelmInstallCustomRequest, opts ...grpc.CallOption) (*HelmInstallCustomResponse, error)
 	GetNotes(ctx context.Context, in *InstallReleaseRequest, opts ...grpc.CallOption) (*ChartNotesResponse, error)
 	UpgradeReleaseWithCustomChart(ctx context.Context, in *UpgradeReleaseRequest, opts ...grpc.CallOption) (*UpgradeReleaseResponse, error)
-	ValidateOCIRegistry(ctx context.Context, in *OCIRegistryRequest, opts ...grpc.CallOption) (*OCIRegistryResponse, error)
+	ValidateOCIRegistry(ctx context.Context, in *RegistryCredential, opts ...grpc.CallOption) (*OCIRegistryResponse, error)
 	PushHelmChartToOCIRegistry(ctx context.Context, in *OCIRegistryRequest, opts ...grpc.CallOption) (*OCIRegistryResponse, error)
 }
 
@@ -247,7 +247,7 @@ func (c *applicationServiceClient) UpgradeReleaseWithCustomChart(ctx context.Con
 	return out, nil
 }
 
-func (c *applicationServiceClient) ValidateOCIRegistry(ctx context.Context, in *OCIRegistryRequest, opts ...grpc.CallOption) (*OCIRegistryResponse, error) {
+func (c *applicationServiceClient) ValidateOCIRegistry(ctx context.Context, in *RegistryCredential, opts ...grpc.CallOption) (*OCIRegistryResponse, error) {
 	out := new(OCIRegistryResponse)
 	err := c.cc.Invoke(ctx, "/ApplicationService/ValidateOCIRegistry", in, out, opts...)
 	if err != nil {
@@ -288,7 +288,7 @@ type ApplicationServiceServer interface {
 	InstallReleaseWithCustomChart(context.Context, *HelmInstallCustomRequest) (*HelmInstallCustomResponse, error)
 	GetNotes(context.Context, *InstallReleaseRequest) (*ChartNotesResponse, error)
 	UpgradeReleaseWithCustomChart(context.Context, *UpgradeReleaseRequest) (*UpgradeReleaseResponse, error)
-	ValidateOCIRegistry(context.Context, *OCIRegistryRequest) (*OCIRegistryResponse, error)
+	ValidateOCIRegistry(context.Context, *RegistryCredential) (*OCIRegistryResponse, error)
 	PushHelmChartToOCIRegistry(context.Context, *OCIRegistryRequest) (*OCIRegistryResponse, error)
 	mustEmbedUnimplementedApplicationServiceServer()
 }
@@ -354,7 +354,7 @@ func (UnimplementedApplicationServiceServer) GetNotes(context.Context, *InstallR
 func (UnimplementedApplicationServiceServer) UpgradeReleaseWithCustomChart(context.Context, *UpgradeReleaseRequest) (*UpgradeReleaseResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpgradeReleaseWithCustomChart not implemented")
 }
-func (UnimplementedApplicationServiceServer) ValidateOCIRegistry(context.Context, *OCIRegistryRequest) (*OCIRegistryResponse, error) {
+func (UnimplementedApplicationServiceServer) ValidateOCIRegistry(context.Context, *RegistryCredential) (*OCIRegistryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ValidateOCIRegistry not implemented")
 }
 func (UnimplementedApplicationServiceServer) PushHelmChartToOCIRegistry(context.Context, *OCIRegistryRequest) (*OCIRegistryResponse, error) {
@@ -719,7 +719,7 @@ func _ApplicationService_UpgradeReleaseWithCustomChart_Handler(srv interface{}, 
 }
 
 func _ApplicationService_ValidateOCIRegistry_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(OCIRegistryRequest)
+	in := new(RegistryCredential)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -731,7 +731,7 @@ func _ApplicationService_ValidateOCIRegistry_Handler(srv interface{}, ctx contex
 		FullMethod: "/ApplicationService/ValidateOCIRegistry",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApplicationServiceServer).ValidateOCIRegistry(ctx, req.(*OCIRegistryRequest))
+		return srv.(ApplicationServiceServer).ValidateOCIRegistry(ctx, req.(*RegistryCredential))
 	}
 	return interceptor(ctx, in, info, handler)
 }

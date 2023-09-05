@@ -3,6 +3,7 @@ package helmClient
 import (
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/registry"
 	"io"
 	"k8s.io/client-go/rest"
 	"time"
@@ -123,8 +124,9 @@ type ChartSpec struct {
 	// WaitForJobs indicates whether to wait for completion of release Jobs before marking the release as successful.
 	// 'Wait' has to be specified for this to take effect.
 	// The timeout may be specified via the 'Timeout' field.
-	WaitForJobs bool   `json:"waitForJobs,omitempty"`
-	RepoURL     string `json:"repoURL,omitempty"`
+	WaitForJobs    bool   `json:"waitForJobs,omitempty"`
+	RepoURL        string `json:"repoURL,omitempty"`
+	RegistryClient *registry.Client
 }
 type HelmTemplateOptions struct {
 	KubeVersion *chartutil.KubeVersion
