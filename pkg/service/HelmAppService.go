@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
+	"helm.sh/helm/v3/pkg/storage/driver"
 	"path"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -743,9 +744,21 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 
 	impl.logger.Debug("Upgrading release with chart info")
 	_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
-	if err != nil {
-		impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
-		return nil, err
+	if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
+		if UpgradeErr != nil {
+			if UpgradeErr.Err == driver.ErrNoDeployedReleases {
+				_, err := helmClientObj.InstallChart(context.Background(), chartSpec)
+				if err != nil {
+					impl.logger.Errorw("Error in install release ", "err", err)
+					return nil, err
+				}
+
+			} else {
+				impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
+				return nil, err
+
+			}
+		}
 	}
 	// Update release ends
 
@@ -1552,9 +1565,21 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 
 	impl.logger.Debug("Upgrading release")
 	_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), updateChartSpec)
-	if err != nil {
-		impl.logger.Errorw("Error in upgrade release ", "err", err)
-		return false, err
+	if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
+		if UpgradeErr != nil {
+			if UpgradeErr.Err == driver.ErrNoDeployedReleases {
+				_, err := helmClientObj.InstallChart(context.Background(), updateChartSpec)
+				if err != nil {
+					impl.logger.Errorw("Error in install release ", "err", err)
+					return false, err
+				}
+
+			} else {
+				impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
+				return false, err
+
+			}
+		}
 	}
 	return true, nil
 }
