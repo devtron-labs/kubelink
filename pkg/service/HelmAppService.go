@@ -1444,6 +1444,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 		Namespace:   releaseIdentifier.ReleaseNamespace,
 		ValuesYaml:  request.ValuesYaml,
 		ChartName:   referenceChartDir,
+		MaxHistory:  int(request.HistoryMax),
 	}
 
 	impl.logger.Debug("Upgrading release")
