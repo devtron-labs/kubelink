@@ -697,13 +697,13 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 	go func() {
 		impl.logger.Debug("Upgrading release with chart info")
 		_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
+		helmInstallMessage := HelmInstallNatsMessage{
+			InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
+		}
 		if err != nil {
+			helmInstallMessage.Message = err.Error()
+			helmInstallMessage.IsReleaseInstalled = false
 			impl.logger.Errorw("Error in update release ", "err", err)
-			helmInstallMessage := HelmInstallNatsMessage{
-				InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
-				Message:                    err.Error(),
-				IsReleaseInstalled:         false,
-			}
 			data, err := json.Marshal(helmInstallMessage)
 			if err != nil {
 				impl.logger.Errorw("error in marshalling nats message")
@@ -712,6 +712,13 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 			_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
 			return
 		}
+		helmInstallMessage.Message = "Release Installed"
+		helmInstallMessage.IsReleaseInstalled = true
+		data, err := json.Marshal(helmInstallMessage)
+		if err != nil {
+			impl.logger.Errorw("error in marshalling nats message")
+		}
+		_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
 		// Update release ends
 	}()
 
