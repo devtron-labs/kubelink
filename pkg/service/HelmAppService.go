@@ -607,6 +607,7 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 			_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
 			return
 		}
+
 		helmInstallMessage.Message = "Release Installed"
 		helmInstallMessage.IsReleaseInstalled = true
 		data, err := json.Marshal(helmInstallMessage)
