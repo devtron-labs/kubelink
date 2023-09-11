@@ -597,7 +597,15 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 		}
 		if err != nil {
 			helmInstallMessage.Message = err.Error()
-			helmInstallMessage.IsReleaseInstalled = false
+			isReleaseInstalled, err := impl.IsReleaseInstalled(context.Background(), releaseIdentifier)
+			if err != nil {
+				impl.logger.Errorw("release not found")
+			}
+			if isReleaseInstalled {
+				helmInstallMessage.IsReleaseInstalled = true
+			} else {
+				helmInstallMessage.IsReleaseInstalled = false
+			}
 			impl.logger.Errorw("Error in install release ", "err", err)
 			data, err := json.Marshal(helmInstallMessage)
 			if err != nil {
@@ -607,7 +615,6 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 			_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
 			return
 		}
-
 		helmInstallMessage.Message = "Release Installed"
 		helmInstallMessage.IsReleaseInstalled = true
 		data, err := json.Marshal(helmInstallMessage)
@@ -703,6 +710,16 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		}
 		if err != nil {
 			helmInstallMessage.Message = err.Error()
+			isReleaseInstalled, err := impl.IsReleaseInstalled(ctx, releaseIdentifier)
+			if err != nil {
+				impl.logger.Errorw("release not foung")
+			}
+			if isReleaseInstalled {
+				helmInstallMessage.IsReleaseInstalled = true
+			} else {
+				helmInstallMessage.IsReleaseInstalled = false
+			}
+
 			helmInstallMessage.IsReleaseInstalled = false
 			impl.logger.Errorw("Error in update release ", "err", err)
 			data, err := json.Marshal(helmInstallMessage)
