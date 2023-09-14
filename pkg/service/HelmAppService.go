@@ -1337,7 +1337,8 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 
 				// if parent of replicaset is deployment, compare label pod-template-hash
 				if replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetNode.ParentRefs[0].Kind == kube.DeploymentKind {
-					isNew = replicaSet.GetLabels()["pod-template-hash"] == pod.GetLabels()["pod-template-hash"]
+					isNew = replicaSet.GetLabels()["pod-template-hash"] == pod.GetLabels()["pod-template-hash"] ||
+						replicaSet.GetLabels()["rollouts-pod-template-hash"] == pod.GetLabels()["rollouts-pod-template-hash"]
 				}
 			}
 
