@@ -20,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
+	"sync"
 
 	"github.com/caarlos0/env"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
@@ -98,6 +99,7 @@ type HelmAppService interface {
 type HelmReleaseConfig struct {
 	EnableHelmReleaseCache bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
 	MaxCountForHelmRelease int  `env:"MAX_COUNT_FOR_HELM_RELEASE" envDefault:"20"`
+	ManifestFetchBatchSize int  `env:"MANIFEST_FETCH_BATCH_SIZE" envDefault:"2"`
 }
 
 func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
@@ -1072,38 +1074,58 @@ func (impl HelmAppServiceImpl) filterNodes(resourceTreeFilter *client.ResourceTr
 
 func (impl HelmAppServiceImpl) getDesiredOrLiveManifests(restConfig *rest.Config, desiredManifests []unstructured.Unstructured, releaseNamespace string) ([]*bean.DesiredOrLiveManifest, error) {
 
-	desiredOrLiveManifests := make([]*bean.DesiredOrLiveManifest, 0, len(desiredManifests))
-	for _, desiredManifest := range desiredManifests {
-		gvk := desiredManifest.GroupVersionKind()
+	totalManifestCount := len(desiredManifests)
+	desiredOrLiveManifestArray := make([]*bean.DesiredOrLiveManifest, totalManifestCount)
+	batchSize := impl.helmReleaseConfig.ManifestFetchBatchSize
 
-		_namespace := desiredManifest.GetNamespace()
-		if _namespace == "" {
-			_namespace = releaseNamespace
+	for i := 0; i < totalManifestCount; {
+		//requests left to process
+		remainingBatch := totalManifestCount - i
+		if remainingBatch < batchSize {
+			batchSize = remainingBatch
 		}
-
-		liveManifest, _, err := impl.k8sService.GetLiveManifest(restConfig, _namespace, &gvk, desiredManifest.GetName())
-		desiredOrLiveManifest := &bean.DesiredOrLiveManifest{}
-
-		if err != nil {
-			impl.logger.Errorw("Error in getting live manifest ", "err", err)
-			statusError, _ := err.(*errors2.StatusError)
-			desiredOrLiveManifest = &bean.DesiredOrLiveManifest{
-				// using deep copy as it replaces item in manifest in loop
-				Manifest:                 desiredManifest.DeepCopy(),
-				IsLiveManifestFetchError: true,
-			}
-			if statusError != nil {
-				desiredOrLiveManifest.LiveManifestFetchErrorCode = statusError.Status().Code
-			}
-		} else {
-			desiredOrLiveManifest = &bean.DesiredOrLiveManifest{
-				Manifest: liveManifest,
-			}
+		var wg sync.WaitGroup
+		for j := 0; j < batchSize; j++ {
+			wg.Add(1)
+			go func(j int) {
+				defer wg.Done()
+				desiredOrLiveManifest := impl.getManifestData(restConfig, releaseNamespace, desiredManifests[i+j])
+				desiredOrLiveManifestArray[i+j] = desiredOrLiveManifest
+			}(j)
 		}
-		desiredOrLiveManifests = append(desiredOrLiveManifests, desiredOrLiveManifest)
+		wg.Wait()
+		i += batchSize
 	}
 
-	return desiredOrLiveManifests, nil
+	return desiredOrLiveManifestArray, nil
+}
+
+func (impl HelmAppServiceImpl) getManifestData(restConfig *rest.Config, releaseNamespace string, desiredManifest unstructured.Unstructured) *bean.DesiredOrLiveManifest {
+	gvk := desiredManifest.GroupVersionKind()
+	_namespace := desiredManifest.GetNamespace()
+	if _namespace == "" {
+		_namespace = releaseNamespace
+	}
+	liveManifest, _, err := impl.k8sService.GetLiveManifest(restConfig, _namespace, &gvk, desiredManifest.GetName())
+	desiredOrLiveManifest := &bean.DesiredOrLiveManifest{}
+
+	if err != nil {
+		impl.logger.Errorw("Error in getting live manifest ", "err", err)
+		statusError, _ := err.(*errors2.StatusError)
+		desiredOrLiveManifest = &bean.DesiredOrLiveManifest{
+			// using deep copy as it replaces item in manifest in loop
+			Manifest:                 desiredManifest.DeepCopy(),
+			IsLiveManifestFetchError: true,
+		}
+		if statusError != nil {
+			desiredOrLiveManifest.LiveManifestFetchErrorCode = statusError.Status().Code
+		}
+	} else {
+		desiredOrLiveManifest = &bean.DesiredOrLiveManifest{
+			Manifest: liveManifest,
+		}
+	}
+	return desiredOrLiveManifest
 }
 
 func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
