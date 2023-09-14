@@ -801,14 +801,22 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 			helmInstallMessage := HelmInstallNatsMessage{
 				InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
 			}
-			if err != nil {
-				HelmInstallFailureNatsMessage, err := impl.GetNatsMessageForHelmInstallError(ctx, helmInstallMessage, releaseIdentifier, err)
-				if err != nil {
-					impl.logger.Errorw("Error in parsing nats message for helm install failure")
+			if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
+				if UpgradeErr != nil {
+					var HelmInstallFailureNatsMessage string
+					if errors.Is(UpgradeErr.Err, driver.ErrNoDeployedReleases) {
+						_, err := helmClientObj.InstallChart(context.Background(), chartSpec)
+						if err != nil {
+							HelmInstallFailureNatsMessage, _ = impl.GetNatsMessageForHelmInstallError(ctx, helmInstallMessage, releaseIdentifier, err)
+						}
+					} else {
+						HelmInstallFailureNatsMessage, _ = impl.GetNatsMessageForHelmInstallError(ctx, helmInstallMessage, releaseIdentifier, err)
+						impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
+
+					}
+					_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(HelmInstallFailureNatsMessage))
+					return
 				}
-				// in case of err we will communicate about the error to orchestrator
-				_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, HelmInstallFailureNatsMessage)
-				return
 			}
 			helmInstallMessage.Message = RELEASE_INSTALLED
 			helmInstallMessage.IsReleaseInstalled = true
