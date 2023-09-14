@@ -648,6 +648,14 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 			impl.logger.Errorw("Error in install release ", "err", err)
 			return nil, err
 		}
+		helmInstallMessage := HelmInstallNatsMessage{
+			InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
+		}
+		helmInstallMessagedata, err := impl.GetNatsMessageForHelmInstallSuccess(helmInstallMessage)
+		if err != nil {
+			impl.logger.Errorw("Error in parsing nats message for helm install success ", "err", err)
+		}
+		_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, helmInstallMessagedata)
 		// Install release ends
 		return rel, nil
 	case true:
@@ -794,6 +802,14 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 				}
 			}
 		}
+		helmInstallMessage := HelmInstallNatsMessage{
+			InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
+		}
+		helmInstallMessagedata, err := impl.GetNatsMessageForHelmInstallSuccess(helmInstallMessage)
+		if err != nil {
+			impl.logger.Errorw("Error in parsing nats message for helm install success ", "err", err)
+		}
+		_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, helmInstallMessagedata)
 	case true:
 		go func() {
 			impl.logger.Debug("Upgrading release with chart info")
@@ -1811,6 +1827,18 @@ func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallError(ctx context.Con
 		helmInstallMessage.IsReleaseInstalled = false
 	}
 	helmInstallMessage.ErrorInInstallation = true
+	data, err := json.Marshal(helmInstallMessage)
+	if err != nil {
+		impl.logger.Errorw("error in marshalling nats message")
+		return string(data), err
+	}
+	return string(data), nil
+}
+
+func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallSuccess(helmInstallMessage HelmInstallNatsMessage) (string, error) {
+	helmInstallMessage.Message = RELEASE_INSTALLED
+	helmInstallMessage.IsReleaseInstalled = true
+	helmInstallMessage.ErrorInInstallation = false
 	data, err := json.Marshal(helmInstallMessage)
 	if err != nil {
 		impl.logger.Errorw("error in marshalling nats message")
