@@ -1336,9 +1336,12 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 				replicaSetNode := getMatchingNode(nodes, parentKind, replicaSet.Name)
 
 				// if parent of replicaset is deployment, compare label pod-template-hash
-				if replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetNode.ParentRefs[0].Kind == kube.DeploymentKind {
-					isNew = replicaSet.GetLabels()["pod-template-hash"] == pod.GetLabels()["pod-template-hash"] ||
-						replicaSet.GetLabels()["rollouts-pod-template-hash"] == pod.GetLabels()["rollouts-pod-template-hash"]
+				if replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 {
+					if replicaSetNode.ParentRefs[0].Kind == kube.DeploymentKind {
+						isNew = replicaSet.GetLabels()["pod-template-hash"] == pod.GetLabels()["pod-template-hash"]
+					} else if replicaSetNode.ParentRefs[0].Kind == kube.RolloutKind {
+						isNew = replicaSet.GetLabels()["rollouts-pod-template-hash"] == pod.GetLabels()["rollouts-pod-template-hash"]
+					}
 				}
 			}
 
