@@ -8,11 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/caarlos0/env"
+	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/util"
-	k8sUtils "github.com/devtron-labs/kubelink/pkg/util/k8s"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"helm.sh/helm/v3/pkg/release"
@@ -62,13 +62,16 @@ type K8sInformerImpl struct {
 	informerStopper    map[int]chan struct{}
 	clusterRepository  repository.ClusterRepository
 	helmReleaseConfig  *HelmReleaseConfig
+	k8sUtil            *k8sUtils.K8sUtil
 }
 
-func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.ClusterRepository, helmReleaseConfig *HelmReleaseConfig) *K8sInformerImpl {
+func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.ClusterRepository,
+	helmReleaseConfig *HelmReleaseConfig, k8sUtil *k8sUtils.K8sUtil) *K8sInformerImpl {
 	informerFactory := &K8sInformerImpl{
 		logger:            logger,
 		clusterRepository: clusterRepository,
 		helmReleaseConfig: helmReleaseConfig,
+		k8sUtil:           k8sUtil,
 	}
 	informerFactory.HelmListClusterMap = make(map[int]map[string]*client.DeployedAppDetail)
 	informerFactory.informerStopper = make(map[int]chan struct{})
@@ -154,7 +157,6 @@ func GetClusterInfo(c *repository.Cluster) *bean.ClusterInfo {
 			ClusterName: c.ClusterName,
 			BearerToken: bearerToken,
 			ServerUrl:   c.ServerUrl,
-			ProxyUrl:    c.ProxyUrl,
 		}
 	}
 	return clusterInfo
@@ -162,9 +164,9 @@ func GetClusterInfo(c *repository.Cluster) *bean.ClusterInfo {
 
 func (impl *K8sInformerImpl) startInformer(clusterInfo bean.ClusterInfo) error {
 	clusterConfig := clusterInfo.GetClusterConfig()
-	restConfig, err := k8sUtils.GetRestConfig(clusterConfig)
+	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(clusterConfig)
 	if err != nil {
-		impl.logger.Error("error in getting rest config", "err", err, "clusterId", clusterConfig.ClusterId)
+		impl.logger.Error("error in getting rest config", "err", err, "clusterName", clusterConfig.ClusterName)
 		return err
 	}
 	httpClientFor, err := rest.HTTPClientFor(restConfig)
@@ -330,9 +332,9 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 
 	clusterInfo := GetClusterInfo(clusterModel)
 	clusterConfig := clusterInfo.GetClusterConfig()
-	restConfig, err := k8sUtils.GetRestConfig(clusterConfig)
+	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(clusterConfig)
 	if err != nil {
-		impl.logger.Error("error in getting rest config", "err", err, "clusterId", clusterConfig.ClusterId)
+		impl.logger.Error("error in getting rest config", "err", err, "clusterName", clusterConfig.ClusterName)
 		return err
 	}
 	httpClientFor, err := rest.HTTPClientFor(restConfig)

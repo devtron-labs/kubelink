@@ -1,6 +1,7 @@
 package bean
 
 import (
+	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -195,19 +196,27 @@ type ClusterInfo struct {
 	ClusterName string `json:"clusterName"`
 	BearerToken string `json:"bearerToken"`
 	ServerUrl   string `json:"serverUrl"`
-	ProxyUrl    string `json:"proxyUrl"`
 }
 
-func (cluster *ClusterInfo) GetClusterConfig() *client.ClusterConfig {
-	clusterConfig := &client.ClusterConfig{}
+func (cluster *ClusterInfo) GetClusterConfig() *k8sUtils.ClusterConfig {
+	clusterConfig := &k8sUtils.ClusterConfig{}
 	if cluster != nil {
-		clusterConfig = &client.ClusterConfig{
-			ApiServerUrl: cluster.ServerUrl,
-			Token:        cluster.BearerToken,
-			ClusterId:    int32(cluster.ClusterId),
-			ClusterName:  cluster.ClusterName,
-			ProxyUrl:     cluster.ProxyUrl,
+		clusterConfig = &k8sUtils.ClusterConfig{
+			Host:        cluster.ServerUrl,
+			BearerToken: cluster.BearerToken,
+			ClusterName: cluster.ClusterName,
 		}
 	}
 	return clusterConfig
+}
+func GetClusterConfigFromClientBean(config *client.ClusterConfig) *k8sUtils.ClusterConfig {
+	if config != nil {
+		return &k8sUtils.ClusterConfig{
+			ClusterName: config.ClusterName,
+			Host:        config.ApiServerUrl,
+			BearerToken: config.Token,
+		}
+	} else {
+		return &k8sUtils.ClusterConfig{}
+	}
 }
