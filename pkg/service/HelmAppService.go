@@ -852,6 +852,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 			} else if err != nil {
 				HelmInstallFailureNatsMessage, _ = impl.GetNatsMessageForHelmInstallError(ctx, helmInstallMessage, releaseIdentifier, err)
 				_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, HelmInstallFailureNatsMessage)
+				return
 			}
 			helmInstallMessage.Message = RELEASE_INSTALLED
 			helmInstallMessage.IsReleaseInstalled = true
