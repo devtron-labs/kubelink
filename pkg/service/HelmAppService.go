@@ -833,9 +833,9 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 			helmInstallMessage := HelmInstallNatsMessage{
 				InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
 			}
+			var HelmInstallFailureNatsMessage string
 			if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
 				if UpgradeErr != nil {
-					var HelmInstallFailureNatsMessage string
 					if errors.Is(UpgradeErr.Err, driver.ErrNoDeployedReleases) {
 						_, err := helmClientObj.InstallChart(context.Background(), chartSpec)
 						if err != nil {
@@ -846,9 +846,12 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 						impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
 
 					}
-					_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(HelmInstallFailureNatsMessage))
+					_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, HelmInstallFailureNatsMessage)
 					return
 				}
+			} else if err != nil {
+				HelmInstallFailureNatsMessage, _ = impl.GetNatsMessageForHelmInstallError(ctx, helmInstallMessage, releaseIdentifier, err)
+				_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, HelmInstallFailureNatsMessage)
 			}
 			helmInstallMessage.Message = RELEASE_INSTALLED
 			helmInstallMessage.IsReleaseInstalled = true
