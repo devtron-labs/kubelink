@@ -660,10 +660,26 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 		return rel, nil
 	case true:
 		go func() {
-			_, err := helmClientObj.InstallChart(context.Background(), chartSpec)
 			helmInstallMessage := HelmInstallNatsMessage{
 				InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
 			}
+			// Checking release exist because there can be case when release already exist with same name
+			releaseExist := impl.K8sInformer.CheckReleaseExists(releaseIdentifier.ClusterConfig.ClusterId, releaseIdentifier.ReleaseName)
+			if releaseExist {
+				// release with name already exist, will not continue with release
+				helmInstallMessage.ErrorInInstallation = true
+				helmInstallMessage.IsReleaseInstalled = false
+				helmInstallMessage.Message = fmt.Sprintf("Release with name - %s already exist", releaseIdentifier.ReleaseName)
+				data, err := json.Marshal(helmInstallMessage)
+				if err != nil {
+					impl.logger.Errorw("error in marshalling nats message")
+					return
+				}
+				_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
+			}
+
+			_, err := helmClientObj.InstallChart(context.Background(), chartSpec)
+
 			if err != nil {
 				HelmInstallFailureNatsMessage, err := impl.GetNatsMessageForHelmInstallError(ctx, helmInstallMessage, releaseIdentifier, err)
 				if err != nil {
