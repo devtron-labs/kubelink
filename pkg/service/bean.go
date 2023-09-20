@@ -5,4 +5,5 @@ type HelmInstallNatsMessage struct {
 	Message                    string
 	IsReleaseInstalled         bool
 	ErrorInInstallation        bool
+	Status                     string
 }

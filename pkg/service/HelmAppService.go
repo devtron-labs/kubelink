@@ -63,7 +63,12 @@ const (
 	REGISTRYTYPE_ARTIFACT_REGISTRY        = "artifact-registry"
 	JSON_KEY_USERNAME              string = "_json_key"
 	HELM_CLIENT_ERROR                     = "Error in creating Helm client"
+	RELEASE_INSTALL_INITIATED             = "Release Install Initiated"
+	RELEASE_UPDATE_INITIATED              = "Release Update Initiated"
 	RELEASE_INSTALLED                     = "Release Installed"
+	RELEASE_STATUS_PROGRESSING            = "Progressing"
+	RELEASE_STATUS_FAILED                 = "Failed"
+	RELEASE_STATUS_SUCCEEDED              = "Succeeded"
 )
 
 type HelmAppService interface {
@@ -669,6 +674,7 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 				// release with name already exist, will not continue with release
 				helmInstallMessage.ErrorInInstallation = true
 				helmInstallMessage.IsReleaseInstalled = false
+				helmInstallMessage.Status = RELEASE_STATUS_FAILED
 				helmInstallMessage.Message = fmt.Sprintf("Release with name - %s already exist", releaseIdentifier.ReleaseName)
 				data, err := json.Marshal(helmInstallMessage)
 				if err != nil {
@@ -678,7 +684,19 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 				_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
 			}
 
-			_, err := helmClientObj.InstallChart(context.Background(), chartSpec)
+			// progressing state
+			helmInstallMessage.ErrorInInstallation = false
+			helmInstallMessage.IsReleaseInstalled = false
+			helmInstallMessage.Status = RELEASE_STATUS_PROGRESSING
+			helmInstallMessage.Message = RELEASE_INSTALL_INITIATED
+			data, err := json.Marshal(helmInstallMessage)
+			if err != nil {
+				impl.logger.Errorw("error in marshalling nats message")
+				return
+			}
+			_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
+
+			_, err = helmClientObj.InstallChart(context.Background(), chartSpec)
 
 			if err != nil {
 				HelmInstallFailureNatsMessage, err := impl.GetNatsMessageForHelmInstallError(ctx, helmInstallMessage, releaseIdentifier, err)
@@ -692,7 +710,8 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 			helmInstallMessage.Message = RELEASE_INSTALLED
 			helmInstallMessage.IsReleaseInstalled = true
 			helmInstallMessage.ErrorInInstallation = false
-			data, err := json.Marshal(helmInstallMessage)
+			helmInstallMessage.Status = RELEASE_STATUS_SUCCEEDED
+			data, err = json.Marshal(helmInstallMessage)
 			if err != nil {
 				impl.logger.Errorw("error in marshalling nats message")
 			}
@@ -833,7 +852,19 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 			helmInstallMessage := HelmInstallNatsMessage{
 				InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
 			}
+			helmInstallMessage.ErrorInInstallation = false
+			helmInstallMessage.IsReleaseInstalled = false
+			helmInstallMessage.Status = RELEASE_STATUS_PROGRESSING
+			helmInstallMessage.Message = RELEASE_UPDATE_INITIATED
+			data, err := json.Marshal(helmInstallMessage)
+			if err != nil {
+				impl.logger.Errorw("error in marshalling nats message")
+				return
+			}
+			_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
+
 			var HelmInstallFailureNatsMessage string
+
 			if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
 				if UpgradeErr != nil {
 					if UpgradeErr.Err == driver.ErrReleaseNotFound {
@@ -856,7 +887,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 			}
 			helmInstallMessage.Message = RELEASE_INSTALLED
 			helmInstallMessage.IsReleaseInstalled = true
-			data, err := json.Marshal(helmInstallMessage)
+			data, err = json.Marshal(helmInstallMessage)
 			if err != nil {
 				impl.logger.Errorw("error in marshalling nats message")
 			}
@@ -1851,6 +1882,7 @@ func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallError(ctx context.Con
 		helmInstallMessage.IsReleaseInstalled = false
 	}
 	helmInstallMessage.ErrorInInstallation = true
+	helmInstallMessage.Status = RELEASE_STATUS_FAILED
 	data, err := json.Marshal(helmInstallMessage)
 	if err != nil {
 		impl.logger.Errorw("error in marshalling nats message")
