@@ -217,7 +217,7 @@ func (c *HelmClient) RollbackRelease(spec *ChartSpec, version int) error {
 func (c *HelmClient) listDeployedReleases() ([]*release.Release, error) {
 	listClient := action.NewList(c.ActionConfig)
 
-	listClient.StateMask = action.ListDeployed | action.ListPendingInstall | action.ListPendingRollback | action.ListPendingUpgrade | action.ListUnknown
+	listClient.StateMask = action.ListDeployed | action.ListPendingInstall | action.ListPendingRollback | action.ListPendingUpgrade | action.ListUnknown | action.ListFailed
 
 	return listClient.Run()
 }
