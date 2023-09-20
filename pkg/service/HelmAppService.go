@@ -1840,7 +1840,11 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 
 func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallError(ctx context.Context, helmInstallMessage HelmInstallNatsMessage, releaseIdentifier *client.ReleaseIdentifier, installationErr error) (string, error) {
 	helmInstallMessage.Message = installationErr.Error()
-	isReleaseInstalled := impl.K8sInformer.CheckReleaseExists(releaseIdentifier.ClusterConfig.ClusterId, releaseIdentifier.ReleaseName)
+	isReleaseInstalled, err := impl.IsReleaseInstalled(ctx, releaseIdentifier)
+	if err != nil {
+		impl.logger.Errorw("error in checking if release is installed or not")
+		return "", err
+	}
 	if isReleaseInstalled {
 		helmInstallMessage.IsReleaseInstalled = true
 	} else {
