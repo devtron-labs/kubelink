@@ -8,15 +8,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/registry"
-	"path"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
+	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/registry"
+	"helm.sh/helm/v3/pkg/storage/driver"
+	"path"
+	"sync"
 
 	"github.com/caarlos0/env"
 	"github.com/devtron-labs/kubelink/bean"
@@ -96,6 +97,7 @@ type HelmAppService interface {
 type HelmReleaseConfig struct {
 	EnableHelmReleaseCache bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
 	MaxCountForHelmRelease int  `env:"MAX_COUNT_FOR_HELM_RELEASE" envDefault:"20"`
+	ManifestFetchBatchSize int  `env:"MANIFEST_FETCH_BATCH_SIZE" envDefault:"2"`
 }
 
 func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
@@ -743,9 +745,21 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 
 	impl.logger.Debug("Upgrading release with chart info")
 	_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
-	if err != nil {
-		impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
-		return nil, err
+	if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
+		if UpgradeErr != nil {
+			if UpgradeErr.Err == driver.ErrNoDeployedReleases {
+				_, err := helmClientObj.InstallChart(context.Background(), chartSpec)
+				if err != nil {
+					impl.logger.Errorw("Error in install release ", "err", err)
+					return nil, err
+				}
+
+			} else {
+				impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
+				return nil, err
+
+			}
+		}
 	}
 	// Update release ends
 
@@ -1053,38 +1067,58 @@ func (impl HelmAppServiceImpl) filterNodes(resourceTreeFilter *client.ResourceTr
 
 func (impl HelmAppServiceImpl) getDesiredOrLiveManifests(restConfig *rest.Config, desiredManifests []unstructured.Unstructured, releaseNamespace string) ([]*bean.DesiredOrLiveManifest, error) {
 
-	desiredOrLiveManifests := make([]*bean.DesiredOrLiveManifest, 0, len(desiredManifests))
-	for _, desiredManifest := range desiredManifests {
-		gvk := desiredManifest.GroupVersionKind()
+	totalManifestCount := len(desiredManifests)
+	desiredOrLiveManifestArray := make([]*bean.DesiredOrLiveManifest, totalManifestCount)
+	batchSize := impl.helmReleaseConfig.ManifestFetchBatchSize
 
-		_namespace := desiredManifest.GetNamespace()
-		if _namespace == "" {
-			_namespace = releaseNamespace
+	for i := 0; i < totalManifestCount; {
+		//requests left to process
+		remainingBatch := totalManifestCount - i
+		if remainingBatch < batchSize {
+			batchSize = remainingBatch
 		}
-
-		liveManifest, _, err := impl.k8sService.GetLiveManifest(restConfig, _namespace, &gvk, desiredManifest.GetName())
-		desiredOrLiveManifest := &bean.DesiredOrLiveManifest{}
-
-		if err != nil {
-			impl.logger.Errorw("Error in getting live manifest ", "err", err)
-			statusError, _ := err.(*errors2.StatusError)
-			desiredOrLiveManifest = &bean.DesiredOrLiveManifest{
-				// using deep copy as it replaces item in manifest in loop
-				Manifest:                 desiredManifest.DeepCopy(),
-				IsLiveManifestFetchError: true,
-			}
-			if statusError != nil {
-				desiredOrLiveManifest.LiveManifestFetchErrorCode = statusError.Status().Code
-			}
-		} else {
-			desiredOrLiveManifest = &bean.DesiredOrLiveManifest{
-				Manifest: liveManifest,
-			}
+		var wg sync.WaitGroup
+		for j := 0; j < batchSize; j++ {
+			wg.Add(1)
+			go func(j int) {
+				defer wg.Done()
+				desiredOrLiveManifest := impl.getManifestData(restConfig, releaseNamespace, desiredManifests[i+j])
+				desiredOrLiveManifestArray[i+j] = desiredOrLiveManifest
+			}(j)
 		}
-		desiredOrLiveManifests = append(desiredOrLiveManifests, desiredOrLiveManifest)
+		wg.Wait()
+		i += batchSize
 	}
 
-	return desiredOrLiveManifests, nil
+	return desiredOrLiveManifestArray, nil
+}
+
+func (impl HelmAppServiceImpl) getManifestData(restConfig *rest.Config, releaseNamespace string, desiredManifest unstructured.Unstructured) *bean.DesiredOrLiveManifest {
+	gvk := desiredManifest.GroupVersionKind()
+	_namespace := desiredManifest.GetNamespace()
+	if _namespace == "" {
+		_namespace = releaseNamespace
+	}
+	liveManifest, _, err := impl.k8sService.GetLiveManifest(restConfig, _namespace, &gvk, desiredManifest.GetName())
+	desiredOrLiveManifest := &bean.DesiredOrLiveManifest{}
+
+	if err != nil {
+		impl.logger.Errorw("Error in getting live manifest ", "err", err)
+		statusError, _ := err.(*errors2.StatusError)
+		desiredOrLiveManifest = &bean.DesiredOrLiveManifest{
+			// using deep copy as it replaces item in manifest in loop
+			Manifest:                 desiredManifest.DeepCopy(),
+			IsLiveManifestFetchError: true,
+		}
+		if statusError != nil {
+			desiredOrLiveManifest.LiveManifestFetchErrorCode = statusError.Status().Code
+		}
+	} else {
+		desiredOrLiveManifest = &bean.DesiredOrLiveManifest{
+			Manifest: liveManifest,
+		}
+	}
+	return desiredOrLiveManifest
 }
 
 func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
@@ -1547,13 +1581,26 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 		Namespace:   releaseIdentifier.ReleaseNamespace,
 		ValuesYaml:  request.ValuesYaml,
 		ChartName:   referenceChartDir,
+		MaxHistory:  int(request.HistoryMax),
 	}
 
 	impl.logger.Debug("Upgrading release")
 	_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), updateChartSpec)
-	if err != nil {
-		impl.logger.Errorw("Error in upgrade release ", "err", err)
-		return false, err
+	if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
+		if UpgradeErr != nil {
+			if UpgradeErr.Err == driver.ErrNoDeployedReleases {
+				_, err := helmClientObj.InstallChart(context.Background(), updateChartSpec)
+				if err != nil {
+					impl.logger.Errorw("Error in install release ", "err", err)
+					return false, err
+				}
+
+			} else {
+				impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
+				return false, err
+
+			}
+		}
 	}
 	return true, nil
 }
