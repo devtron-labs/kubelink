@@ -90,7 +90,7 @@ func GetRestConfig(config *client.ClusterConfig) (restConfig *rest.Config, err e
 		if err != nil {
 			return nil, err
 		}
-		return restConfig, err
+		return restConfig, nil
 	} else {
 		restConfig = &rest.Config{Host: config.ApiServerUrl, BearerToken: config.Token, TLSClientConfig: rest.TLSClientConfig{Insecure: true}}
 		if len(config.ProxyUrl) > 0 {
