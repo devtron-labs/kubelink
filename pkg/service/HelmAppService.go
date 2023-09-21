@@ -63,12 +63,7 @@ const (
 	REGISTRYTYPE_ARTIFACT_REGISTRY        = "artifact-registry"
 	JSON_KEY_USERNAME              string = "_json_key"
 	HELM_CLIENT_ERROR                     = "Error in creating Helm client"
-	RELEASE_INSTALL_INITIATED             = "Release Install Initiated"
-	RELEASE_UPDATE_INITIATED              = "Release Update Initiated"
 	RELEASE_INSTALLED                     = "Release Installed"
-	RELEASE_STATUS_PROGRESSING            = "Progressing"
-	RELEASE_STATUS_FAILED                 = "Failed"
-	RELEASE_STATUS_SUCCEEDED              = "Succeeded"
 )
 
 type HelmAppService interface {
@@ -653,7 +648,7 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 			impl.logger.Errorw("Error in install release ", "err", err)
 			return nil, err
 		}
-		helmInstallMessage := HelmInstallNatsMessage{
+		helmInstallMessage := HelmReleaseStatusConfig{
 			InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
 		}
 		helmInstallMessagedata, err := impl.GetNatsMessageForHelmInstallSuccess(helmInstallMessage)
@@ -665,7 +660,7 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 		return rel, nil
 	case true:
 		go func() {
-			helmInstallMessage := HelmInstallNatsMessage{
+			helmInstallMessage := HelmReleaseStatusConfig{
 				InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
 			}
 			// Checking release exist because there can be case when release already exist with same name
@@ -674,7 +669,6 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 				// release with name already exist, will not continue with release
 				helmInstallMessage.ErrorInInstallation = true
 				helmInstallMessage.IsReleaseInstalled = false
-				helmInstallMessage.Status = RELEASE_STATUS_FAILED
 				helmInstallMessage.Message = fmt.Sprintf("Release with name - %s already exist", releaseIdentifier.ReleaseName)
 				data, err := json.Marshal(helmInstallMessage)
 				if err != nil {
@@ -683,18 +677,6 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 				}
 				_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
 			}
-
-			// progressing state
-			helmInstallMessage.ErrorInInstallation = false
-			helmInstallMessage.IsReleaseInstalled = false
-			helmInstallMessage.Status = RELEASE_STATUS_PROGRESSING
-			helmInstallMessage.Message = RELEASE_INSTALL_INITIATED
-			data, err := json.Marshal(helmInstallMessage)
-			if err != nil {
-				impl.logger.Errorw("error in marshalling nats message")
-				return
-			}
-			_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
 
 			_, err = helmClientObj.InstallChart(context.Background(), chartSpec)
 
@@ -710,8 +692,7 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 			helmInstallMessage.Message = RELEASE_INSTALLED
 			helmInstallMessage.IsReleaseInstalled = true
 			helmInstallMessage.ErrorInInstallation = false
-			helmInstallMessage.Status = RELEASE_STATUS_SUCCEEDED
-			data, err = json.Marshal(helmInstallMessage)
+			data, err := json.Marshal(helmInstallMessage)
 			if err != nil {
 				impl.logger.Errorw("error in marshalling nats message")
 			}
@@ -837,7 +818,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 				}
 			}
 		}
-		helmInstallMessage := HelmInstallNatsMessage{
+		helmInstallMessage := HelmReleaseStatusConfig{
 			InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
 		}
 		helmInstallMessagedata, err := impl.GetNatsMessageForHelmInstallSuccess(helmInstallMessage)
@@ -849,20 +830,9 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		go func() {
 			impl.logger.Debug("Upgrading release with chart info")
 			_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
-			helmInstallMessage := HelmInstallNatsMessage{
+			helmInstallMessage := HelmReleaseStatusConfig{
 				InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
 			}
-			helmInstallMessage.ErrorInInstallation = false
-			helmInstallMessage.IsReleaseInstalled = false
-			helmInstallMessage.Status = RELEASE_STATUS_PROGRESSING
-			helmInstallMessage.Message = RELEASE_UPDATE_INITIATED
-			data, err := json.Marshal(helmInstallMessage)
-			if err != nil {
-				impl.logger.Errorw("error in marshalling nats message")
-				return
-			}
-			_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
-
 			var HelmInstallFailureNatsMessage string
 
 			if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
@@ -887,7 +857,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 			}
 			helmInstallMessage.Message = RELEASE_INSTALLED
 			helmInstallMessage.IsReleaseInstalled = true
-			data, err = json.Marshal(helmInstallMessage)
+			data, err := json.Marshal(helmInstallMessage)
 			if err != nil {
 				impl.logger.Errorw("error in marshalling nats message")
 			}
@@ -1869,7 +1839,7 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 	return registryPushResponse, err
 }
 
-func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallError(ctx context.Context, helmInstallMessage HelmInstallNatsMessage, releaseIdentifier *client.ReleaseIdentifier, installationErr error) (string, error) {
+func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallError(ctx context.Context, helmInstallMessage HelmReleaseStatusConfig, releaseIdentifier *client.ReleaseIdentifier, installationErr error) (string, error) {
 	helmInstallMessage.Message = installationErr.Error()
 	isReleaseInstalled, err := impl.IsReleaseInstalled(ctx, releaseIdentifier)
 	if err != nil {
@@ -1882,7 +1852,6 @@ func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallError(ctx context.Con
 		helmInstallMessage.IsReleaseInstalled = false
 	}
 	helmInstallMessage.ErrorInInstallation = true
-	helmInstallMessage.Status = RELEASE_STATUS_FAILED
 	data, err := json.Marshal(helmInstallMessage)
 	if err != nil {
 		impl.logger.Errorw("error in marshalling nats message")
@@ -1891,7 +1860,7 @@ func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallError(ctx context.Con
 	return string(data), nil
 }
 
-func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallSuccess(helmInstallMessage HelmInstallNatsMessage) (string, error) {
+func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallSuccess(helmInstallMessage HelmReleaseStatusConfig) (string, error) {
 	helmInstallMessage.Message = RELEASE_INSTALLED
 	helmInstallMessage.IsReleaseInstalled = true
 	helmInstallMessage.ErrorInInstallation = false
