@@ -43,6 +43,7 @@ type K8sInformer interface {
 	stopInformer(clusterName string, clusterId int)
 	startInformerAndPopulateCache(clusterId int) error
 	GetAllReleaseByClusterId(clusterId int) []*client.DeployedAppDetail
+	CheckReleaseExists(clusterId int32, releaseName string) bool
 }
 
 type HelmReleaseConfig struct {
@@ -445,4 +446,13 @@ func (impl *K8sInformerImpl) GetAllReleaseByClusterId(clusterId int) []*client.D
 		deployedAppDetailList = append(deployedAppDetailList, v)
 	}
 	return deployedAppDetailList
+}
+
+func (impl *K8sInformerImpl) CheckReleaseExists(clusterId int32, releaseName string) bool {
+	releaseMap := impl.HelmListClusterMap[int(clusterId)]
+	_, ok := releaseMap[releaseName]
+	if ok {
+		return true
+	}
+	return false
 }
