@@ -22,6 +22,7 @@ package main
 import (
 	"github.com/devtron-labs/authenticator/client"
 	"github.com/devtron-labs/common-lib/utils/k8s"
+	pubsub_lib "github.com/devtron-labs/common-lib/pubsub-lib"
 	"github.com/devtron-labs/kubelink/api/router"
 	"github.com/devtron-labs/kubelink/internal/lock"
 	"github.com/devtron-labs/kubelink/internal/logger"
@@ -57,6 +58,7 @@ func InitializeApp() (*App, error) {
 		wire.Bind(new(repository.ClusterRepository), new(*repository.ClusterRepositoryImpl)),
 		service.GetHelmReleaseConfig,
 		k8sInformer.GetHelmReleaseConfig,
+		pubsub_lib.NewPubSubClientServiceImpl,
 	)
 	return &App{}, nil
 }

@@ -25,6 +25,7 @@ type AppDetail struct {
 	ChartMetadata        *ChartMetadata             `json:"chartMetadata"`
 	ResourceTreeResponse *ResourceTreeResponse      `json:"resourceTreeResponse"`
 	EnvironmentDetails   *client.EnvironmentDetails `json:"environmentDetails"`
+	ReleaseExists        bool                       `json:"releaseExists"`
 }
 
 type ReleaseStatus struct {
