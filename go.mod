@@ -28,7 +28,7 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
-require github.com/devtron-labs/common-lib v0.0.0-20230821120530-56d8ed4bc327
+require github.com/devtron-labs/common-lib v0.0.2
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230106234847-43070de90fa1 // indirect
