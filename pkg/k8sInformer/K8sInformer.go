@@ -125,8 +125,9 @@ func (impl *K8sInformerImpl) BuildInformerForAllClusters() error {
 
 	if len(models) == 0 {
 		clusterInfo := &bean.ClusterInfo{
-			ClusterId:   1,
-			ClusterName: DEFAULT_CLUSTER,
+			ClusterId:             1,
+			ClusterName:           DEFAULT_CLUSTER,
+			InsecureSkipTLSVerify: true,
 		}
 		err := impl.startInformer(*clusterInfo)
 		if err != nil {
@@ -152,12 +153,19 @@ func (impl *K8sInformerImpl) BuildInformerForAllClusters() error {
 func GetClusterInfo(c *repository.Cluster) *bean.ClusterInfo {
 	clusterInfo := &bean.ClusterInfo{}
 	if c != nil {
-		bearerToken := c.Config["bearer_token"]
+		config := c.Config
+		bearerToken := config["bearer_token"]
 		clusterInfo = &bean.ClusterInfo{
-			ClusterId:   c.Id,
-			ClusterName: c.ClusterName,
-			BearerToken: bearerToken,
-			ServerUrl:   c.ServerUrl,
+			ClusterId:             c.Id,
+			ClusterName:           c.ClusterName,
+			BearerToken:           bearerToken,
+			ServerUrl:             c.ServerUrl,
+			InsecureSkipTLSVerify: c.InsecureSkipTlsVerify,
+		}
+		if c.InsecureSkipTlsVerify == false {
+			clusterInfo.KeyData = config[k8sUtils.TlsKey]
+			clusterInfo.CertData = config[k8sUtils.CertData]
+			clusterInfo.CAData = config[k8sUtils.CertificateAuthorityData]
 		}
 	}
 	return clusterInfo

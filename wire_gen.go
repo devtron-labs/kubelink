@@ -20,10 +20,6 @@ import (
 	"github.com/devtron-labs/kubelink/pprof"
 )
 
-import (
-	_ "github.com/devtron-labs/common-lib/utils/k8s"
-)
-
 // Injectors from Wire.go:
 
 func InitializeApp() (*App, error) {
@@ -54,7 +50,7 @@ func InitializeApp() (*App, error) {
 		return nil, err
 	}
 	pubSubClientServiceImpl := pubsub_lib.NewPubSubClientServiceImpl(sugaredLogger)
-	helmAppServiceImpl := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, serviceHelmReleaseConfig, k8sUtil, pubSubClientServiceImpl)
+	helmAppServiceImpl := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, serviceHelmReleaseConfig, k8sUtil, pubSubClientServiceImpl, clusterRepositoryImpl)
 	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(sugaredLogger, chartRepositoryLocker, helmAppServiceImpl)
 	pProfRestHandlerImpl := pprof.NewPProfRestHandler(sugaredLogger)
 	pProfRouterImpl := pprof.NewPProfRouter(sugaredLogger, pProfRestHandlerImpl)

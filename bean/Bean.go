@@ -193,31 +193,28 @@ type InfoItem struct {
 }
 
 type ClusterInfo struct {
-	ClusterId   int    `json:"clusterId"`
-	ClusterName string `json:"clusterName"`
-	BearerToken string `json:"bearerToken"`
-	ServerUrl   string `json:"serverUrl"`
+	ClusterId             int    `json:"clusterId"`
+	ClusterName           string `json:"clusterName"`
+	BearerToken           string `json:"bearerToken"`
+	ServerUrl             string `json:"serverUrl"`
+	InsecureSkipTLSVerify bool   `json:"insecureSkipTLSVerify"`
+	KeyData               string `json:"-"`
+	CertData              string `json:"-"`
+	CAData                string `json:"-"`
 }
 
 func (cluster *ClusterInfo) GetClusterConfig() *k8sUtils.ClusterConfig {
 	clusterConfig := &k8sUtils.ClusterConfig{}
 	if cluster != nil {
 		clusterConfig = &k8sUtils.ClusterConfig{
-			Host:        cluster.ServerUrl,
-			BearerToken: cluster.BearerToken,
-			ClusterName: cluster.ClusterName,
+			Host:                  cluster.ServerUrl,
+			BearerToken:           cluster.BearerToken,
+			ClusterName:           cluster.ClusterName,
+			InsecureSkipTLSVerify: cluster.InsecureSkipTLSVerify,
+			KeyData:               cluster.KeyData,
+			CertData:              cluster.CertData,
+			CAData:                cluster.CAData,
 		}
 	}
 	return clusterConfig
-}
-func GetClusterConfigFromClientBean(config *client.ClusterConfig) *k8sUtils.ClusterConfig {
-	if config != nil {
-		return &k8sUtils.ClusterConfig{
-			ClusterName: config.ClusterName,
-			Host:        config.ApiServerUrl,
-			BearerToken: config.Token,
-		}
-	} else {
-		return &k8sUtils.ClusterConfig{}
-	}
 }
