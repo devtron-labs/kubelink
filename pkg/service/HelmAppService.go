@@ -429,7 +429,7 @@ func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest
 			DockerImages: dockerImages,
 			Version:      int32(helmRelease.Version),
 		}
-		if i == len(helmAppDeployments)-1 {
+		if i == len(helmReleases)-1 {
 			deploymentDetail.Status = *appStatus
 		}
 		helmAppDeployments = append(helmAppDeployments, deploymentDetail)
