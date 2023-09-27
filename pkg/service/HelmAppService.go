@@ -97,9 +97,9 @@ type HelmAppService interface {
 }
 
 type HelmReleaseConfig struct {
-	EnableHelmReleaseCache bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
-	MaxCountForHelmRelease int  `env:"MAX_COUNT_FOR_HELM_RELEASE" envDefault:"20"`
-	ManifestFetchBatchSize int  `env:"MANIFEST_FETCH_BATCH_SIZE" envDefault:"2"`
+	EnableHelmReleaseCache    bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
+	MaxCountForHelmRelease    int  `env:"MAX_COUNT_FOR_HELM_RELEASE" envDefault:"20"`
+	ManifestFetchBatchSize    int  `env:"MANIFEST_FETCH_BATCH_SIZE" envDefault:"2"`
 	RunHelmInstallInAsyncMode bool `env:"RUN_HELM_INSTALL_IN_ASYNC_MODE" envDefault:"false"`
 }
 
@@ -400,7 +400,13 @@ func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest
 		return nil, err
 	}
 	helmAppDeployments := make([]*client.HelmAppDeploymentDetail, 0, len(helmReleases))
-	for _, helmRelease := range helmReleases {
+	appStatus, err := impl.FetchApplicationStatus(req)
+	if err != nil {
+		impl.logger.Errorw("Error in getting app status ", "err", err, "app status", appStatus)
+		return nil, err
+	}
+
+	for i, helmRelease := range helmReleases {
 		chartMetadata := helmRelease.Chart.Metadata
 		manifests := helmRelease.Manifest
 		parsedManifests, err := util.SplitYAMLs([]byte(manifests))
@@ -422,6 +428,9 @@ func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest
 			},
 			DockerImages: dockerImages,
 			Version:      int32(helmRelease.Version),
+		}
+		if i == len(helmAppDeployments)-1 {
+			deploymentDetail.Status = *appStatus
 		}
 		helmAppDeployments = append(helmAppDeployments, deploymentDetail)
 	}
