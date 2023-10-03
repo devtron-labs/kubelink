@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"github.com/caarlos0/env"
+	"github.com/devtron-labs/common-lib/pubsub-lib"
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/pkg/helmClient"
@@ -63,6 +64,7 @@ const (
 	REGISTRYTYPE_ARTIFACT_REGISTRY        = "artifact-registry"
 	JSON_KEY_USERNAME              string = "_json_key"
 	HELM_CLIENT_ERROR                     = "Error in creating Helm client"
+	RELEASE_INSTALLED                     = "Release Installed"
 )
 
 type HelmAppService interface {
@@ -95,9 +97,10 @@ type HelmAppService interface {
 }
 
 type HelmReleaseConfig struct {
-	EnableHelmReleaseCache bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
-	MaxCountForHelmRelease int  `env:"MAX_COUNT_FOR_HELM_RELEASE" envDefault:"20"`
-	ManifestFetchBatchSize int  `env:"MANIFEST_FETCH_BATCH_SIZE" envDefault:"2"`
+	EnableHelmReleaseCache    bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
+	MaxCountForHelmRelease    int  `env:"MAX_COUNT_FOR_HELM_RELEASE" envDefault:"20"`
+	ManifestFetchBatchSize    int  `env:"MANIFEST_FETCH_BATCH_SIZE" envDefault:"2"`
+	RunHelmInstallInAsyncMode bool `env:"RUN_HELM_INSTALL_IN_ASYNC_MODE" envDefault:"false"`
 }
 
 func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
@@ -112,9 +115,10 @@ type HelmAppServiceImpl struct {
 	randSource        rand.Source
 	K8sInformer       k8sInformer.K8sInformer
 	helmReleaseConfig *HelmReleaseConfig
+	pubsubClient      *pubsub_lib.PubSubClientServiceImpl
 }
 
-func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService, k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig) *HelmAppServiceImpl {
+func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService, k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig, pubsubClient *pubsub_lib.PubSubClientServiceImpl) *HelmAppServiceImpl {
 
 	helmAppServiceImpl := &HelmAppServiceImpl{
 		logger:            logger,
@@ -122,6 +126,7 @@ func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService, k8s
 		randSource:        rand.NewSource(time.Now().UnixNano()),
 		K8sInformer:       k8sInformer,
 		helmReleaseConfig: helmReleaseConfig,
+		pubsubClient:      pubsubClient,
 	}
 	err := os.MkdirAll(chartWorkingDirectory, os.ModePerm)
 	if err != nil {
@@ -205,6 +210,9 @@ func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.Clus
 func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error) {
 	helmRelease, err := getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
+		if errors.Is(err, driver.ErrReleaseNotFound) {
+			return &bean.AppDetail{ReleaseExists: false}, err
+		}
 		impl.logger.Errorw("Error in getting helm release ", "err", err)
 		return nil, err
 	}
@@ -234,6 +242,7 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 			ClusterId:   req.ClusterConfig.ClusterId,
 			Namespace:   helmRelease.Namespace,
 		},
+		ReleaseExists: true,
 	}
 
 	return appDetail, nil
@@ -552,12 +561,11 @@ func (impl HelmAppServiceImpl) GetDeploymentDetail(request *client.DeploymentDet
 
 func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *client.InstallReleaseRequest) (*client.InstallReleaseResponse, error) {
 	// Install release starts
-	_, err := impl.installRelease(request, false)
+	_, err := impl.installRelease(ctx, request, false)
 	if err != nil {
 		return nil, err
 	}
 	// Install release ends
-
 	installReleaseResponse := &client.InstallReleaseResponse{
 		Success: true,
 	}
@@ -572,7 +580,7 @@ func (impl HelmAppServiceImpl) GetOCIChartName(registryUrl, repoName string) str
 	return chartName
 }
 
-func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequest, dryRun bool) (*release.Release, error) {
+func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *client.InstallReleaseRequest, dryRun bool) (*release.Release, error) {
 
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
@@ -634,20 +642,69 @@ func (impl HelmAppServiceImpl) installRelease(request *client.InstallReleaseRequ
 	}
 
 	impl.logger.Debugw("Installing release", "name", releaseIdentifier.ReleaseName, "namespace", releaseIdentifier.ReleaseNamespace, "dry-run", dryRun)
-	rel, err := helmClientObj.InstallChart(context.Background(), chartSpec)
-	if err != nil {
-		impl.logger.Errorw("Error in install release ", "err", err)
-		return nil, err
+	switch impl.helmReleaseConfig.RunHelmInstallInAsyncMode {
+	case false:
+		impl.logger.Debugw("Installing release", "name", releaseIdentifier.ReleaseName, "namespace", releaseIdentifier.ReleaseNamespace, "dry-run", dryRun)
+		rel, err := helmClientObj.InstallChart(context.Background(), chartSpec)
+		if err != nil {
+			impl.logger.Errorw("Error in install release ", "err", err)
+			return nil, err
+		}
+		helmInstallMessage := HelmReleaseStatusConfig{
+			InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
+		}
+		helmInstallMessagedata, err := impl.GetNatsMessageForHelmInstallSuccess(helmInstallMessage)
+		if err != nil {
+			impl.logger.Errorw("Error in parsing nats message for helm install success ", "err", err)
+		}
+		_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, helmInstallMessagedata)
+		// Install release ends
+		return rel, nil
+	case true:
+		go func() {
+			helmInstallMessage := HelmReleaseStatusConfig{
+				InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
+			}
+			// Checking release exist because there can be case when release already exist with same name
+			releaseExist := impl.K8sInformer.CheckReleaseExists(releaseIdentifier.ClusterConfig.ClusterId, releaseIdentifier.ReleaseName)
+			if releaseExist {
+				// release with name already exist, will not continue with release
+				helmInstallMessage.ErrorInInstallation = true
+				helmInstallMessage.IsReleaseInstalled = false
+				helmInstallMessage.Message = fmt.Sprintf("Release with name - %s already exist", releaseIdentifier.ReleaseName)
+				data, err := json.Marshal(helmInstallMessage)
+				if err != nil {
+					impl.logger.Errorw("error in marshalling nats message")
+					return
+				}
+				_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
+			}
+
+			_, err = helmClientObj.InstallChart(context.Background(), chartSpec)
+
+			if err != nil {
+				HelmInstallFailureNatsMessage, err := impl.GetNatsMessageForHelmInstallError(ctx, helmInstallMessage, releaseIdentifier, err)
+				if err != nil {
+					impl.logger.Errorw("Error in parsing nats message for helm install failure")
+				}
+				// in case of err we will communicate about the error to orchestrator
+				_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, HelmInstallFailureNatsMessage)
+				return
+			}
+			helmInstallMessage.Message = RELEASE_INSTALLED
+			helmInstallMessage.IsReleaseInstalled = true
+			helmInstallMessage.ErrorInInstallation = false
+			data, err := json.Marshal(helmInstallMessage)
+			if err != nil {
+				impl.logger.Errorw("error in marshalling nats message")
+			}
+			_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
+		}()
 	}
 	// Install release ends
-	return rel, nil
+	return nil, nil
 }
 
-// 1. run this method using main
-// 2. write unit test case
-// 3. expose this method over grpc
-// 4. write rest handler, router, and servie in orchestrator
-// 5 .invoke this method using grpc
 func (impl HelmAppServiceImpl) GetNotes(ctx context.Context, request *client.InstallReleaseRequest) (string, error) {
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
@@ -743,25 +800,73 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		RegistryClient:   registryClient,
 	}
 
-	impl.logger.Debug("Upgrading release with chart info")
-	_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
-	if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
-		if UpgradeErr != nil {
-			if UpgradeErr.Err == driver.ErrNoDeployedReleases {
-				_, err := helmClientObj.InstallChart(context.Background(), chartSpec)
-				if err != nil {
-					impl.logger.Errorw("Error in install release ", "err", err)
+	switch impl.helmReleaseConfig.RunHelmInstallInAsyncMode {
+	case false:
+		impl.logger.Debug("Upgrading release with chart info")
+		_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
+		if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
+			if UpgradeErr != nil {
+				if UpgradeErr.Err == driver.ErrReleaseNotFound {
+					_, err := helmClientObj.InstallChart(context.Background(), chartSpec)
+					if err != nil {
+						impl.logger.Errorw("Error in install release ", "err", err)
+						return nil, err
+					}
+
+				} else {
+					impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
 					return nil, err
+
 				}
-
-			} else {
-				impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
-				return nil, err
-
 			}
 		}
+		helmInstallMessage := HelmReleaseStatusConfig{
+			InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
+		}
+		helmInstallMessagedata, err := impl.GetNatsMessageForHelmInstallSuccess(helmInstallMessage)
+		if err != nil {
+			impl.logger.Errorw("Error in parsing nats message for helm install success ", "err", err)
+		}
+		_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, helmInstallMessagedata)
+	case true:
+		go func() {
+			impl.logger.Debug("Upgrading release with chart info")
+			_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
+			helmInstallMessage := HelmReleaseStatusConfig{
+				InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
+			}
+			var HelmInstallFailureNatsMessage string
+
+			if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
+				if UpgradeErr != nil {
+					if UpgradeErr.Err == driver.ErrReleaseNotFound {
+						_, err := helmClientObj.InstallChart(context.Background(), chartSpec)
+						if err != nil {
+							HelmInstallFailureNatsMessage, _ = impl.GetNatsMessageForHelmInstallError(ctx, helmInstallMessage, releaseIdentifier, err)
+						}
+					} else {
+						HelmInstallFailureNatsMessage, _ = impl.GetNatsMessageForHelmInstallError(ctx, helmInstallMessage, releaseIdentifier, err)
+						impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
+
+					}
+					_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, HelmInstallFailureNatsMessage)
+					return
+				}
+			} else if err != nil {
+				HelmInstallFailureNatsMessage, _ = impl.GetNatsMessageForHelmInstallError(ctx, helmInstallMessage, releaseIdentifier, err)
+				_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, HelmInstallFailureNatsMessage)
+				return
+			}
+			helmInstallMessage.Message = RELEASE_INSTALLED
+			helmInstallMessage.IsReleaseInstalled = true
+			data, err := json.Marshal(helmInstallMessage)
+			if err != nil {
+				impl.logger.Errorw("error in marshalling nats message")
+			}
+			_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
+			// Update release ends
+		}()
 	}
-	// Update release ends
 
 	upgradeReleaseResponse := &client.UpgradeReleaseResponse{
 		Success: true,
@@ -1753,4 +1858,37 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 		PushedURL: pushResult.Ref,
 	}
 	return registryPushResponse, err
+}
+
+func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallError(ctx context.Context, helmInstallMessage HelmReleaseStatusConfig, releaseIdentifier *client.ReleaseIdentifier, installationErr error) (string, error) {
+	helmInstallMessage.Message = installationErr.Error()
+	isReleaseInstalled, err := impl.IsReleaseInstalled(ctx, releaseIdentifier)
+	if err != nil {
+		impl.logger.Errorw("error in checking if release is installed or not")
+		return "", err
+	}
+	if isReleaseInstalled {
+		helmInstallMessage.IsReleaseInstalled = true
+	} else {
+		helmInstallMessage.IsReleaseInstalled = false
+	}
+	helmInstallMessage.ErrorInInstallation = true
+	data, err := json.Marshal(helmInstallMessage)
+	if err != nil {
+		impl.logger.Errorw("error in marshalling nats message")
+		return string(data), err
+	}
+	return string(data), nil
+}
+
+func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallSuccess(helmInstallMessage HelmReleaseStatusConfig) (string, error) {
+	helmInstallMessage.Message = RELEASE_INSTALLED
+	helmInstallMessage.IsReleaseInstalled = true
+	helmInstallMessage.ErrorInInstallation = false
+	data, err := json.Marshal(helmInstallMessage)
+	if err != nil {
+		impl.logger.Errorw("error in marshalling nats message")
+		return string(data), err
+	}
+	return string(data), nil
 }
