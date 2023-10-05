@@ -173,6 +173,7 @@ func (impl *ApplicationServiceServerImpl) UpgradeRelease(ctx context.Context, in
 	res, err := impl.HelmAppService.UpgradeRelease(ctx, in)
 	if err != nil {
 		impl.Logger.Errorw("Error in Upgrade release request", "err", err)
+		return res, err
 	}
 	impl.Logger.Info("Upgrade release request served")
 
