@@ -1654,6 +1654,19 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 
 	lastRelease, err := helmClientObj.GetRelease(releaseIdentifier.ReleaseName)
 	if err != nil {
+		if errors.Is(err, driver.ErrReleaseNotFound) {
+			installRequest := &client.HelmInstallCustomRequest{
+				ValuesYaml:        request.ValuesYaml,
+				ChartContent:      request.ChartContent,
+				ReleaseIdentifier: request.ReleaseIdentifier,
+			}
+			_, err = impl.InstallReleaseWithCustomChart(installRequest)
+			if err != nil {
+				impl.logger.Errorw("Error in HelmInstallCustom request", "err", err)
+				return false, err
+			}
+			return true, nil
+		}
 		return false, err
 	}
 	if lastRelease.Info.Status.IsPending() {
