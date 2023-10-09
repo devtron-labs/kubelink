@@ -97,9 +97,9 @@ type HelmAppService interface {
 }
 
 type HelmReleaseConfig struct {
-	EnableHelmReleaseCache bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
-	MaxCountForHelmRelease int  `env:"MAX_COUNT_FOR_HELM_RELEASE" envDefault:"20"`
-	ManifestFetchBatchSize int  `env:"MANIFEST_FETCH_BATCH_SIZE" envDefault:"2"`
+	EnableHelmReleaseCache    bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
+	MaxCountForHelmRelease    int  `env:"MAX_COUNT_FOR_HELM_RELEASE" envDefault:"20"`
+	ManifestFetchBatchSize    int  `env:"MANIFEST_FETCH_BATCH_SIZE" envDefault:"2"`
 	RunHelmInstallInAsyncMode bool `env:"RUN_HELM_INSTALL_IN_ASYNC_MODE" envDefault:"false"`
 }
 
@@ -1650,6 +1650,14 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 	if err != nil {
 		impl.logger.Errorw("error on helm install custom while writing chartContent", "err", err)
 		return false, err
+	}
+
+	lastRelease, err := helmClientObj.GetRelease(releaseIdentifier.ReleaseName)
+	if err != nil {
+		return false, err
+	}
+	if lastRelease.Info.Status.IsPending() {
+		lastRelease.SetStatus(release.StatusSuperseded, "superseded by new release")
 	}
 	var b bytes.Buffer
 	writer := gzip.NewWriter(&b)
