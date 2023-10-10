@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"github.com/devtron-labs/kubelink/bean"
 	"github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/internal/lock"
@@ -68,7 +69,7 @@ func (impl *ApplicationServiceServerImpl) GetAppDetail(ctxt context.Context, req
 	helmAppDetail, err := impl.HelmAppService.BuildAppDetail(req)
 	if err != nil {
 		if helmAppDetail != nil && !helmAppDetail.ReleaseExists {
-			return &client.AppDetail{ReleaseExist: false}, nil
+			return &client.AppDetail{ReleaseExist: false}, fmt.Errorf("release not exists for this app")
 		}
 		impl.Logger.Errorw("Error in getting app detail", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
 			"namespace", req.Namespace, "err", err)
@@ -173,6 +174,7 @@ func (impl *ApplicationServiceServerImpl) UpgradeRelease(ctx context.Context, in
 	res, err := impl.HelmAppService.UpgradeRelease(ctx, in)
 	if err != nil {
 		impl.Logger.Errorw("Error in Upgrade release request", "err", err)
+		return res, err
 	}
 	impl.Logger.Info("Upgrade release request served")
 
