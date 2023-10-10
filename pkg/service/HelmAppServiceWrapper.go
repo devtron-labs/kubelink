@@ -84,7 +84,7 @@ func (impl *ApplicationServiceServerImpl) GetAppStatus(ctx context.Context, req 
 	impl.Logger.Infow("App detail request", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
 		"namespace", req.Namespace)
 
-	helmAppStatus, err := impl.HelmAppService.FetchApplicationStatus(req)
+	helmAppStatus, releaseStatus, err := impl.HelmAppService.FetchApplicationStatus(req)
 	if err != nil {
 		impl.Logger.Errorw("Error in getting app detail", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
 			"namespace", req.Namespace, "err", err)
@@ -92,6 +92,7 @@ func (impl *ApplicationServiceServerImpl) GetAppStatus(ctx context.Context, req 
 	}
 	appStatus := &client.AppStatus{
 		ApplicationStatus: *helmAppStatus,
+		ReleaseStatus:     releaseStatus,
 	}
 	return appStatus, nil
 }

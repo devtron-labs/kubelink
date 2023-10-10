@@ -83,7 +83,8 @@ message AppDetail{
 }
 
 message AppStatus{
-  string applicationStatus = 1;
+  string ApplicationStatus = 1;
+  string ReleaseStatus = 2;
 }
 
 message ReleaseStatus {
