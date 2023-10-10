@@ -85,6 +85,7 @@ message AppDetail{
 message AppStatus{
   string ApplicationStatus = 1;
   string ReleaseStatus = 2;
+  google.protobuf.Timestamp LastDeployed = 3;
 }
 
 message ReleaseStatus {

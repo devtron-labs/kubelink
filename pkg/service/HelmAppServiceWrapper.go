@@ -84,17 +84,13 @@ func (impl *ApplicationServiceServerImpl) GetAppStatus(ctx context.Context, req 
 	impl.Logger.Infow("App detail request", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
 		"namespace", req.Namespace)
 
-	helmAppStatus, releaseStatus, err := impl.HelmAppService.FetchApplicationStatus(req)
+	helmAppStatus, err := impl.HelmAppService.FetchApplicationStatus(req)
 	if err != nil {
 		impl.Logger.Errorw("Error in getting app detail", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
 			"namespace", req.Namespace, "err", err)
 		return nil, err
 	}
-	appStatus := &client.AppStatus{
-		ApplicationStatus: *helmAppStatus,
-		ReleaseStatus:     releaseStatus,
-	}
-	return appStatus, nil
+	return helmAppStatus, nil
 }
 
 func (impl *ApplicationServiceServerImpl) Hibernate(ctx context.Context, in *client.HibernateRequest) (*client.HibernateResponse, error) {
