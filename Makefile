@@ -21,7 +21,7 @@ wire:
 	wire
 
 clean:
-	rm -f kubelink
+	rm -rf kubelink
 
 run: build
 	./kubelink
