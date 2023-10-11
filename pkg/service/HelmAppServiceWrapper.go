@@ -69,6 +69,7 @@ func (impl *ApplicationServiceServerImpl) GetAppDetail(ctxt context.Context, req
 	helmAppDetail, err := impl.HelmAppService.BuildAppDetail(req)
 	if err != nil {
 		if helmAppDetail != nil && !helmAppDetail.ReleaseExists {
+			// This error (release not exists for this app) is being used in orchestrator so please don't edit it.
 			return &client.AppDetail{ReleaseExist: false}, fmt.Errorf("release not exists for this app")
 		}
 		impl.Logger.Errorw("Error in getting app detail", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
