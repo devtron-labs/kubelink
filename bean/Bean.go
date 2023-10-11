@@ -92,7 +92,7 @@ type ResourceNode struct {
 	IsHibernated    bool                    `json:"isHibernated"`
 	CanBeHibernated bool                    `json:"canBeHibernated"`
 	Info            []InfoItem              `json:"info,omitempty"`
-	Port            []int64                 `json: "port,omitempty"`
+	Port            map[string][]int64      `json: "port,omitempty"`
 	CreatedAt       string                  `json:"createdAt,omitempty"`
 }
 
