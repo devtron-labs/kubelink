@@ -1,6 +1,8 @@
 package main
 
-import "log"
+import (
+	"log"
+)
 
 func main() {
 	app, err := InitializeApp()
