@@ -565,8 +565,18 @@ func (c *HelmClient) GetNotes(spec *ChartSpec, options *HelmTemplateOptions) ([]
 	return out.Bytes(), err
 
 }
-func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions) ([]byte, error) {
+
+func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions, chartData []byte) ([]byte, error) {
 	c.ActionConfig.RegistryClient = spec.RegistryClient
+	var helmChart *chart.Chart
+	var chartPath string
+	var err error
+	if chartData != nil {
+		helmChart, err = loader.LoadArchive(bytes.NewReader(chartData))
+		if err != nil {
+			return nil, err
+		}
+	}
 	client := action.NewInstall(c.ActionConfig)
 	mergeInstallOptions(spec, client)
 
@@ -592,31 +602,18 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 	if client.Version == "" {
 		client.Version = ">0.0.0-0"
 	}
-
-	client.ChartPathOptions.RepoURL = spec.RepoURL
-	client.ChartPathOptions.Version = spec.Version
-	helmChart, chartPath, err := c.getChart(spec.ChartName, &client.ChartPathOptions)
-	if err != nil {
-		fmt.Errorf("error in getting helm chart and chart path for chart %q and repo Url %q",
-			spec.ChartName,
-			spec.RepoURL,
-		)
-		return nil, err
+	ChartPathOptions := action.ChartPathOptions{
+		RepoURL: spec.RepoURL,
+		Version: spec.Version,
 	}
+	client.ChartPathOptions = ChartPathOptions
 
-	if helmChart.Metadata.Type != "" && helmChart.Metadata.Type != "application" {
-		return nil, fmt.Errorf(
-			"chart %q has an unsupported type and is not installable: %q",
-			helmChart.Metadata.Name,
-			helmChart.Metadata.Type,
-		)
-	}
-	helmChart, err = updateDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
-	if err != nil {
-		fmt.Errorf("error in updating dependencies for helm chart %q",
-			spec.ChartName,
-		)
-		return nil, err
+	// if we are not sending chart from orchestrator, then we have to fetch the chart from helm
+	if chartData == nil {
+		helmChart, err = c.getChartFromHelm(spec, client, helmChart, chartPath, err)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	values, err := getValuesMap(spec)
@@ -653,6 +650,36 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 
 	return out.Bytes(), err
 }
+
+func (c *HelmClient) getChartFromHelm(spec *ChartSpec, client *action.Install, helmChart *chart.Chart, chartPath string, err error) (*chart.Chart, error) {
+	client.ChartPathOptions.RepoURL = spec.RepoURL
+	client.ChartPathOptions.Version = spec.Version
+	helmChart, chartPath, err = c.getChart(spec.ChartName, &client.ChartPathOptions)
+	if err != nil {
+		fmt.Errorf("error in getting helm chart and chart path for chart %q and repo Url %q",
+			spec.ChartName,
+			spec.RepoURL,
+		)
+		return nil, err
+	}
+
+	if helmChart.Metadata.Type != "" && helmChart.Metadata.Type != "application" {
+		return nil, fmt.Errorf(
+			"chart %q has an unsupported type and is not installable: %q",
+			helmChart.Metadata.Name,
+			helmChart.Metadata.Type,
+		)
+	}
+	helmChart, err = updateDependencies(helmChart, &client.ChartPathOptions, chartPath, c, client.DependencyUpdate, spec)
+	if err != nil {
+		fmt.Errorf("error in updating dependencies for helm chart %q",
+			spec.ChartName,
+		)
+		return nil, err
+	}
+	return helmChart, nil
+}
+
 func mergeInstallOptions(chartSpec *ChartSpec, installOptions *action.Install) {
 	installOptions.CreateNamespace = chartSpec.CreateNamespace
 	installOptions.DisableHooks = chartSpec.DisableHooks
