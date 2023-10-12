@@ -2,8 +2,8 @@ package util
 
 import (
 	"fmt"
+	"github.com/devtron-labs/common-lib/utils/k8s/health"
 	"github.com/devtron-labs/kubelink/bean"
-	"github.com/devtron-labs/kubelink/pkg/util/health"
 	"helm.sh/helm/v3/pkg/release"
 )
 

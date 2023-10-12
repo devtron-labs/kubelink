@@ -3,9 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
+	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/internal/logger"
-	k8sUtils "github.com/devtron-labs/kubelink/pkg/util/k8s"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"math/rand"
