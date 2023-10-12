@@ -8,28 +8,31 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
+	"github.com/devtron-labs/common-lib/utils/k8s/health"
+	repository "github.com/devtron-labs/kubelink/pkg/cluster"
+	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/registry"
+	"helm.sh/helm/v3/pkg/storage/driver"
+	"path"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
-	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/registry"
-	"helm.sh/helm/v3/pkg/storage/driver"
-	"path"
 	"sync"
 
 	"github.com/caarlos0/env"
 	"github.com/devtron-labs/common-lib/pubsub-lib"
+	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
+	"github.com/devtron-labs/common-lib/utils/yaml"
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/pkg/helmClient"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/util"
 	"github.com/devtron-labs/kubelink/pkg/util/argo"
-	gitops_engine "github.com/devtron-labs/kubelink/pkg/util/gitops-engine"
-	k8sUtils "github.com/devtron-labs/kubelink/pkg/util/k8s"
-	"github.com/devtron-labs/kubelink/pkg/util/kube"
 	jsonpatch "github.com/evanphx/json-patch"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -115,10 +118,15 @@ type HelmAppServiceImpl struct {
 	randSource        rand.Source
 	K8sInformer       k8sInformer.K8sInformer
 	helmReleaseConfig *HelmReleaseConfig
+	k8sUtil           *k8sUtils.K8sUtil
 	pubsubClient      *pubsub_lib.PubSubClientServiceImpl
+	clusterRepository repository.ClusterRepository
 }
 
-func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService, k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig, pubsubClient *pubsub_lib.PubSubClientServiceImpl) *HelmAppServiceImpl {
+func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
+	k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig,
+	k8sUtil *k8sUtils.K8sUtil, pubsubClient *pubsub_lib.PubSubClientServiceImpl,
+	clusterRepository repository.ClusterRepository) *HelmAppServiceImpl {
 
 	helmAppServiceImpl := &HelmAppServiceImpl{
 		logger:            logger,
@@ -127,6 +135,8 @@ func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService, k8s
 		K8sInformer:       k8sInformer,
 		helmReleaseConfig: helmReleaseConfig,
 		pubsubClient:      pubsubClient,
+		k8sUtil:           k8sUtil,
+		clusterRepository: clusterRepository,
 	}
 	err := os.MkdirAll(chartWorkingDirectory, os.ModePerm)
 	if err != nil {
@@ -157,7 +167,8 @@ func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.Clus
 		impl.logger.Infow("Fetching helm release using Cache")
 		deployedApps = impl.K8sInformer.GetAllReleaseByClusterId(int(config.GetClusterId()))
 	} else {
-		restConfig, err := k8sUtils.GetRestConfig(config)
+		k8sClusterConfig := GetClusterConfigFromClientBean(config)
+		restConfig, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 		if err != nil {
 			impl.logger.Errorw("Error in building rest config ", "clusterId", config.ClusterId, "err", err)
 			deployedApp.Errored = true
@@ -208,7 +219,7 @@ func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.Clus
 }
 
 func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error) {
-	helmRelease, err := getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
+	helmRelease, err := impl.getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
 		if errors.Is(err, driver.ErrReleaseNotFound) {
 			return &bean.AppDetail{ReleaseExists: false}, err
@@ -250,7 +261,7 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 
 func (impl *HelmAppServiceImpl) FetchApplicationStatus(req *client.AppDetailRequest) (*bean.HealthStatusCode, error) {
 	var appStatus *bean.HealthStatusCode
-	helmRelease, err := getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
+	helmRelease, err := impl.getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
 		impl.logger.Errorw("Error in getting helm release ", "err", err)
 		return appStatus, err
@@ -268,7 +279,7 @@ func (impl *HelmAppServiceImpl) FetchApplicationStatus(req *client.AppDetailRequ
 
 func (impl HelmAppServiceImpl) GetHelmAppValues(req *client.AppDetailRequest) (*client.ReleaseInfo, error) {
 
-	helmRelease, err := getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
+	helmRelease, err := impl.getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
 		impl.logger.Errorw("Error in getting helm release ", "err", err)
 		return nil, err
@@ -305,7 +316,8 @@ func (impl HelmAppServiceImpl) GetHelmAppValues(req *client.AppDetailRequest) (*
 
 func (impl HelmAppServiceImpl) ScaleObjects(ctx context.Context, clusterConfig *client.ClusterConfig, objects []*client.ObjectIdentifier, scaleDown bool) (*client.HibernateResponse, error) {
 	response := &client.HibernateResponse{}
-	conf, err := k8sUtils.GetRestConfig(clusterConfig)
+	k8sClusterConfig := GetClusterConfigFromClientBean(clusterConfig)
+	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		impl.logger.Errorw("Error in getting rest config ", "err", err)
 		return nil, err
@@ -394,7 +406,7 @@ func (impl HelmAppServiceImpl) ScaleObjects(ctx context.Context, clusterConfig *
 }
 
 func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest) (*client.HelmAppDeploymentHistory, error) {
-	helmReleases, err := getHelmReleaseHistory(req.ClusterConfig, req.Namespace, req.ReleaseName, impl.helmReleaseConfig.MaxCountForHelmRelease)
+	helmReleases, err := impl.getHelmReleaseHistory(req.ClusterConfig, req.Namespace, req.ReleaseName, impl.helmReleaseConfig.MaxCountForHelmRelease)
 	if err != nil {
 		impl.logger.Errorw("Error in getting helm release history ", "err", err)
 		return nil, err
@@ -403,7 +415,7 @@ func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest
 	for _, helmRelease := range helmReleases {
 		chartMetadata := helmRelease.Chart.Metadata
 		manifests := helmRelease.Manifest
-		parsedManifests, err := util.SplitYAMLs([]byte(manifests))
+		parsedManifests, err := yamlUtil.SplitYAMLs([]byte(manifests))
 		if err != nil {
 			return nil, err
 		}
@@ -430,13 +442,13 @@ func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest
 
 func (impl HelmAppServiceImpl) GetDesiredManifest(req *client.ObjectRequest) (*client.DesiredManifestResponse, error) {
 	objectIdentifier := req.ObjectIdentifier
-	helmRelease, err := getHelmRelease(req.ClusterConfig, req.ReleaseNamespace, req.ReleaseName)
+	helmRelease, err := impl.getHelmRelease(req.ClusterConfig, req.ReleaseNamespace, req.ReleaseName)
 	if err != nil {
 		impl.logger.Errorw("Error in getting helm release ", "err", err)
 		return nil, err
 	}
 
-	manifests, err := util.SplitYAMLs([]byte(helmRelease.Manifest))
+	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
 	if err != nil {
 		return nil, err
 	}
@@ -502,7 +514,7 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 			}
 		}
 
-		helmRelease, err := getHelmRelease(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName)
+		helmRelease, err := impl.getHelmRelease(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName)
 		if err != nil {
 			impl.logger.Errorw("Error in getting helm release ", "err", err)
 			return nil, err
@@ -536,7 +548,7 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 
 func (impl HelmAppServiceImpl) GetDeploymentDetail(request *client.DeploymentDetailRequest) (*client.DeploymentDetailResponse, error) {
 	releaseIdentifier := request.ReleaseIdentifier
-	helmReleases, err := getHelmReleaseHistory(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName, impl.helmReleaseConfig.MaxCountForHelmRelease)
+	helmReleases, err := impl.getHelmReleaseHistory(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName, impl.helmReleaseConfig.MaxCountForHelmRelease)
 	if err != nil {
 		impl.logger.Errorw("Error in getting helm release history ", "err", err)
 		return nil, err
@@ -977,8 +989,10 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 	return string(rel), nil
 }
 
-func getHelmRelease(clusterConfig *client.ClusterConfig, namespace string, releaseName string) (*release.Release, error) {
-	conf, err := k8sUtils.GetRestConfig(clusterConfig)
+func (impl HelmAppServiceImpl) getHelmRelease(clusterConfig *client.ClusterConfig, namespace string, releaseName string) (*release.Release, error) {
+
+	k8sClusterConfig := GetClusterConfigFromClientBean(clusterConfig)
+	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -999,8 +1013,9 @@ func getHelmRelease(clusterConfig *client.ClusterConfig, namespace string, relea
 	return release, nil
 }
 
-func getHelmReleaseHistory(clusterConfig *client.ClusterConfig, releaseNamespace string, releaseName string, countOfHelmReleaseHistory int) ([]*release.Release, error) {
-	conf, err := k8sUtils.GetRestConfig(clusterConfig)
+func (impl HelmAppServiceImpl) getHelmReleaseHistory(clusterConfig *client.ClusterConfig, releaseNamespace string, releaseName string, countOfHelmReleaseHistory int) ([]*release.Release, error) {
+	k8sClusterConfig := GetClusterConfigFromClientBean(clusterConfig)
+	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -1064,11 +1079,12 @@ func buildReleaseInfoBasicData(helmRelease *release.Release) (*client.ReleaseInf
 }
 
 func (impl *HelmAppServiceImpl) getNodes(appDetailRequest *client.AppDetailRequest, release *release.Release) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
-	conf, err := k8sUtils.GetRestConfig(appDetailRequest.ClusterConfig)
+	k8sClusterConfig := GetClusterConfigFromClientBean(appDetailRequest.ClusterConfig)
+	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		return nil, nil, err
 	}
-	manifests, err := util.SplitYAMLs([]byte(release.Manifest))
+	manifests, err := yamlUtil.SplitYAMLs([]byte(release.Manifest))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1086,11 +1102,12 @@ func (impl *HelmAppServiceImpl) getNodes(appDetailRequest *client.AppDetailReque
 }
 
 func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDetailRequest, release *release.Release) (*bean.ResourceTreeResponse, error) {
-	conf, err := k8sUtils.GetRestConfig(appDetailRequest.ClusterConfig)
+	k8sClusterConfig := GetClusterConfigFromClientBean(appDetailRequest.ClusterConfig)
+	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		return nil, err
 	}
-	manifests, err := util.SplitYAMLs([]byte(release.Manifest))
+	manifests, err := yamlUtil.SplitYAMLs([]byte(release.Manifest))
 	if err != nil {
 		return nil, err
 	}
@@ -1352,7 +1369,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 					Status: bean.HealthStatusHealthy,
 				}
 			} else {
-				if healthCheck := gitops_engine.GetHealthCheckFunc(gvk); healthCheck != nil {
+				if healthCheck := health.GetHealthCheckFunc(gvk); healthCheck != nil {
 					health, err := healthCheck(manifest)
 					if err != nil {
 						node.Health = &bean.HealthStatus{
@@ -1419,7 +1436,7 @@ func buildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstruc
 func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
 	for _, node := range nodes {
-		if node.Kind != kube.PodKind {
+		if node.Kind != k8sCommonBean.PodKind {
 			continue
 		}
 
@@ -1436,7 +1453,7 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 			parentKind := parentRef.Kind
 
 			// if parent is StatefulSet - then pod label controller-revision-hash should match StatefulSet's update revision
-			if parentKind == kube.StatefulSetKind {
+			if parentKind == k8sCommonBean.StatefulSetKind {
 				var statefulSet appsV1.StatefulSet
 				err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &statefulSet)
 				if err != nil {
@@ -1446,13 +1463,13 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 			}
 
 			// if parent is Job - then pod label controller-revision-hash should match StatefulSet's update revision
-			if parentKind == kube.JobKind {
+			if parentKind == k8sCommonBean.JobKind {
 				//TODO - new or old logic not built in orchestrator for Job's pods. hence not implementing here. as don't know the logic :)
 				isNew = true
 			}
 
 			// if parent kind is replica set then
-			if parentKind == kube.ReplicaSetKind {
+			if parentKind == k8sCommonBean.ReplicaSetKind {
 				var replicaSet appsV1.ReplicaSet
 				err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &replicaSet)
 				if err != nil {
@@ -1461,13 +1478,13 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 				replicaSetNode := getMatchingNode(nodes, parentKind, replicaSet.Name)
 
 				// if parent of replicaset is deployment, compare label pod-template-hash
-				if replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetNode.ParentRefs[0].Kind == kube.DeploymentKind {
+				if replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetNode.ParentRefs[0].Kind == k8sCommonBean.DeploymentKind {
 					isNew = replicaSet.GetLabels()["pod-template-hash"] == pod.GetLabels()["pod-template-hash"]
 				}
 			}
 
 			// if parent kind is DaemonSet then compare DaemonSet's Child ControllerRevision's label controller-revision-hash with pod label controller-revision-hash
-			if parentKind == kube.DaemonSetKind {
+			if parentKind == k8sCommonBean.DaemonSetKind {
 				var daemonSet appsV1.DaemonSet
 				err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &daemonSet)
 				if err != nil {
@@ -1568,7 +1585,8 @@ func getMatchingNodes(nodes []*bean.ResourceNode, kind string) []*bean.ResourceN
 }
 
 func (impl HelmAppServiceImpl) getHelmClient(clusterConfig *client.ClusterConfig, releaseNamespace string) (helmClient.Client, error) {
-	conf, err := k8sUtils.GetRestConfig(clusterConfig)
+	k8sClusterConfig := GetClusterConfigFromClientBean(clusterConfig)
+	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		impl.logger.Errorw("Error in getting rest config ", "err", err)
 		return nil, err
@@ -1891,4 +1909,21 @@ func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallSuccess(helmInstallMe
 		return string(data), err
 	}
 	return string(data), nil
+}
+func GetClusterConfigFromClientBean(config *client.ClusterConfig) *k8sUtils.ClusterConfig {
+	clusterConfig := &k8sUtils.ClusterConfig{}
+	if config != nil {
+		clusterConfig = &k8sUtils.ClusterConfig{
+			ClusterName:           config.ClusterName,
+			Host:                  config.ApiServerUrl,
+			BearerToken:           config.Token,
+			InsecureSkipTLSVerify: config.InsecureSkipTLSVerify,
+		}
+		if config.InsecureSkipTLSVerify == false {
+			clusterConfig.KeyData = config.GetKeyData()
+			clusterConfig.CertData = config.GetCertData()
+			clusterConfig.CAData = config.GetCaData()
+		}
+	}
+	return clusterConfig
 }
