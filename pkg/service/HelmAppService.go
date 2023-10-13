@@ -97,9 +97,9 @@ type HelmAppService interface {
 }
 
 type HelmReleaseConfig struct {
-	EnableHelmReleaseCache bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
-	MaxCountForHelmRelease int  `env:"MAX_COUNT_FOR_HELM_RELEASE" envDefault:"20"`
-	ManifestFetchBatchSize int  `env:"MANIFEST_FETCH_BATCH_SIZE" envDefault:"2"`
+	EnableHelmReleaseCache    bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
+	MaxCountForHelmRelease    int  `env:"MAX_COUNT_FOR_HELM_RELEASE" envDefault:"20"`
+	ManifestFetchBatchSize    int  `env:"MANIFEST_FETCH_BATCH_SIZE" envDefault:"2"`
 	RunHelmInstallInAsyncMode bool `env:"RUN_HELM_INSTALL_IN_ASYNC_MODE" envDefault:"false"`
 }
 
@@ -1237,59 +1237,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 		if _namespace == "" {
 			_namespace = releaseNamespace
 		}
-		_portList := make(map[string][]int64)
-		//ports := make([]int64, 0)
-		//if k8sUtils.IsService(gvk) || gvk.Kind == "Service" {
-		//	if manifest.Object["spec"] != nil {
-		//		spec := manifest.Object["spec"].(map[string]interface{})
-		//		if spec["ports"] != nil {
-		//			portList := spec["ports"].([]interface{})
-		//			for _, portItem := range portList {
-		//				if portItem.(map[string]interface{}) != nil {
-		//					_portNumber := portItem.(map[string]interface{})["port"]
-		//					portNumber := _portNumber.(int64)
-		//					if portNumber != 0 {
-		//						ports = append(ports, portNumber)
-		//					} else {
-		//						impl.logger.Errorw("there is no port", "err", portNumber)
-		//					}
-		//				} else {
-		//					impl.logger.Errorw("there are no port list availabe", "err", portItem)
-		//				}
-		//			}
-		//		}
-		//	}
-		//}
-		//if manifest.Object["kind"] == "EndpointSlice" {
-		//	if manifest.Object["ports"] != nil {
-		//		endPointsSlicePorts := manifest.Object["ports"].([]interface{})
-		//		for _, val := range endPointsSlicePorts {
-		//			_portNumber := val.(map[string]interface{})["port"]
-		//			portNumber := _portNumber.(int64)
-		//			if portNumber != 0 {
-		//				ports = append(ports, portNumber)
-		//			}
-		//		}
-		//	}
-		//}
-		//if gvk.Kind == "Endpoints" {
-		//	if manifest.Object["subsets"] != nil {
-		//		subsets := manifest.Object["subsets"].([]interface{})
-		//		for _, subset := range subsets {
-		//			subsetObj := subset.(map[string]interface{})
-		//			if subsetObj != nil {
-		//				portsIfs := subsetObj["ports"].([]interface{})
-		//				for _, portsIf := range portsIfs {
-		//					portsIfObj := portsIf.(map[string]interface{})
-		//					if portsIfObj != nil {
-		//						port := portsIfObj["port"].(int64)
-		//						ports = append(ports, port)
-		//					}
-		//				}
-		//			}
-		//		}
-		//	}
-		//}
+		_portList := make(map[string]*client.ResourcePorts)
 
 		serviceName := manifest.Object["metadata"].(map[string]interface{})
 		serviceNameValue := serviceName["name"].(string)
@@ -1304,7 +1252,11 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 						portsIfObj := portsIf.(map[string]interface{})
 						if portsIfObj != nil {
 							port := portsIfObj["port"].(int64)
-							_portList[serviceNameValue] = append(_portList[serviceNameValue], port)
+							// Create a new ResourcePorts instance
+							resourcePorts := &client.ResourcePorts{
+								ServicePorts: []int64{port},
+							}
+							_portList[serviceNameValue] = resourcePorts
 						}
 					}
 				}
