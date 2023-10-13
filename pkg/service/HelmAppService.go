@@ -267,6 +267,7 @@ func (impl *HelmAppServiceImpl) FetchApplicationStatus(req *client.AppDetailRequ
 		return helmAppStatus, err
 	}
 	if helmRelease.Info != nil {
+		helmAppStatus.Description = helmRelease.Info.Description
 		helmAppStatus.ReleaseStatus = string(helmRelease.Info.Status)
 		helmAppStatus.LastDeployed = timestamppb.New(helmRelease.Info.LastDeployed.Time)
 	}
