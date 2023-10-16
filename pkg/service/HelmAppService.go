@@ -1674,26 +1674,6 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 		return false, err
 	}
 
-	lastRelease, err := helmClientObj.GetRelease(releaseIdentifier.ReleaseName)
-	if err != nil {
-		if errors.Is(err, driver.ErrReleaseNotFound) {
-			installRequest := &client.HelmInstallCustomRequest{
-				ValuesYaml:        request.ValuesYaml,
-				ChartContent:      request.ChartContent,
-				ReleaseIdentifier: request.ReleaseIdentifier,
-			}
-			_, err = impl.InstallReleaseWithCustomChart(installRequest)
-			if err != nil {
-				impl.logger.Errorw("Error in HelmInstallCustom request", "err", err)
-				return false, err
-			}
-			return true, nil
-		}
-		return false, err
-	}
-	if lastRelease.Info.Status.IsPending() {
-		lastRelease.SetStatus(release.StatusSuperseded, "superseded by new release")
-	}
 	var b bytes.Buffer
 	writer := gzip.NewWriter(&b)
 	_, err = writer.Write(request.ChartContent.Content)
@@ -1724,21 +1704,23 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 		return false, err
 	}
 	impl.logger.Debugw("tar file write at", "referenceChartDir", referenceChartDir)
-	// Update release starts
-	updateChartSpec := &helmClient.ChartSpec{
+	// Install release spec
+	installChartSpec := &helmClient.ChartSpec{
 		ReleaseName: releaseIdentifier.ReleaseName,
 		Namespace:   releaseIdentifier.ReleaseNamespace,
 		ValuesYaml:  request.ValuesYaml,
 		ChartName:   referenceChartDir,
-		MaxHistory:  int(request.HistoryMax),
 	}
+	// Update release spec
+	updateChartSpec := installChartSpec
+	updateChartSpec.MaxHistory = int(request.HistoryMax)
 
 	impl.logger.Debug("Upgrading release")
 	_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), updateChartSpec)
 	if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
 		if UpgradeErr != nil {
 			if UpgradeErr.Err == driver.ErrNoDeployedReleases {
-				_, err := helmClientObj.InstallChart(context.Background(), updateChartSpec)
+				_, err := helmClientObj.InstallChart(context.Background(), installChartSpec)
 				if err != nil {
 					impl.logger.Errorw("Error in install release ", "err", err)
 					return false, err
