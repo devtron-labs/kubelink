@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -1080,7 +1079,7 @@ func (impl *HelmAppServiceImpl) getNodes(appDetailRequest *client.AppDetailReque
 		return nil, nil, err
 	}
 	// build resource nodes
-	_portList := map[string]*structpb.ListValue{}
+	_portList := map[string]*client.PortList{}
 	nodes, healthStatusArray, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil, _portList)
 	if err != nil {
 		return nil, nil, err
@@ -1103,7 +1102,7 @@ func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDet
 		return nil, err
 	}
 	// build resource nodes
-	_portList := make(map[string]*structpb.ListValue)
+	_portList := make(map[string]*client.PortList)
 	nodes, _, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil, _portList)
 	if err != nil {
 		return nil, err
@@ -1230,7 +1229,7 @@ func (impl HelmAppServiceImpl) getManifestData(restConfig *rest.Config, releaseN
 	return desiredOrLiveManifest
 }
 
-func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef, _portList map[string]*structpb.ListValue) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
+func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef, _portList map[string]*client.PortList) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
 	var nodes []*bean.ResourceNode
 	var healthStatusArray []*bean.HealthStatus
 	for _, desiredOrLiveManifest := range desiredOrLiveManifests {
@@ -1240,7 +1239,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 		if _namespace == "" {
 			_namespace = releaseNamespace
 		}
-		resourcePorts := &structpb.ListValue{}
+		resourcePorts := &client.PortList{}
 
 		serviceName := manifest.Object["metadata"].(map[string]interface{})
 		serviceNameValue := serviceName["name"].(string)
@@ -1254,12 +1253,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 							_portNumber := portItem.(map[string]interface{})["port"]
 							portNumber := _portNumber.(int64)
 							if portNumber != 0 {
-								_value := &structpb.Value{
-									Kind: &structpb.Value_NumberValue{
-										NumberValue: float64(portNumber),
-									},
-								}
-								resourcePorts.Values = append(resourcePorts.Values, _value)
+								resourcePorts.ServicePorts = append(resourcePorts.ServicePorts, portNumber)
 							} else {
 								impl.logger.Errorw("there is no port", "err", portNumber)
 							}
@@ -1278,12 +1272,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 						_portNumber := val.(map[string]interface{})["port"]
 						portNumber := _portNumber.(int64)
 						if portNumber != 0 {
-							_value := &structpb.Value{
-								Kind: &structpb.Value_NumberValue{
-									NumberValue: float64(portNumber),
-								},
-							}
-							resourcePorts.Values = append(resourcePorts.Values, _value)
+							resourcePorts.ServicePorts = append(resourcePorts.ServicePorts, portNumber)
 						}
 					}
 				}
@@ -1300,12 +1289,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 							portsIfObj := portsIf.(map[string]interface{})
 							if portsIfObj != nil {
 								port := portsIfObj["port"].(int64)
-								_value := &structpb.Value{
-									Kind: &structpb.Value_NumberValue{
-										NumberValue: float64(port),
-									},
-								}
-								resourcePorts.Values = append(resourcePorts.Values, _value)
+								resourcePorts.ServicePorts = append(resourcePorts.ServicePorts, port)
 							}
 						}
 					}
