@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -1079,7 +1080,8 @@ func (impl *HelmAppServiceImpl) getNodes(appDetailRequest *client.AppDetailReque
 		return nil, nil, err
 	}
 	// build resource nodes
-	nodes, healthStatusArray, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
+	_portList := map[string]*structpb.ListValue{}
+	nodes, healthStatusArray, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil, _portList)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1101,7 +1103,8 @@ func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDet
 		return nil, err
 	}
 	// build resource nodes
-	nodes, _, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
+	_portList := make(map[string]*structpb.ListValue)
+	nodes, _, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil, _portList)
 	if err != nil {
 		return nil, err
 	}
@@ -1227,7 +1230,7 @@ func (impl HelmAppServiceImpl) getManifestData(restConfig *rest.Config, releaseN
 	return desiredOrLiveManifest
 }
 
-func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
+func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef, _portList map[string]*structpb.ListValue) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
 	var nodes []*bean.ResourceNode
 	var healthStatusArray []*bean.HealthStatus
 	for _, desiredOrLiveManifest := range desiredOrLiveManifests {
@@ -1237,32 +1240,79 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 		if _namespace == "" {
 			_namespace = releaseNamespace
 		}
-		_portList := make(map[string]*client.ResourcePorts)
+		resourcePorts := &structpb.ListValue{}
 
 		serviceName := manifest.Object["metadata"].(map[string]interface{})
 		serviceNameValue := serviceName["name"].(string)
-
-		if manifest.Object["subsets"] != nil {
-			subsets := manifest.Object["subsets"].([]interface{})
-			for _, subset := range subsets {
-				subsetObj := subset.(map[string]interface{})
-				if subsetObj != nil {
-					portsIfs := subsetObj["ports"].([]interface{})
-					for _, portsIf := range portsIfs {
-						portsIfObj := portsIf.(map[string]interface{})
-						if portsIfObj != nil {
-							port := portsIfObj["port"].(int64)
-							// Create a new ResourcePorts instance
-							resourcePorts := &client.ResourcePorts{
-								ServicePorts: []int64{port},
+		if k8sUtils.IsService(gvk) || gvk.Kind == "Service" {
+			if manifest.Object["spec"] != nil {
+				spec := manifest.Object["spec"].(map[string]interface{})
+				if spec["ports"] != nil {
+					portList := spec["ports"].([]interface{})
+					for _, portItem := range portList {
+						if portItem.(map[string]interface{}) != nil {
+							_portNumber := portItem.(map[string]interface{})["port"]
+							portNumber := _portNumber.(int64)
+							if portNumber != 0 {
+								_value := &structpb.Value{
+									Kind: &structpb.Value_NumberValue{
+										NumberValue: float64(portNumber),
+									},
+								}
+								resourcePorts.Values = append(resourcePorts.Values, _value)
+							} else {
+								impl.logger.Errorw("there is no port", "err", portNumber)
 							}
-							_portList[serviceNameValue] = resourcePorts
+						} else {
+							impl.logger.Errorw("there are no port list availabe", "err", portItem)
 						}
 					}
 				}
 			}
 		}
-
+		if manifest.Object["kind"] != nil {
+			if manifest.Object["kind"] == "EndpointSlice" {
+				if manifest.Object["ports"] != nil {
+					endPointsSlicePorts := manifest.Object["ports"].([]interface{})
+					for _, val := range endPointsSlicePorts {
+						_portNumber := val.(map[string]interface{})["port"]
+						portNumber := _portNumber.(int64)
+						if portNumber != 0 {
+							_value := &structpb.Value{
+								Kind: &structpb.Value_NumberValue{
+									NumberValue: float64(portNumber),
+								},
+							}
+							resourcePorts.Values = append(resourcePorts.Values, _value)
+						}
+					}
+				}
+			}
+		}
+		if gvk.Kind == "Endpoints" {
+			if manifest.Object["subsets"] != nil {
+				subsets := manifest.Object["subsets"].([]interface{})
+				for _, subset := range subsets {
+					subsetObj := subset.(map[string]interface{})
+					if subsetObj != nil {
+						portsIfs := subsetObj["ports"].([]interface{})
+						for _, portsIf := range portsIfs {
+							portsIfObj := portsIf.(map[string]interface{})
+							if portsIfObj != nil {
+								port := portsIfObj["port"].(int64)
+								_value := &structpb.Value{
+									Kind: &structpb.Value_NumberValue{
+										NumberValue: float64(port),
+									},
+								}
+								resourcePorts.Values = append(resourcePorts.Values, _value)
+							}
+						}
+					}
+				}
+			}
+		}
+		(_portList)[serviceNameValue] = resourcePorts
 		resourceRef := buildResourceRef(gvk, *manifest, _namespace)
 
 		if impl.k8sService.CanHaveChild(gvk) {
@@ -1276,7 +1326,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 					Manifest: child,
 				})
 			}
-			childNodes, _, err := impl.buildNodes(restConfig, desiredOrLiveManifestsChildren, releaseNamespace, resourceRef)
+			childNodes, _, err := impl.buildNodes(restConfig, desiredOrLiveManifestsChildren, releaseNamespace, resourceRef, _portList)
 			if err != nil {
 				return nil, nil, err
 			}
