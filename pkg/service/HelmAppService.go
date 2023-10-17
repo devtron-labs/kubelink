@@ -1264,38 +1264,38 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 				}
 			}
 		}
-		//if manifest.Object["kind"] != nil {
-		//	if manifest.Object["kind"] == "EndpointSlice" {
-		//		if manifest.Object["ports"] != nil {
-		//			endPointsSlicePorts := manifest.Object["ports"].([]interface{})
-		//			for _, val := range endPointsSlicePorts {
-		//				_portNumber := val.(map[string]interface{})["port"]
-		//				portNumber := _portNumber.(int64)
-		//				if portNumber != 0 {
-		//					resourcePorts.ServicePorts = append(resourcePorts.ServicePorts, portNumber)
-		//				}
-		//			}
-		//		}
-		//	}
-		//}
-		//if gvk.Kind == "Endpoints" {
-		//	if manifest.Object["subsets"] != nil {
-		//		subsets := manifest.Object["subsets"].([]interface{})
-		//		for _, subset := range subsets {
-		//			subsetObj := subset.(map[string]interface{})
-		//			if subsetObj != nil {
-		//				portsIfs := subsetObj["ports"].([]interface{})
-		//				for _, portsIf := range portsIfs {
-		//					portsIfObj := portsIf.(map[string]interface{})
-		//					if portsIfObj != nil {
-		//						port := portsIfObj["port"].(int64)
-		//						resourcePorts.ServicePorts = append(resourcePorts.ServicePorts, port)
-		//					}
-		//				}
-		//			}
-		//		}
-		//	}
-		//}
+		if manifest.Object["kind"] != nil {
+			if manifest.Object["kind"] == "EndpointSlice" {
+				if manifest.Object["ports"] != nil {
+					endPointsSlicePorts := manifest.Object["ports"].([]interface{})
+					for _, val := range endPointsSlicePorts {
+						_portNumber := val.(map[string]interface{})["port"]
+						portNumber := _portNumber.(int64)
+						if portNumber != 0 {
+							resourcePorts.ServicePorts = append(resourcePorts.ServicePorts, portNumber)
+						}
+					}
+				}
+			}
+		}
+		if gvk.Kind == "Endpoints" {
+			if manifest.Object["subsets"] != nil {
+				subsets := manifest.Object["subsets"].([]interface{})
+				for _, subset := range subsets {
+					subsetObj := subset.(map[string]interface{})
+					if subsetObj != nil {
+						portsIfs := subsetObj["ports"].([]interface{})
+						for _, portsIf := range portsIfs {
+							portsIfObj := portsIf.(map[string]interface{})
+							if portsIfObj != nil {
+								port := portsIfObj["port"].(int64)
+								resourcePorts.ServicePorts = append(resourcePorts.ServicePorts, port)
+							}
+						}
+					}
+				}
+			}
+		}
 		(_portList)[serviceNameValue] = resourcePorts
 		resourceRef := buildResourceRef(gvk, *manifest, _namespace)
 
