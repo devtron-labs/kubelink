@@ -1241,8 +1241,8 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 		}
 		resourcePorts := &client.PortList{}
 
-		serviceName := manifest.Object["metadata"].(map[string]interface{})
-		serviceNameValue := serviceName["name"].(string)
+		serviceName := manifest.GetName()
+		//serviceNameValue := serviceName["name"].(string)
 		if k8sUtils.IsService(gvk) || gvk.Kind == "Service" {
 			if manifest.Object["spec"] != nil {
 				spec := manifest.Object["spec"].(map[string]interface{})
@@ -1296,7 +1296,9 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 				}
 			}
 		}
-		(_portList)[serviceNameValue] = resourcePorts
+		if (_portList)[serviceName] == nil {
+			(_portList)[serviceName] = resourcePorts
+		}
 		resourceRef := buildResourceRef(gvk, *manifest, _namespace)
 
 		if impl.k8sService.CanHaveChild(gvk) {
