@@ -1242,7 +1242,6 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 		resourcePorts := &client.PortList{}
 
 		serviceName := manifest.GetName()
-		//serviceNameValue := serviceName["name"].(string)
 		if k8sUtils.IsService(gvk) || gvk.Kind == "Service" {
 			if manifest.Object["spec"] != nil {
 				spec := manifest.Object["spec"].(map[string]interface{})
