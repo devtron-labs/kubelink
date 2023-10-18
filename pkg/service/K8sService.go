@@ -3,10 +3,9 @@ package service
 import (
 	"context"
 	"errors"
+	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
+	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/kubelink/bean"
-	gitops_engine "github.com/devtron-labs/kubelink/pkg/util/gitops-engine"
-	k8sUtils "github.com/devtron-labs/kubelink/pkg/util/k8s"
-	"github.com/devtron-labs/kubelink/pkg/util/kube"
 	"go.uber.org/zap"
 	coreV1 "k8s.io/api/core/v1"
 	errors2 "k8s.io/apimachinery/pkg/api/errors"
@@ -46,7 +45,7 @@ func NewK8sServiceImpl(logger *zap.SugaredLogger) *K8sServiceImpl {
 }
 
 func (impl K8sServiceImpl) CanHaveChild(gvk schema.GroupVersionKind) bool {
-	_, ok := k8sUtils.GetGvkVsChildGvrAndScope()[gvk]
+	_, ok := k8sCommonBean.GetGvkVsChildGvrAndScope()[gvk]
 	return ok
 }
 
@@ -74,7 +73,7 @@ func (impl K8sServiceImpl) GetLiveManifest(restConfig *rest.Config, namespace st
 func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace string, parentGvk schema.GroupVersionKind, parentName string, parentApiVersion string) ([]*unstructured.Unstructured, error) {
 	impl.logger.Debugw("Getting child objects ", "namespace", namespace, "parentGvk", parentGvk, "parentName", parentName, "parentApiVersion", parentApiVersion)
 
-	gvrAndScopes, ok := k8sUtils.GetGvkVsChildGvrAndScope()[parentGvk]
+	gvrAndScopes, ok := k8sCommonBean.GetGvkVsChildGvrAndScope()[parentGvk]
 	if !ok {
 		return nil, errors.New("grv not found for given kind")
 	}
@@ -105,20 +104,20 @@ func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace st
 
 		if objects != nil {
 			for _, item := range objects.Items {
-				ownerRefs, isInferredParentOf := gitops_engine.ResolveResourceReferences(&item)
-				if parentGvk.Kind == kube.StatefulSetKind && gvr.Resource == k8sUtils.PersistentVolumeClaimsResourceType {
+				ownerRefs, isInferredParentOf := k8sUtils.ResolveResourceReferences(&item)
+				if parentGvk.Kind == k8sCommonBean.StatefulSetKind && gvr.Resource == k8sCommonBean.PersistentVolumeClaimsResourceType {
 					pvcs = append(pvcs, item)
 					continue
 				}
 				//special handling for pvcs created via statefulsets
-				if gvr.Resource == k8sUtils.StatefulSetsResourceType && isInferredParentOf != nil {
+				if gvr.Resource == k8sCommonBean.StatefulSetsResourceType && isInferredParentOf != nil {
 					for _, pvc := range pvcs {
 						var pvcClaim coreV1.PersistentVolumeClaim
 						err := runtime.DefaultUnstructuredConverter.FromUnstructured(pvc.Object, &pvcClaim)
 						if err != nil {
 							return manifests, err
 						}
-						isCurrentStsParentOfPvc := isInferredParentOf(kube.ResourceKey{
+						isCurrentStsParentOfPvc := isInferredParentOf(k8sUtils.ResourceKey{
 							Group:     "",
 							Kind:      pvcClaim.Kind,
 							Namespace: namespace,
