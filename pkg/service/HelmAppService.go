@@ -86,7 +86,7 @@ type HelmAppService interface {
 	IsReleaseInstalled(ctx context.Context, releaseIdentifier *client.ReleaseIdentifier) (bool, error)
 	RollbackRelease(request *client.RollbackReleaseRequest) (bool, error)
 	TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error)
-	InstallReleaseWithCustomChart(req *client.HelmInstallCustomRequest) (bool, error)
+	InstallReleaseWithCustomChart(ctx context.Context, req *client.HelmInstallCustomRequest) (bool, error)
 	GetNotes(ctx context.Context, installReleaseRequest *client.InstallReleaseRequest) (string, error)
 	UpgradeReleaseWithCustomChart(ctx context.Context, request *client.UpgradeReleaseRequest) (bool, error)
 	// ValidateOCIRegistryLogin Validates the OCI registry credentials by login
@@ -502,6 +502,7 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 		Success: true,
 	}
 	if request.ChartContent == nil {
+		// external helm app upgrade flow
 		releaseIdentifier := request.ReleaseIdentifier
 		helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 		if err != nil {
@@ -511,12 +512,6 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 		if err != nil {
 			impl.logger.Errorw(HELM_CLIENT_ERROR, "err", err)
 			return nil, err
-		}
-		if request.IsOCIRepo && request.RegistryCredential != nil && request.RegistryCredential.IsPublic {
-			err = impl.OCIRegistryLogin(registryClient, request.RegistryCredential)
-			if err != nil {
-				return nil, err
-			}
 		}
 
 		helmRelease, err := impl.getHelmRelease(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName)
@@ -542,12 +537,23 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 
 		return upgradeReleaseResponse, nil
 	}
-	res, err := impl.UpgradeReleaseWithCustomChart(context.Background(), request)
-	if err != nil {
-		impl.logger.Errorw("Error in upgrade release ", "err", err)
-		return nil, err
+	// handling for running helm Upgrade operation with context in Devtron app; used in Async Install mode
+	switch request.RunInCtx {
+	case true:
+		res, err := impl.UpgradeReleaseWithCustomChart(ctx, request)
+		if err != nil {
+			impl.logger.Errorw("Error in upgrade release ", "err", err)
+			return nil, err
+		}
+		upgradeReleaseResponse.Success = res
+	case false:
+		res, err := impl.UpgradeReleaseWithCustomChart(ctx, request)
+		if err != nil {
+			impl.logger.Errorw("Error in upgrade release ", "err", err)
+			return nil, err
+		}
+		upgradeReleaseResponse.Success = res
 	}
-	upgradeReleaseResponse.Success = res
 	return upgradeReleaseResponse, nil
 }
 
@@ -1614,7 +1620,7 @@ func (impl HelmAppServiceImpl) getHelmClient(clusterConfig *client.ClusterConfig
 	return helmClientObj, nil
 }
 
-func (impl HelmAppServiceImpl) InstallReleaseWithCustomChart(request *client.HelmInstallCustomRequest) (bool, error) {
+func (impl HelmAppServiceImpl) InstallReleaseWithCustomChart(ctx context.Context, request *client.HelmInstallCustomRequest) (bool, error) {
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	if err != nil {
@@ -1651,7 +1657,7 @@ func (impl HelmAppServiceImpl) InstallReleaseWithCustomChart(request *client.Hel
 		return false, err
 	}
 	impl.logger.Debugw("tar file write at", "referenceChartDir", referenceChartDir)
-	// Update release starts
+	// Install release starts
 	chartSpec := &helmClient.ChartSpec{
 		ReleaseName: releaseIdentifier.ReleaseName,
 		Namespace:   releaseIdentifier.ReleaseNamespace,
@@ -1659,13 +1665,13 @@ func (impl HelmAppServiceImpl) InstallReleaseWithCustomChart(request *client.Hel
 		ChartName:   referenceChartDir,
 	}
 
-	//	impl.logger.Debug("Upgrading release with chart info")
-	_, err = helmClientObj.InstallChart(context.Background(), chartSpec)
+	impl.logger.Debug("Installing release with chart info")
+	_, err = helmClientObj.InstallChart(ctx, chartSpec)
 	if err != nil {
 		impl.logger.Errorw("Error in install chart", "err", err)
 		return false, err
 	}
-	// Update release ends
+	// Install release ends
 
 	return true, nil
 }
@@ -1720,11 +1726,11 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 	updateChartSpec.MaxHistory = int(request.HistoryMax)
 
 	impl.logger.Debug("Upgrading release")
-	_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), updateChartSpec)
+	_, err = helmClientObj.UpgradeReleaseWithChartInfo(ctx, updateChartSpec)
 	if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
 		if UpgradeErr != nil {
 			if UpgradeErr.Err == driver.ErrNoDeployedReleases {
-				_, err := helmClientObj.InstallChart(context.Background(), installChartSpec)
+				_, err := helmClientObj.InstallChart(ctx, installChartSpec)
 				if err != nil {
 					impl.logger.Errorw("Error in install release ", "err", err)
 					return false, err

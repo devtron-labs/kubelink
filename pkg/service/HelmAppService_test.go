@@ -52,7 +52,7 @@ func TestHelmAppServiceImpl_HelmInstallCustom(t *testing.T) {
 				k8sService: tt.fields.k8sService,
 				randSource: tt.fields.randSource,
 			}
-			got, err := impl.InstallReleaseWithCustomChart(tt.args.request)
+			got, err := impl.InstallReleaseWithCustomChart(context.Background(), tt.args.request)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("HelmInstallCustom() error = %v, wantErr %v", err, tt.wantErr)
 				return
