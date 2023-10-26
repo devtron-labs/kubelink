@@ -1473,6 +1473,7 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 		var pod coreV1.Pod
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(node.Manifest.UnstructuredContent(), &pod)
 		if err != nil {
+			fmt.Println("some error occured after var pod coreV1.Pod **********===========1@#@@#@#@#$$$%$$%$% ", err)
 			return nil, err
 		}
 
@@ -1487,6 +1488,7 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 				var statefulSet appsV1.StatefulSet
 				err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &statefulSet)
 				if err != nil {
+					fmt.Println("some error occured after var statefulSet appsV1.StatefulSet **********===========1@#@@#@#@#$$$%$$%$% ", err)
 					return nil, err
 				}
 				isNew = statefulSet.Status.UpdateRevision == pod.GetLabels()["controller-revision-hash"]
@@ -1503,6 +1505,7 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 				var replicaSet appsV1.ReplicaSet
 				err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &replicaSet)
 				if err != nil {
+					fmt.Println("some error occured after var replicaSet appsV1.ReplicaSet **********===========1@#@@#@#@#$$$%$$%$% ", err)
 					return nil, err
 				}
 				replicaSetNode := getMatchingNode(nodes, parentKind, replicaSet.Name)
@@ -1513,12 +1516,14 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 
 				replica, err := json.Marshal(replicaNodeTemplate)
 				if err != nil {
+					fmt.Println("some error occured after replica, err := json.Marshal(replicaNodeTemplate) **********===========1@#@@#@#@#$$$%$$%$% ", err)
 					return nil, err
 				}
 
 				replicaSetTemplate := &coreV1.PodTemplateSpec{}
 				err = json.Unmarshal(replica, replicaSetTemplate)
 				if err != nil {
+					fmt.Println("some error occured after err = json.Unmarshal(replica, replicaSetTemplate) **********===========1@#@@#@#@#$$$%$$%$% ", err)
 					return nil, err
 				}
 
