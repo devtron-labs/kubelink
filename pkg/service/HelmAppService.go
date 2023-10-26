@@ -125,9 +125,13 @@ type HelmAppServiceImpl struct {
 
 func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 	k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig,
-	k8sUtil *k8sUtils.K8sUtil, pubsubClient *pubsub_lib.PubSubClientServiceImpl,
+	k8sUtil *k8sUtils.K8sUtil,
 	clusterRepository repository.ClusterRepository) *HelmAppServiceImpl {
 
+	var pubsubClient *pubsub_lib.PubSubClientServiceImpl
+	if helmReleaseConfig.RunHelmInstallInAsyncMode {
+		pubsubClient = pubsub_lib.NewPubSubClientServiceImpl(logger)
+	}
 	helmAppServiceImpl := &HelmAppServiceImpl{
 		logger:            logger,
 		k8sService:        k8sService,
