@@ -5,15 +5,21 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/common-lib/utils/k8s/health"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
+	"hash"
+	"hash/fnv"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
+	appsV1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"path"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -40,11 +46,9 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
 	"io/ioutil"
-	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	errors2 "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -1437,17 +1441,98 @@ func buildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstruc
 	return resourceRef
 }
 
+func GetIntPointer(value int32) *int32 {
+	return &value
+}
+
 func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
+	replicaSets := make([]*coreV1.PodTemplateSpec, 0)
+	var dPodHash string
 	for _, node := range nodes {
+		if node.Kind == k8sCommonBean.ReplicaSetKind {
+			//manifest := make(map[string]interface{})
+			pod := node.ResourceRef.Manifest.Object
+			fmt.Println(pod)
+			//var replica *coreV1.Pod
+			dpod := pod["spec"].(map[string]interface{})
+			ddpod := dpod["template"]
+			fmt.Println(ddpod)
+
+			d, err := json.Marshal(ddpod)
+			if err != nil {
+				return nil, err
+			}
+
+			replicaSet := &coreV1.PodTemplateSpec{}
+			err = json.Unmarshal(d, replicaSet)
+			if err != nil {
+				return nil, err
+			}
+			replicaSets = append(replicaSets, replicaSet)
+			//err := json.Unmarshal([]byte(manifestFromResponse), &manifest)
+			//if err != nil {
+			//	c.logger.Error(err)
+			//}
+			//replicaSetManifests = append(replicaSetManifests, manifest)
+		}
+	}
+	for _, node := range nodes {
+		if node.Kind == k8sCommonBean.DeploymentKind {
+			pod := node.ResourceRef.Manifest.Object
+			fmt.Println(pod)
+			dpod := pod["spec"].(map[string]interface{})
+			ddpod := dpod["template"]
+			fmt.Println(ddpod)
+
+			d, err := json.Marshal(ddpod)
+			if err != nil {
+				return nil, err
+			}
+
+			deployment := &coreV1.PodTemplateSpec{}
+			err = json.Unmarshal(d, deployment)
+			if err != nil {
+				return nil, err
+			}
+			dPodHash = ComputeHash(deployment, GetIntPointer(1))
+			fmt.Println(dPodHash)
+		}
+	}
+
+	//for _, _ = range nodes {
+	//
+	//		for _, rs := range replicaSets {
+	//			r, err := json.Marshal(rs)
+	//			if err != nil {
+	//				return nil, err
+	//			}
+	//			replicaset := &coreV1.PodTemplateSpec{}
+	//			err = json.Unmarshal(r, replicaset)
+	//			if err != nil {
+	//				continue
+	//			}
+	//			rsCopy := replicaset.DeepCopy()
+	//			fmt.Println(rsCopy)
+	//			labels := make(map[string]string)
+	//			for k, v := range rsCopy.Labels {
+	//				if k != "pod-template-hash" {
+	//					labels[k] = v
+	//				}
+	//			}
+	//			rsCopy.Labels = labels
+	//			podHash := ComputeHash(rsCopy, GetIntPointer(1))
+	//			if podHash == dPodHash {
+	//
+	//				//newReplicaSet = getResourceName(rs)
+	//			}
+	//		}
+	//
+	//}
+	for _, node := range nodes {
+
 		if node.Kind != k8sCommonBean.PodKind {
 			continue
-		}
-
-		var pod coreV1.Pod
-		err := runtime.DefaultUnstructuredConverter.FromUnstructured(node.Manifest.UnstructuredContent(), &pod)
-		if err != nil {
-			return nil, err
 		}
 
 		// check if pod is new
@@ -1456,24 +1541,25 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 			parentRef := node.ParentRefs[0]
 			parentKind := parentRef.Kind
 
-			// if parent is StatefulSet - then pod label controller-revision-hash should match StatefulSet's update revision
-			if parentKind == k8sCommonBean.StatefulSetKind {
-				var statefulSet appsV1.StatefulSet
-				err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &statefulSet)
-				if err != nil {
-					return nil, err
-				}
-				isNew = statefulSet.Status.UpdateRevision == pod.GetLabels()["controller-revision-hash"]
-			}
+			////if parent is StatefulSet - then pod label controller-revision-hash should match StatefulSet's update revision
+			//if parentKind == k8sCommonBean.StatefulSetKind {
+			//	var statefulSet appsV1.StatefulSet
+			//	err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &statefulSet)
+			//	if err != nil {
+			//		return nil, err
+			//	}
+			//	isNew = statefulSet.Status.UpdateRevision == pod.GetLabels()["controller-revision-hash"]
+			//}
 
-			// if parent is Job - then pod label controller-revision-hash should match StatefulSet's update revision
-			if parentKind == k8sCommonBean.JobKind {
-				//TODO - new or old logic not built in orchestrator for Job's pods. hence not implementing here. as don't know the logic :)
-				isNew = true
-			}
+			////if parent is Job - then pod label controller-revision-hash should match StatefulSet's update revision
+			//if parentKind == k8sCommonBean.JobKind {
+			//	//TODO - new or old logic not built in orchestrator for Job's pods. hence not implementing here. as don't know the logic :)
+			//	isNew = true
+			//}
 
-			// if parent kind is replica set then
+			//if parent kind is replica set then
 			if parentKind == k8sCommonBean.ReplicaSetKind {
+
 				var replicaSet appsV1.ReplicaSet
 				err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &replicaSet)
 				if err != nil {
@@ -1481,80 +1567,166 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 				}
 				replicaSetNode := getMatchingNode(nodes, parentKind, replicaSet.Name)
 
-				// if parent of replicaset is deployment, compare label pod-template-hash
-				if replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetNode.ParentRefs[0].Kind == k8sCommonBean.DeploymentKind {
-					isNew = replicaSet.GetLabels()["pod-template-hash"] == pod.GetLabels()["pod-template-hash"]
-				}
-			}
+				pod := replicaSetNode.ResourceRef.Manifest.Object
+				fmt.Println(pod)
+				//var replica *coreV1.Pod
+				dpod := pod["spec"].(map[string]interface{})
+				ddpod := dpod["template"]
+				fmt.Println(ddpod)
 
-			// if parent kind is DaemonSet then compare DaemonSet's Child ControllerRevision's label controller-revision-hash with pod label controller-revision-hash
-			if parentKind == k8sCommonBean.DaemonSetKind {
-				var daemonSet appsV1.DaemonSet
-				err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &daemonSet)
+				d, err := json.Marshal(ddpod)
 				if err != nil {
 					return nil, err
 				}
 
-				controllerRevisionNodes := getMatchingNodes(nodes, "ControllerRevision")
-				for _, controllerRevisionNode := range controllerRevisionNodes {
-					if len(controllerRevisionNode.ParentRefs) > 0 && controllerRevisionNode.ParentRefs[0].Kind == parentKind &&
-						controllerRevisionNode.ParentRefs[0].Name == daemonSet.Name {
+				replicaSet1 := &coreV1.PodTemplateSpec{}
+				err = json.Unmarshal(d, replicaSet1)
+				if err != nil {
+					return nil, err
+				}
 
-						var controlRevision appsV1.ControllerRevision
-						err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &controlRevision)
-						if err != nil {
-							return nil, err
-						}
-						isNew = controlRevision.GetLabels()["controller-revision-hash"] == pod.GetLabels()["controller-revision-hash"]
+				//rs := replicaSet
+				////for _, rs := range replicaSets {
+				//r, err := json.Marshal(rs)
+				//if err != nil {
+				//	return nil, err
+				//}
+				//replicaset := &coreV1.PodTemplateSpec{}
+				//err = json.Unmarshal(r, replicaset)
+				//if err != nil {
+				//	continue
+				//}
+				rsCopy := replicaSet1.DeepCopy()
+				fmt.Println(rsCopy)
+				labels := make(map[string]string)
+				for k, v := range rsCopy.Labels {
+					if k != "pod-template-hash" {
+						labels[k] = v
 					}
 				}
+				rsCopy.Labels = labels
+				podHash := ComputeHash(rsCopy, GetIntPointer(1))
+				//if podHash == dPodHash {
+				//	isNew = true
+				//	//newReplicaSet = getResourceName(rs)
+				//}
+				isNew = podHash == dPodHash
+				//}
+
+				// if parent of replicaset is deployment, compare label pod-template-hash
+				//if replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetNode.ParentRefs[0].Kind == k8sCommonBean.DeploymentKind {
+				//	isNew = replicaSet.GetLabels()["pod-template-hash"] == deployment.GetLabels()["pod-template-hash"]
+				//}
 			}
-		}
 
-		// set containers,initContainers and ephemeral container names
-		containerNames := make([]string, 0, len(pod.Spec.Containers))
-		initContainerNames := make([]string, 0, len(pod.Spec.InitContainers))
-		ephemeralContainers := make([]*bean.EphemeralContainerData, 0, len(pod.Spec.EphemeralContainers))
-		for _, container := range pod.Spec.Containers {
-			containerNames = append(containerNames, container.Name)
+			////if parent kind is DaemonSet then compare DaemonSet's Child ControllerRevision's label controller-revision-hash with pod label controller-revision-hash
+			//if parentKind == k8sCommonBean.DaemonSetKind {
+			//	var daemonSet appsV1.DaemonSet
+			//	err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &daemonSet)
+			//	if err != nil {
+			//		return nil, err
+			//	}
+			//
+			//	controllerRevisionNodes := getMatchingNodes(nodes, "ControllerRevision")
+			//	for _, controllerRevisionNode := range controllerRevisionNodes {
+			//		if len(controllerRevisionNode.ParentRefs) > 0 && controllerRevisionNode.ParentRefs[0].Kind == parentKind &&
+			//			controllerRevisionNode.ParentRefs[0].Name == daemonSet.Name {
+			//
+			//			var controlRevision appsV1.ControllerRevision
+			//			err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &controlRevision)
+			//			if err != nil {
+			//				return nil, err
+			//			}
+			//			isNew = controlRevision.GetLabels()["controller-revision-hash"] == pod.GetLabels()["controller-revision-hash"]
+			//		}
+			//	}
+			//}
 		}
-		for _, initContainer := range pod.Spec.InitContainers {
-			initContainerNames = append(initContainerNames, initContainer.Name)
-		}
-
-		ephemeralContainerStatusMap := make(map[string]bool)
-		for _, c := range pod.Status.EphemeralContainerStatuses {
-			//c.state contains three states running,waiting and terminated
-			// at any point of time only one state will be there
-			if c.State.Running != nil {
-				ephemeralContainerStatusMap[c.Name] = true
-			}
-		}
-
-		//sending only running ephemeral containers in the list
-		for _, ec := range pod.Spec.EphemeralContainers {
-			if _, ok := ephemeralContainerStatusMap[ec.Name]; ok {
-				containerData := &bean.EphemeralContainerData{
-					Name:       ec.Name,
-					IsExternal: isExternalEphemeralContainer(ec.Command, ec.Name),
-				}
-				ephemeralContainers = append(ephemeralContainers, containerData)
-			}
-		}
-
+		//
+		//// set containers,initContainers and ephemeral container names
+		//containerNames := make([]string, 0, len(pod.Spec.Containers))
+		//initContainerNames := make([]string, 0, len(pod.Spec.InitContainers))
+		//ephemeralContainers := make([]*bean.EphemeralContainerData, 0, len(pod.Spec.EphemeralContainers))
+		//for _, container := range pod.Spec.Containers {
+		//	containerNames = append(containerNames, container.Name)
+		//}
+		//for _, initContainer := range pod.Spec.InitContainers {
+		//	initContainerNames = append(initContainerNames, initContainer.Name)
+		//}
+		//
+		//ephemeralContainerStatusMap := make(map[string]bool)
+		//for _, c := range pod.Status.EphemeralContainerStatuses {
+		//	//c.state contains three states running,waiting and terminated
+		//	// at any point of time only one state will be there
+		//	if c.State.Running != nil {
+		//		ephemeralContainerStatusMap[c.Name] = true
+		//	}
+		//}
+		//
+		////sending only running ephemeral containers in the list
+		//for _, ec := range pod.Spec.EphemeralContainers {
+		//	if _, ok := ephemeralContainerStatusMap[ec.Name]; ok {
+		//		containerData := &bean.EphemeralContainerData{
+		//			Name:       ec.Name,
+		//			IsExternal: isExternalEphemeralContainer(ec.Command, ec.Name),
+		//		}
+		//		ephemeralContainers = append(ephemeralContainers, containerData)
+		//	}
+		//}
+		//
 		podMetadata := &bean.PodMetadata{
-			Name:                node.Name,
-			UID:                 node.UID,
-			Containers:          containerNames,
-			InitContainers:      initContainerNames,
-			EphemeralContainers: ephemeralContainers,
-			IsNew:               isNew,
+			Name: node.Name,
+			UID:  node.UID,
+			//Containers:          containerNames,
+			//InitContainers:      initContainerNames,
+			//EphemeralContainers: ephemeralContainers,
+			IsNew: isNew,
 		}
 
 		podsMetadata = append(podsMetadata, podMetadata)
 
 	}
 	return podsMetadata, nil
+}
+
+func ComputeHash(template *coreV1.PodTemplateSpec, collisionCount *int32) string {
+	podTemplateSpecHasher := fnv.New32a()
+	DeepHashObject(podTemplateSpecHasher, *template)
+
+	// Add collisionCount in the hash if it exists.
+	if collisionCount != nil {
+		collisionCountBytes := make([]byte, 8)
+		binary.LittleEndian.PutUint32(collisionCountBytes, uint32(*collisionCount))
+		_, err := podTemplateSpecHasher.Write(collisionCountBytes)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+	return SafeEncodeString(fmt.Sprint(podTemplateSpecHasher.Sum32()))
+}
+
+const alphanums = "bcdfghjklmnpqrstvwxz2456789"
+
+func SafeEncodeString(s string) string {
+	r := make([]byte, len(s))
+	for i, b := range []rune(s) {
+		r[i] = alphanums[(int(b) % len(alphanums))]
+	}
+	return string(r)
+}
+
+func DeepHashObject(hasher hash.Hash, objectToWrite interface{}) {
+	hasher.Reset()
+	printer := spew.ConfigState{
+		Indent:         " ",
+		SortKeys:       true,
+		DisableMethods: true,
+		SpewKeys:       true,
+	}
+	_, err := printer.Fprintf(hasher, "%#v", objectToWrite)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func isExternalEphemeralContainer(cmds []string, name string) bool {
