@@ -125,9 +125,13 @@ type HelmAppServiceImpl struct {
 
 func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 	k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig,
-	k8sUtil *k8sUtils.K8sUtil, pubsubClient *pubsub_lib.PubSubClientServiceImpl,
+	k8sUtil *k8sUtils.K8sUtil,
 	clusterRepository repository.ClusterRepository) *HelmAppServiceImpl {
 
+	var pubsubClient *pubsub_lib.PubSubClientServiceImpl
+	if helmReleaseConfig.RunHelmInstallInAsyncMode {
+		pubsubClient = pubsub_lib.NewPubSubClientServiceImpl(logger)
+	}
 	helmAppServiceImpl := &HelmAppServiceImpl{
 		logger:            logger,
 		k8sService:        k8sService,
@@ -662,14 +666,14 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 			impl.logger.Errorw("Error in install release ", "err", err)
 			return nil, err
 		}
-		helmInstallMessage := HelmReleaseStatusConfig{
-			InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
-		}
-		helmInstallMessagedata, err := impl.GetNatsMessageForHelmInstallSuccess(helmInstallMessage)
-		if err != nil {
-			impl.logger.Errorw("Error in parsing nats message for helm install success ", "err", err)
-		}
-		_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, helmInstallMessagedata)
+		//helmInstallMessage := HelmReleaseStatusConfig{
+		//	InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
+		//}
+		//helmInstallMessagedata, err := impl.GetNatsMessageForHelmInstallSuccess(helmInstallMessage)
+		//if err != nil {
+		//	impl.logger.Errorw("Error in parsing nats message for helm install success ", "err", err)
+		//}
+		//_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, helmInstallMessagedata)
 		// Install release ends
 		return rel, nil
 	case true:
@@ -832,14 +836,14 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 				}
 			}
 		}
-		helmInstallMessage := HelmReleaseStatusConfig{
-			InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
-		}
-		helmInstallMessagedata, err := impl.GetNatsMessageForHelmInstallSuccess(helmInstallMessage)
-		if err != nil {
-			impl.logger.Errorw("Error in parsing nats message for helm install success ", "err", err)
-		}
-		_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, helmInstallMessagedata)
+		//helmInstallMessage := HelmReleaseStatusConfig{
+		//	InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
+		//}
+		//helmInstallMessagedata, err := impl.GetNatsMessageForHelmInstallSuccess(helmInstallMessage)
+		//if err != nil {
+		//	impl.logger.Errorw("Error in parsing nats message for helm install success ", "err", err)
+		//}
+		//_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, helmInstallMessagedata)
 	case true:
 		go func() {
 			impl.logger.Debug("Upgrading release with chart info")
