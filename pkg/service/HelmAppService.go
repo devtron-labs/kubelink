@@ -886,7 +886,8 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 	}
 
 	upgradeReleaseResponse := &client.UpgradeReleaseResponse{
-		Success: true,
+		Success:                  true,
+		PerformedHelmSyncInstall: !impl.helmReleaseConfig.RunHelmInstallInAsyncMode,
 	}
 
 	return upgradeReleaseResponse, nil
