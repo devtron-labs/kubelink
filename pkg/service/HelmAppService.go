@@ -1448,7 +1448,7 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 	for _, node := range nodes {
 		if node.Kind == k8sCommonBean.DeploymentKind {
 			deploymentNode := node.ResourceRef.Manifest.Object
-			dNodeMap := deploymentNode[k8sCommonBean.Spec].(map[string]interface{})
+			dNodeMap := deploymentNode["spec"].(map[string]interface{})
 			dNodeTemplate := dNodeMap["template"]
 
 			d, err := json.Marshal(dNodeTemplate)
