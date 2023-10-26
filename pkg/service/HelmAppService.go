@@ -583,8 +583,7 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 	}
 	// Install release ends
 	installReleaseResponse := &client.InstallReleaseResponse{
-		Success:                  true,
-		PerformedHelmSyncInstall: !impl.helmReleaseConfig.RunHelmInstallInAsyncMode,
+		Success: true,
 	}
 
 	return installReleaseResponse, nil
@@ -886,8 +885,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 	}
 
 	upgradeReleaseResponse := &client.UpgradeReleaseResponse{
-		Success:                  true,
-		PerformedHelmSyncInstall: !impl.helmReleaseConfig.RunHelmInstallInAsyncMode,
+		Success: true,
 	}
 
 	return upgradeReleaseResponse, nil
