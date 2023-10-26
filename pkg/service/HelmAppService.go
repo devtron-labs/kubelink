@@ -1437,10 +1437,6 @@ func buildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstruc
 	return resourceRef
 }
 
-func GetIntPointer(value int32) *int32 {
-	return &value
-}
-
 func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
 	var dNodeHash string
@@ -1482,7 +1478,7 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 			parentRef := node.ParentRefs[0]
 			parentKind := parentRef.Kind
 
-			//if parent is StatefulSet - then pod label controller-revision-hash should match StatefulSet's update revision
+			// if parent is StatefulSet - then pod label controller-revision-hash should match StatefulSet's update revision
 			if parentKind == k8sCommonBean.StatefulSetKind {
 				var statefulSet appsV1.StatefulSet
 				err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &statefulSet)
@@ -1492,13 +1488,13 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 				isNew = statefulSet.Status.UpdateRevision == pod.GetLabels()["controller-revision-hash"]
 			}
 
-			//if parent is Job - then pod label controller-revision-hash should match StatefulSet's update revision
+			// if parent is Job - then pod label controller-revision-hash should match StatefulSet's update revision
 			if parentKind == k8sCommonBean.JobKind {
 				//TODO - new or old logic not built in orchestrator for Job's pods. hence not implementing here. as don't know the logic :)
 				isNew = true
 			}
 
-			//if parent kind is replica set then
+			// if parent kind is replica set then
 			if parentKind == k8sCommonBean.ReplicaSetKind {
 				var replicaSet appsV1.ReplicaSet
 				err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &replicaSet)
@@ -1534,7 +1530,7 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 				isNew = replicaHash == dNodeHash
 			}
 
-			//if parent kind is DaemonSet then compare DaemonSet's Child ControllerRevision's label controller-revision-hash with pod label controller-revision-hash
+			// if parent kind is DaemonSet then compare DaemonSet's Child ControllerRevision's label controller-revision-hash with pod label controller-revision-hash
 			if parentKind == k8sCommonBean.DaemonSetKind {
 				var daemonSet appsV1.DaemonSet
 				err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &daemonSet)
