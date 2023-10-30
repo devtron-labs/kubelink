@@ -12,4 +12,3 @@
 | PG_PORT                          | 5432                                        | PostgreSQL server port                  |
 | PG_USER                          | postgres                                    | PostgreSQL username                     |
 | RUN_HELM_INSTALL_IN_ASYNC_MODE   | true                                        | Run Helm install in asynchronous mode  |
-| MANIFEST_FETCH_BATCH_SIZE        | 10                                          | Updated manifest fetch batch size      |
