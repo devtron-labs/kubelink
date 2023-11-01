@@ -138,7 +138,7 @@ func (impl *K8sInformerImpl) BuildInformerForAllClusters() error {
 	}
 
 	for _, model := range models {
-		clusterInfo := impl.clusterRepository.GetClusterInfo(model)
+		clusterInfo := model.GetClusterInfo()
 		err := impl.startInformer(*clusterInfo)
 		if err != nil {
 			impl.logger.Error("error in starting informer for cluster ", "cluster-name ", clusterInfo.ClusterName, "err", err)
@@ -318,7 +318,7 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 
 	impl.logger.Info("starting informer for cluster - ", "cluster-id ", clusterModel.Id, "cluster-name ", clusterModel.ClusterName)
 
-	clusterInfo := impl.clusterRepository.GetClusterInfo(clusterModel)
+	clusterInfo := clusterModel.GetClusterInfo()
 	clusterConfig := clusterInfo.GetClusterConfig()
 	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(clusterConfig)
 	if err != nil {

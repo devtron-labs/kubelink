@@ -45,14 +45,13 @@ type ClusterRepository interface {
 	FindById(id int) (*Cluster, error)
 	FindByIdWithActiveFalse(id int) (*Cluster, error)
 	GetDBConnection() *pg.DB
-	GetClusterInfo(cluster *Cluster) *bean.ClusterInfo
 }
 
 func (impl ClusterRepositoryImpl) GetDBConnection() *pg.DB {
 	return impl.dbConnection
 }
 
-func (impl ClusterRepositoryImpl) GetClusterInfo(cluster *Cluster) *bean.ClusterInfo {
+func (cluster *Cluster) GetClusterInfo() *bean.ClusterInfo {
 	clusterInfo := &bean.ClusterInfo{}
 	if cluster != nil {
 		config := cluster.Config
