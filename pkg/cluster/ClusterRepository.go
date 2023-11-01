@@ -1,6 +1,8 @@
 package repository
 
 import (
+	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
+	"github.com/devtron-labs/kubelink/bean"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 	"github.com/go-pg/pg"
 	"go.uber.org/zap"
@@ -43,10 +45,32 @@ type ClusterRepository interface {
 	FindById(id int) (*Cluster, error)
 	FindByIdWithActiveFalse(id int) (*Cluster, error)
 	GetDBConnection() *pg.DB
+	GetClusterInfo(cluster *Cluster) *bean.ClusterInfo
 }
 
 func (impl ClusterRepositoryImpl) GetDBConnection() *pg.DB {
 	return impl.dbConnection
+}
+
+func (impl ClusterRepositoryImpl) GetClusterInfo(cluster *Cluster) *bean.ClusterInfo {
+	clusterInfo := &bean.ClusterInfo{}
+	if cluster != nil {
+		config := cluster.Config
+		bearerToken := config["bearer_token"]
+		clusterInfo = &bean.ClusterInfo{
+			ClusterId:             cluster.Id,
+			ClusterName:           cluster.ClusterName,
+			BearerToken:           bearerToken,
+			ServerUrl:             cluster.ServerUrl,
+			InsecureSkipTLSVerify: cluster.InsecureSkipTlsVerify,
+		}
+		if cluster.InsecureSkipTlsVerify == false {
+			clusterInfo.KeyData = config[k8sUtils.TlsKey]
+			clusterInfo.CertData = config[k8sUtils.CertData]
+			clusterInfo.CAData = config[k8sUtils.CertificateAuthorityData]
+		}
+	}
+	return clusterInfo
 }
 
 func (impl ClusterRepositoryImpl) FindAllActive() ([]*Cluster, error) {

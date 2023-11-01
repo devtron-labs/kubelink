@@ -138,7 +138,7 @@ func (impl *K8sInformerImpl) BuildInformerForAllClusters() error {
 	}
 
 	for _, model := range models {
-		clusterInfo := GetClusterInfo(model)
+		clusterInfo := impl.clusterRepository.GetClusterInfo(model)
 		err := impl.startInformer(*clusterInfo)
 		if err != nil {
 			impl.logger.Error("error in starting informer for cluster ", "cluster-name ", clusterInfo.ClusterName, "err", err)
@@ -148,27 +148,6 @@ func (impl *K8sInformerImpl) BuildInformerForAllClusters() error {
 	}
 
 	return nil
-}
-
-func GetClusterInfo(c *repository.Cluster) *bean.ClusterInfo {
-	clusterInfo := &bean.ClusterInfo{}
-	if c != nil {
-		config := c.Config
-		bearerToken := config["bearer_token"]
-		clusterInfo = &bean.ClusterInfo{
-			ClusterId:             c.Id,
-			ClusterName:           c.ClusterName,
-			BearerToken:           bearerToken,
-			ServerUrl:             c.ServerUrl,
-			InsecureSkipTLSVerify: c.InsecureSkipTlsVerify,
-		}
-		if c.InsecureSkipTlsVerify == false {
-			clusterInfo.KeyData = config[k8sUtils.TlsKey]
-			clusterInfo.CertData = config[k8sUtils.CertData]
-			clusterInfo.CAData = config[k8sUtils.CertificateAuthorityData]
-		}
-	}
-	return clusterInfo
 }
 
 func (impl *K8sInformerImpl) startInformer(clusterInfo bean.ClusterInfo) error {
@@ -339,7 +318,7 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 
 	impl.logger.Info("starting informer for cluster - ", "cluster-id ", clusterModel.Id, "cluster-name ", clusterModel.ClusterName)
 
-	clusterInfo := GetClusterInfo(clusterModel)
+	clusterInfo := impl.clusterRepository.GetClusterInfo(clusterModel)
 	clusterConfig := clusterInfo.GetClusterConfig()
 	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(clusterConfig)
 	if err != nil {
