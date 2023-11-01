@@ -29,19 +29,24 @@ type Cluster struct {
 func NewClusterRepositoryImpl(dbConnection *pg.DB, logger *zap.SugaredLogger) *ClusterRepositoryImpl {
 	return &ClusterRepositoryImpl{
 		dbConnection: dbConnection,
-		logger:       logger,
+		Logger:       logger,
 	}
 }
 
 type ClusterRepositoryImpl struct {
 	dbConnection *pg.DB
-	logger       *zap.SugaredLogger
+	Logger       *zap.SugaredLogger
 }
 
 type ClusterRepository interface {
 	FindAllActive() ([]*Cluster, error)
 	FindById(id int) (*Cluster, error)
 	FindByIdWithActiveFalse(id int) (*Cluster, error)
+	GetDBConnection() *pg.DB
+}
+
+func (impl ClusterRepositoryImpl) GetDBConnection() *pg.DB {
+	return impl.dbConnection
 }
 
 func (impl ClusterRepositoryImpl) FindAllActive() ([]*Cluster, error) {
