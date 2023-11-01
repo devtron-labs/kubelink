@@ -171,7 +171,7 @@ func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.Clus
 		impl.logger.Infow("Fetching helm release using Cache")
 		deployedApps = impl.K8sInformer.GetAllReleaseByClusterId(int(config.GetClusterId()))
 	} else {
-		k8sClusterConfig := GetClusterConfigFromClientBean(config)
+		k8sClusterConfig := impl.clusterRepository.GetClusterConfigFromClientBean(config)
 		restConfig, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 		if err != nil {
 			impl.logger.Errorw("Error in building rest config ", "clusterId", config.ClusterId, "err", err)
@@ -320,7 +320,7 @@ func (impl HelmAppServiceImpl) GetHelmAppValues(req *client.AppDetailRequest) (*
 
 func (impl HelmAppServiceImpl) ScaleObjects(ctx context.Context, clusterConfig *client.ClusterConfig, objects []*client.ObjectIdentifier, scaleDown bool) (*client.HibernateResponse, error) {
 	response := &client.HibernateResponse{}
-	k8sClusterConfig := GetClusterConfigFromClientBean(clusterConfig)
+	k8sClusterConfig := impl.clusterRepository.GetClusterConfigFromClientBean(clusterConfig)
 	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		impl.logger.Errorw("Error in getting rest config ", "err", err)
@@ -999,7 +999,7 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 
 func (impl HelmAppServiceImpl) getHelmRelease(clusterConfig *client.ClusterConfig, namespace string, releaseName string) (*release.Release, error) {
 
-	k8sClusterConfig := GetClusterConfigFromClientBean(clusterConfig)
+	k8sClusterConfig := impl.clusterRepository.GetClusterConfigFromClientBean(clusterConfig)
 	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		return nil, err
@@ -1022,7 +1022,7 @@ func (impl HelmAppServiceImpl) getHelmRelease(clusterConfig *client.ClusterConfi
 }
 
 func (impl HelmAppServiceImpl) getHelmReleaseHistory(clusterConfig *client.ClusterConfig, releaseNamespace string, releaseName string, countOfHelmReleaseHistory int) ([]*release.Release, error) {
-	k8sClusterConfig := GetClusterConfigFromClientBean(clusterConfig)
+	k8sClusterConfig := impl.clusterRepository.GetClusterConfigFromClientBean(clusterConfig)
 	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		return nil, err
@@ -1087,7 +1087,7 @@ func buildReleaseInfoBasicData(helmRelease *release.Release) (*client.ReleaseInf
 }
 
 func (impl *HelmAppServiceImpl) getNodes(appDetailRequest *client.AppDetailRequest, release *release.Release) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
-	k8sClusterConfig := GetClusterConfigFromClientBean(appDetailRequest.ClusterConfig)
+	k8sClusterConfig := impl.clusterRepository.GetClusterConfigFromClientBean(appDetailRequest.ClusterConfig)
 	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		return nil, nil, err
@@ -1110,7 +1110,7 @@ func (impl *HelmAppServiceImpl) getNodes(appDetailRequest *client.AppDetailReque
 }
 
 func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDetailRequest, release *release.Release) (*bean.ResourceTreeResponse, error) {
-	k8sClusterConfig := GetClusterConfigFromClientBean(appDetailRequest.ClusterConfig)
+	k8sClusterConfig := impl.clusterRepository.GetClusterConfigFromClientBean(appDetailRequest.ClusterConfig)
 	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		return nil, err
@@ -1593,7 +1593,7 @@ func getMatchingNodes(nodes []*bean.ResourceNode, kind string) []*bean.ResourceN
 }
 
 func (impl HelmAppServiceImpl) getHelmClient(clusterConfig *client.ClusterConfig, releaseNamespace string) (helmClient.Client, error) {
-	k8sClusterConfig := GetClusterConfigFromClientBean(clusterConfig)
+	k8sClusterConfig := impl.clusterRepository.GetClusterConfigFromClientBean(clusterConfig)
 	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		impl.logger.Errorw("Error in getting rest config ", "err", err)
@@ -1917,21 +1917,4 @@ func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallSuccess(helmInstallMe
 		return string(data), err
 	}
 	return string(data), nil
-}
-func GetClusterConfigFromClientBean(config *client.ClusterConfig) *k8sUtils.ClusterConfig {
-	clusterConfig := &k8sUtils.ClusterConfig{}
-	if config != nil {
-		clusterConfig = &k8sUtils.ClusterConfig{
-			ClusterName:           config.ClusterName,
-			Host:                  config.ApiServerUrl,
-			BearerToken:           config.Token,
-			InsecureSkipTLSVerify: config.InsecureSkipTLSVerify,
-		}
-		if config.InsecureSkipTLSVerify == false {
-			clusterConfig.KeyData = config.GetKeyData()
-			clusterConfig.CertData = config.GetCertData()
-			clusterConfig.CAData = config.GetCaData()
-		}
-	}
-	return clusterConfig
 }
