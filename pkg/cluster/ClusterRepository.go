@@ -23,6 +23,12 @@ type Cluster struct {
 	K8sVersion             string            `sql:"k8s_version"`
 	ErrorInConnecting      string            `sql:"error_in_connecting"`
 	InsecureSkipTlsVerify  bool              `sql:"insecure_skip_tls_verify"`
+	ProxyUrl               string            `sql:"proxy_url"`
+	ToConnectWithSSHTunnel bool              `sql:"to_connect_with_ssh_tunnel"`
+	SSHTunnelUser          string            `sql:"ssh_tunnel_user"`
+	SSHTunnelPassword      string            `sql:"ssh_tunnel_password"`
+	SSHTunnelAuthKey       string            `sql:"ssh_tunnel_auth_key"`
+	SSHTunnelServerAddress string            `sql:"ssh_tunnel_server_address"`
 	sql.AuditLog
 }
 
