@@ -1,7 +1,6 @@
 package bean
 
 import (
-	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -207,20 +206,4 @@ type ClusterInfo struct {
 	SSHTunnelPassword      string `json:"sshTunnelPassword"`
 	SSHTunnelAuthKey       string `json:"sshTunnelAuthKey"`
 	SSHTunnelServerAddress string `json:"sshTunnelServerAddress"`
-}
-
-func (cluster *ClusterInfo) GetClusterConfig() *k8sUtils.ClusterConfig {
-	clusterConfig := &k8sUtils.ClusterConfig{}
-	if cluster != nil {
-		clusterConfig = &k8sUtils.ClusterConfig{
-			Host:                  cluster.ServerUrl,
-			BearerToken:           cluster.BearerToken,
-			ClusterName:           cluster.ClusterName,
-			InsecureSkipTLSVerify: cluster.InsecureSkipTLSVerify,
-			KeyData:               cluster.KeyData,
-			CertData:              cluster.CertData,
-			CAData:                cluster.CAData,
-		}
-	}
-	return clusterConfig
 }
