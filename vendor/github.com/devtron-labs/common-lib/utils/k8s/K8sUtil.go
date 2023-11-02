@@ -72,6 +72,54 @@ type K8sUtil struct {
 	kubeconfig    *string
 }
 
+type K8sUtilIf interface {
+	GetLogsForAPod(kubeClient *kubernetes.Clientset, namespace string, podName string, container string, follow bool) *restclient.Request
+	GetMetricsClientSet(restConfig *rest.Config, k8sHttpClient *http.Client) (*metrics.Clientset, error)
+	GetNmByName(ctx context.Context, metricsClientSet *metrics.Clientset, name string) (*v1beta1.NodeMetrics, error)
+	GetNmList(ctx context.Context, metricsClientSet *metrics.Clientset) (*v1beta1.NodeMetricsList, error)
+	GetPodsListForNamespace(ctx context.Context, k8sClientSet *kubernetes.Clientset, namespace string) (*v1.PodList, error)
+	GetServerVersionFromDiscoveryClient(k8sClientSet *kubernetes.Clientset) (*version.Info, error)
+	GetNodeByName(ctx context.Context, k8sClientSet *kubernetes.Clientset, name string) (*v1.Node, error)
+	GetNodesList(ctx context.Context, k8sClientSet *kubernetes.Clientset) (*v1.NodeList, error)
+	GetCoreV1ClientByRestConfig(restConfig *rest.Config) (*v12.CoreV1Client, error)
+	GetCoreV1ClientInCluster() (*v12.CoreV1Client, error)
+	GetKubeVersion() (*version.Info, error)
+	ValidateResource(resourceObj map[string]interface{}, gvk schema.GroupVersionKind, validateCallback func(namespace string, group string, kind string, resourceName string) bool) bool
+	BuildK8sObjectListTableData(manifest *unstructured.UnstructuredList, namespaced bool, gvk schema.GroupVersionKind, validateResourceAccess func(namespace string, group string, kind string, resourceName string) bool) (*ClusterResourceListMap, error)
+	GetPodByName(namespace string, name string, client *v12.CoreV1Client) (*v1.Pod, error)
+	GetK8sInClusterRestConfig() (*rest.Config, error)
+	GetResourceInfoByLabelSelector(ctx context.Context, namespace string, labelSelector string) (*v1.Pod, error)
+	GetClientByToken(serverUrl string, token map[string]string) (*v12.CoreV1Client, error)
+	ListNamespaces(client *v12.CoreV1Client) (*v1.NamespaceList, error)
+	DeleteAndCreateJob(content []byte, namespace string, clusterConfig *ClusterConfig) error
+	DeletePodByLabel(namespace string, labels string, clusterConfig *ClusterConfig) error
+	CreateJob(namespace string, name string, clusterConfig *ClusterConfig, job *batchV1.Job) error
+	GetLiveZCall(path string, k8sClientSet *kubernetes.Clientset) ([]byte, error)
+	DiscoveryClientGetLiveZCall(cluster *ClusterConfig) ([]byte, error)
+	GetK8sConfigAndClientsByRestConfig(restConfig *rest.Config) (*http.Client, *kubernetes.Clientset, error)
+	GetK8sConfigAndClients(clusterConfig *ClusterConfig) (*rest.Config, *http.Client, *kubernetes.Clientset, error)
+	GetK8sInClusterConfigAndDynamicClients() (*rest.Config, *http.Client, dynamic.Interface, error)
+	GetK8sInClusterConfigAndClients() (*rest.Config, *http.Client, *kubernetes.Clientset, error)
+	DeleteJob(namespace string, name string, clusterConfig *ClusterConfig) error
+	DeleteSecret(namespace string, name string, client *v12.CoreV1Client) error
+	UpdateSecret(namespace string, secret *v1.Secret, client *v12.CoreV1Client) (*v1.Secret, error)
+	CreateSecretData(namespace string, secret *v1.Secret, v1Client *v12.CoreV1Client) (*v1.Secret, error)
+	CreateSecret(namespace string, data map[string][]byte, secretName string, secretType v1.SecretType, client *v12.CoreV1Client, labels map[string]string, stringData map[string]string) (*v1.Secret, error)
+	GetSecret(namespace string, name string, client *v12.CoreV1Client) (*v1.Secret, error)
+	PatchConfigMapJsonType(namespace string, clusterConfig *ClusterConfig, name string, data interface{}, path string) (*v1.ConfigMap, error)
+	PatchConfigMap(namespace string, clusterConfig *ClusterConfig, name string, data map[string]interface{}) (*v1.ConfigMap, error)
+	UpdateConfigMap(namespace string, cm *v1.ConfigMap, client *v12.CoreV1Client) (*v1.ConfigMap, error)
+	CreateConfigMap(namespace string, cm *v1.ConfigMap, client *v12.CoreV1Client) (*v1.ConfigMap, error)
+	GetConfigMap(namespace string, name string, client *v12.CoreV1Client) (*v1.ConfigMap, error)
+	CheckIfNsExists(namespace string, client *v12.CoreV1Client) (exists bool, err error)
+	CreateNsIfNotExists(namespace string, clusterConfig *ClusterConfig) (err error)
+	GetK8sDiscoveryClientInCluster() (*discovery.DiscoveryClient, error)
+	GetK8sDiscoveryClient(clusterConfig *ClusterConfig) (*discovery.DiscoveryClient, error)
+	GetClientForInCluster() (*v12.CoreV1Client, error)
+	GetCoreV1Client(clusterConfig *ClusterConfig) (*v12.CoreV1Client, error)
+	GetRestConfigByCluster(clusterConfig *ClusterConfig) (*restclient.Config, error)
+}
+
 type ClusterConfig struct {
 	ClusterName                     string
 	Host                            string

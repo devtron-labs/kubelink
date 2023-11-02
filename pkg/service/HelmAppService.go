@@ -28,7 +28,7 @@ import (
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/common-lib/utils/yaml"
 	"github.com/devtron-labs/kubelink/bean"
-	converter "github.com/devtron-labs/kubelink/converter"
+	"github.com/devtron-labs/kubelink/converter"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/pkg/helmClient"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
