@@ -119,7 +119,7 @@ type HelmAppServiceImpl struct {
 	randSource        rand.Source
 	K8sInformer       k8sInformer.K8sInformer
 	helmReleaseConfig *HelmReleaseConfig
-	k8sUtil           *k8sUtils.K8sUtil
+	k8sUtil           k8sUtils.K8sUtilIf
 	pubsubClient      *pubsub_lib.PubSubClientServiceImpl
 	clusterRepository repository.ClusterRepository
 	converter         converter.Converter
@@ -127,7 +127,7 @@ type HelmAppServiceImpl struct {
 
 func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 	k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig,
-	k8sUtil *k8sUtils.K8sUtil,
+	k8sUtil k8sUtils.K8sUtilIf,
 	clusterRepository repository.ClusterRepository, converter converter.Converter) *HelmAppServiceImpl {
 
 	var pubsubClient *pubsub_lib.PubSubClientServiceImpl
