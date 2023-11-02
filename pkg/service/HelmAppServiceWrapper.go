@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/devtron-labs/kubelink/bean"
 	"github.com/devtron-labs/kubelink/grpc"
-	"github.com/devtron-labs/kubelink/internal/lock"
+	"github.com/devtron-labs/kubelink/internal1/lock"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/timestamppb"

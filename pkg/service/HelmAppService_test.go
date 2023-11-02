@@ -5,7 +5,7 @@ import (
 	"fmt"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	client "github.com/devtron-labs/kubelink/grpc"
-	"github.com/devtron-labs/kubelink/internal/logger"
+	"github.com/devtron-labs/kubelink/internal1/logger"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"math/rand"
