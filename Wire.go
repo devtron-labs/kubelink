@@ -23,8 +23,9 @@ import (
 	"github.com/devtron-labs/authenticator/client"
 	"github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/kubelink/api/router"
-	"github.com/devtron-labs/kubelink/internal/lock"
-	"github.com/devtron-labs/kubelink/internal/logger"
+	"github.com/devtron-labs/kubelink/converter"
+	"github.com/devtron-labs/kubelink/internals/lock"
+	"github.com/devtron-labs/kubelink/internals/logger"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
@@ -40,9 +41,12 @@ func InitializeApp() (*App, error) {
 		logger.NewSugaredLogger,
 		client.GetRuntimeConfig,
 		k8s.NewK8sUtil,
+		wire.Bind(new(k8s.K8sUtilIf), new(*k8s.K8sUtil)),
 		lock.NewChartRepositoryLocker,
 		service.NewK8sServiceImpl,
 		wire.Bind(new(service.K8sService), new(*service.K8sServiceImpl)),
+		converter.NewConverterImpl,
+		wire.Bind(new(converter.Converter), new(*converter.ConverterImpl)),
 		service.NewHelmAppServiceImpl,
 		wire.Bind(new(service.HelmAppService), new(*service.HelmAppServiceImpl)),
 		service.NewApplicationServiceServerImpl,

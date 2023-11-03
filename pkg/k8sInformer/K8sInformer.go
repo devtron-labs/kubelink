@@ -10,6 +10,7 @@ import (
 	"github.com/caarlos0/env"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/kubelink/bean"
+	"github.com/devtron-labs/kubelink/converter"
 	client "github.com/devtron-labs/kubelink/grpc"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/util"
@@ -63,16 +64,18 @@ type K8sInformerImpl struct {
 	informerStopper    map[int]chan struct{}
 	clusterRepository  repository.ClusterRepository
 	helmReleaseConfig  *HelmReleaseConfig
-	k8sUtil            *k8sUtils.K8sUtil
+	k8sUtil            k8sUtils.K8sUtilIf
+	converter          converter.Converter
 }
 
 func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.ClusterRepository,
-	helmReleaseConfig *HelmReleaseConfig, k8sUtil *k8sUtils.K8sUtil) *K8sInformerImpl {
+	helmReleaseConfig *HelmReleaseConfig, k8sUtil k8sUtils.K8sUtilIf, converter converter.Converter) *K8sInformerImpl {
 	informerFactory := &K8sInformerImpl{
 		logger:            logger,
 		clusterRepository: clusterRepository,
 		helmReleaseConfig: helmReleaseConfig,
 		k8sUtil:           k8sUtil,
+		converter:         converter,
 	}
 	informerFactory.HelmListClusterMap = make(map[int]map[string]*client.DeployedAppDetail)
 	informerFactory.informerStopper = make(map[int]chan struct{})
@@ -138,7 +141,7 @@ func (impl *K8sInformerImpl) BuildInformerForAllClusters() error {
 	}
 
 	for _, model := range models {
-		clusterInfo := GetClusterInfo(model)
+		clusterInfo := impl.converter.GetClusterInfo(model)
 		err := impl.startInformer(*clusterInfo)
 		if err != nil {
 			impl.logger.Error("error in starting informer for cluster ", "cluster-name ", clusterInfo.ClusterName, "err", err)
@@ -150,29 +153,8 @@ func (impl *K8sInformerImpl) BuildInformerForAllClusters() error {
 	return nil
 }
 
-func GetClusterInfo(c *repository.Cluster) *bean.ClusterInfo {
-	clusterInfo := &bean.ClusterInfo{}
-	if c != nil {
-		config := c.Config
-		bearerToken := config["bearer_token"]
-		clusterInfo = &bean.ClusterInfo{
-			ClusterId:             c.Id,
-			ClusterName:           c.ClusterName,
-			BearerToken:           bearerToken,
-			ServerUrl:             c.ServerUrl,
-			InsecureSkipTLSVerify: c.InsecureSkipTlsVerify,
-		}
-		if c.InsecureSkipTlsVerify == false {
-			clusterInfo.KeyData = config[k8sUtils.TlsKey]
-			clusterInfo.CertData = config[k8sUtils.CertData]
-			clusterInfo.CAData = config[k8sUtils.CertificateAuthorityData]
-		}
-	}
-	return clusterInfo
-}
-
 func (impl *K8sInformerImpl) startInformer(clusterInfo bean.ClusterInfo) error {
-	clusterConfig := clusterInfo.GetClusterConfig()
+	clusterConfig := impl.converter.GetClusterConfig(&clusterInfo)
 	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(clusterConfig)
 	if err != nil {
 		impl.logger.Error("error in getting rest config", "err", err, "clusterName", clusterConfig.ClusterName)
@@ -339,8 +321,8 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 
 	impl.logger.Info("starting informer for cluster - ", "cluster-id ", clusterModel.Id, "cluster-name ", clusterModel.ClusterName)
 
-	clusterInfo := GetClusterInfo(clusterModel)
-	clusterConfig := clusterInfo.GetClusterConfig()
+	clusterInfo := impl.converter.GetClusterInfo(clusterModel)
+	clusterConfig := impl.converter.GetClusterConfig(clusterInfo)
 	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(clusterConfig)
 	if err != nil {
 		impl.logger.Error("error in getting rest config", "err", err, "clusterName", clusterConfig.ClusterName)
