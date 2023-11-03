@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"github.com/devtron-labs/kubelink/bean"
 	"github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/internal/lock"
@@ -67,6 +68,10 @@ func (impl *ApplicationServiceServerImpl) GetAppDetail(ctxt context.Context, req
 
 	helmAppDetail, err := impl.HelmAppService.BuildAppDetail(req)
 	if err != nil {
+		if helmAppDetail != nil && !helmAppDetail.ReleaseExists {
+			// This error (release not exists for this app) is being used in orchestrator so please don't edit it.
+			return &client.AppDetail{ReleaseExist: false}, fmt.Errorf("release not exists for this app")
+		}
 		impl.Logger.Errorw("Error in getting app detail", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
 			"namespace", req.Namespace, "err", err)
 		return nil, err
@@ -180,6 +185,7 @@ func (impl *ApplicationServiceServerImpl) UpgradeRelease(ctx context.Context, in
 	res, err := impl.HelmAppService.UpgradeRelease(ctx, in)
 	if err != nil {
 		impl.Logger.Errorw("Error in Upgrade release request", "err", err)
+		return res, err
 	}
 	impl.Logger.Info("Upgrade release request served")
 
@@ -205,8 +211,10 @@ func (impl *ApplicationServiceServerImpl) InstallRelease(ctx context.Context, in
 	impl.Logger.Infow("Install release request", "clusterName", releaseIdentifier.ClusterConfig.ClusterName, "releaseName", releaseIdentifier.ReleaseName,
 		"namespace", releaseIdentifier.ReleaseNamespace)
 
-	impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
-	defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
+	if in.ChartRepository != nil {
+		impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
+		defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
+	}
 
 	res, err := impl.HelmAppService.InstallRelease(ctx, in)
 	if err != nil {
@@ -222,9 +230,10 @@ func (impl *ApplicationServiceServerImpl) UpgradeReleaseWithChartInfo(ctx contex
 	impl.Logger.Infow("Upgrade release with chart Info request", "clusterName", releaseIdentifier.ClusterConfig.ClusterName, "releaseName", releaseIdentifier.ReleaseName,
 		"namespace", releaseIdentifier.ReleaseNamespace)
 
-	impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
-	defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
-
+	if in.ChartRepository != nil {
+		impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
+		defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
+	}
 	res, err := impl.HelmAppService.UpgradeReleaseWithChartInfo(ctx, in)
 	if err != nil {
 		impl.Logger.Errorw("Error in Upgrade release request with Chart Info", "err", err)
@@ -271,10 +280,10 @@ func (impl *ApplicationServiceServerImpl) TemplateChart(ctx context.Context, in 
 	releaseIdentifier := in.ReleaseIdentifier
 	impl.Logger.Infow("Template chart request", "clusterName", releaseIdentifier.ClusterConfig.ClusterName, "releaseName", releaseIdentifier.ReleaseName,
 		"namespace", releaseIdentifier.ReleaseNamespace)
-
-	impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
-	defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
-
+	if in.ChartRepository != nil {
+		impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
+		defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
+	}
 	manifest, err := impl.HelmAppService.TemplateChart(ctx, in)
 	if err != nil {
 		impl.Logger.Errorw("Error in Template chart request", "err", err)
@@ -432,6 +441,7 @@ func (impl *ApplicationServiceServerImpl) AppDetailAdaptor(req *bean.AppDetail) 
 			PodMetadata: podMetadatas,
 		},
 		EnvironmentDetails: req.EnvironmentDetails,
+		ReleaseExist:       true,
 	}
 	return appDetail
 }
@@ -464,8 +474,8 @@ func (impl *ApplicationServiceServerImpl) UpgradeReleaseWithCustomChart(ctx cont
 	return resp, nil
 }
 
-func (impl *ApplicationServiceServerImpl) ValidateOCIRegistry(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error) {
-	isValid, err := impl.HelmAppService.validateOCIRegistryLogin(ctx, OCIRegistryRequest)
+func (impl *ApplicationServiceServerImpl) ValidateOCIRegistry(ctx context.Context, OCIRegistryRequest *client.RegistryCredential) (*client.OCIRegistryResponse, error) {
+	isValid, err := impl.HelmAppService.ValidateOCIRegistryLogin(ctx, OCIRegistryRequest)
 	if err != nil {
 		impl.Logger.Errorw("Error in fetching Notes ", "err", err)
 		return nil, err
@@ -474,7 +484,7 @@ func (impl *ApplicationServiceServerImpl) ValidateOCIRegistry(ctx context.Contex
 }
 
 func (impl *ApplicationServiceServerImpl) PushHelmChartToOCIRegistry(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error) {
-	registryPushResponse, err := impl.HelmAppService.pushHelmChartToOCIRegistryRepo(ctx, OCIRegistryRequest)
+	registryPushResponse, err := impl.HelmAppService.PushHelmChartToOCIRegistryRepo(ctx, OCIRegistryRequest)
 	if err != nil {
 		impl.Logger.Errorw("Error in pushing helm chart ", "chartName", OCIRegistryRequest.ChartName, "err", err)
 		return nil, err

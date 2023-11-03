@@ -20,6 +20,8 @@
 package main
 
 import (
+	"github.com/devtron-labs/authenticator/client"
+	"github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/kubelink/api/router"
 	"github.com/devtron-labs/kubelink/internal/lock"
 	"github.com/devtron-labs/kubelink/internal/logger"
@@ -36,6 +38,8 @@ func InitializeApp() (*App, error) {
 		NewApp,
 		sql.PgSqlWireSet,
 		logger.NewSugaredLogger,
+		client.GetRuntimeConfig,
+		k8s.NewK8sUtil,
 		lock.NewChartRepositoryLocker,
 		service.NewK8sServiceImpl,
 		wire.Bind(new(service.K8sService), new(*service.K8sServiceImpl)),
@@ -53,6 +57,7 @@ func InitializeApp() (*App, error) {
 		wire.Bind(new(repository.ClusterRepository), new(*repository.ClusterRepositoryImpl)),
 		service.GetHelmReleaseConfig,
 		k8sInformer.GetHelmReleaseConfig,
+		//pubsub_lib.NewPubSubClientServiceImpl,
 	)
 	return &App{}, nil
 }

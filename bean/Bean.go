@@ -1,6 +1,7 @@
 package bean
 
 import (
+	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -24,6 +25,7 @@ type AppDetail struct {
 	ChartMetadata        *ChartMetadata             `json:"chartMetadata"`
 	ResourceTreeResponse *ResourceTreeResponse      `json:"resourceTreeResponse"`
 	EnvironmentDetails   *client.EnvironmentDetails `json:"environmentDetails"`
+	ReleaseExists        bool                       `json:"releaseExists"`
 }
 
 type ReleaseStatus struct {
@@ -191,22 +193,27 @@ type InfoItem struct {
 }
 
 type ClusterInfo struct {
-	ClusterId   int    `json:"clusterId"`
-	ClusterName string `json:"clusterName"`
-	BearerToken string `json:"bearerToken"`
-	ServerUrl   string `json:"serverUrl"`
-	ProxyUrl    string `json:"proxyUrl"`
+	ClusterId             int    `json:"clusterId"`
+	ClusterName           string `json:"clusterName"`
+	BearerToken           string `json:"bearerToken"`
+	ServerUrl             string `json:"serverUrl"`
+	InsecureSkipTLSVerify bool   `json:"insecureSkipTLSVerify"`
+	KeyData               string `json:"-"`
+	CertData              string `json:"-"`
+	CAData                string `json:"-"`
 }
 
-func (cluster *ClusterInfo) GetClusterConfig() *client.ClusterConfig {
-	clusterConfig := &client.ClusterConfig{}
+func (cluster *ClusterInfo) GetClusterConfig() *k8sUtils.ClusterConfig {
+	clusterConfig := &k8sUtils.ClusterConfig{}
 	if cluster != nil {
-		clusterConfig = &client.ClusterConfig{
-			ApiServerUrl: cluster.ServerUrl,
-			Token:        cluster.BearerToken,
-			ClusterId:    int32(cluster.ClusterId),
-			ClusterName:  cluster.ClusterName,
-			ProxyUrl:     cluster.ProxyUrl,
+		clusterConfig = &k8sUtils.ClusterConfig{
+			Host:                  cluster.ServerUrl,
+			BearerToken:           cluster.BearerToken,
+			ClusterName:           cluster.ClusterName,
+			InsecureSkipTLSVerify: cluster.InsecureSkipTLSVerify,
+			KeyData:               cluster.KeyData,
+			CertData:              cluster.CertData,
+			CAData:                cluster.CAData,
 		}
 	}
 	return clusterConfig
