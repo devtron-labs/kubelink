@@ -1102,7 +1102,8 @@ func (impl *HelmAppServiceImpl) getNodes(appDetailRequest *client.AppDetailReque
 		return nil, nil, err
 	}
 	// build resource nodes
-	nodes, healthStatusArray, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
+	_portList := map[string]*client.PortList{}
+	nodes, healthStatusArray, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil, _portList)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1125,7 +1126,8 @@ func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDet
 		return nil, err
 	}
 	// build resource nodes
-	nodes, _, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
+	_portList := make(map[string]*client.PortList)
+	nodes, _, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil, _portList)
 	if err != nil {
 		return nil, err
 	}
@@ -1251,7 +1253,7 @@ func (impl HelmAppServiceImpl) getManifestData(restConfig *rest.Config, releaseN
 	return desiredOrLiveManifest
 }
 
-func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
+func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef, _portList map[string]*client.PortList) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
 	var nodes []*bean.ResourceNode
 	var healthStatusArray []*bean.HealthStatus
 	for _, desiredOrLiveManifest := range desiredOrLiveManifests {
@@ -1261,7 +1263,9 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 		if _namespace == "" {
 			_namespace = releaseNamespace
 		}
-		ports := make([]int64, 0)
+		resourcePorts := &client.PortList{}
+
+		serviceName := manifest.GetName()
 		if k8sUtils.IsService(gvk) || gvk.Kind == "Service" {
 			if manifest.Object["spec"] != nil {
 				spec := manifest.Object["spec"].(map[string]interface{})
@@ -1272,7 +1276,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 							_portNumber := portItem.(map[string]interface{})["port"]
 							portNumber := _portNumber.(int64)
 							if portNumber != 0 {
-								ports = append(ports, portNumber)
+								resourcePorts.ServicePorts = append(resourcePorts.ServicePorts, portNumber)
 							} else {
 								impl.logger.Errorw("there is no port", "err", portNumber)
 							}
@@ -1283,35 +1287,8 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 				}
 			}
 		}
-		if manifest.Object["kind"] == "EndpointSlice" {
-			if manifest.Object["ports"] != nil {
-				endPointsSlicePorts := manifest.Object["ports"].([]interface{})
-				for _, val := range endPointsSlicePorts {
-					_portNumber := val.(map[string]interface{})["port"]
-					portNumber := _portNumber.(int64)
-					if portNumber != 0 {
-						ports = append(ports, portNumber)
-					}
-				}
-			}
-		}
-		if gvk.Kind == "Endpoints" {
-			if manifest.Object["subsets"] != nil {
-				subsets := manifest.Object["subsets"].([]interface{})
-				for _, subset := range subsets {
-					subsetObj := subset.(map[string]interface{})
-					if subsetObj != nil {
-						portsIfs := subsetObj["ports"].([]interface{})
-						for _, portsIf := range portsIfs {
-							portsIfObj := portsIf.(map[string]interface{})
-							if portsIfObj != nil {
-								port := portsIfObj["port"].(int64)
-								ports = append(ports, port)
-							}
-						}
-					}
-				}
-			}
+		if (_portList)[serviceName] == nil {
+			(_portList)[serviceName] = resourcePorts
 		}
 		resourceRef := buildResourceRef(gvk, *manifest, _namespace)
 
@@ -1326,7 +1303,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 					Manifest: child,
 				})
 			}
-			childNodes, _, err := impl.buildNodes(restConfig, desiredOrLiveManifestsChildren, releaseNamespace, resourceRef)
+			childNodes, _, err := impl.buildNodes(restConfig, desiredOrLiveManifestsChildren, releaseNamespace, resourceRef, _portList)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -1349,7 +1326,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 				Labels: manifest.GetLabels(),
 			},
 			CreatedAt: creationTimeStamp,
-			Port:      ports,
+			Port:      _portList,
 		}
 
 		if parentResourceRef != nil {
