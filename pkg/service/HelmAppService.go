@@ -14,6 +14,8 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
+	appsV1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"path"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -40,11 +42,9 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
 	"io/ioutil"
-	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	errors2 "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -1443,6 +1443,28 @@ func buildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstruc
 
 func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
+	var dNodeHash string
+
+	for _, node := range nodes {
+		if node.Kind == k8sCommonBean.DeploymentKind {
+			deploymentNode := node.ResourceRef.Manifest.Object
+			dNodeMap := deploymentNode["spec"].(map[string]interface{})
+			dNodeTemplate := dNodeMap["template"]
+
+			d, err := json.Marshal(dNodeTemplate)
+			if err != nil {
+				return nil, err
+			}
+
+			dNodeSpec := &coreV1.PodTemplateSpec{}
+			err = json.Unmarshal(d, dNodeSpec)
+			if err != nil {
+				return nil, err
+			}
+			dNodeHash = util.ComputeHash(dNodeSpec)
+		}
+	}
+
 	for _, node := range nodes {
 		if node.Kind != k8sCommonBean.PodKind {
 			continue
@@ -1485,10 +1507,31 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 				}
 				replicaSetNode := getMatchingNode(nodes, parentKind, replicaSet.Name)
 
-				// if parent of replicaset is deployment, compare label pod-template-hash
-				if replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetNode.ParentRefs[0].Kind == k8sCommonBean.DeploymentKind {
-					isNew = replicaSet.GetLabels()["pod-template-hash"] == pod.GetLabels()["pod-template-hash"]
+				replicaNode := replicaSetNode.ResourceRef.Manifest.Object
+				replicaNodeMap := replicaNode["spec"].(map[string]interface{})
+				replicaNodeTemplate := replicaNodeMap["template"]
+
+				replica, err := json.Marshal(replicaNodeTemplate)
+				if err != nil {
+					return nil, err
 				}
+
+				replicaSetTemplate := &coreV1.PodTemplateSpec{}
+				err = json.Unmarshal(replica, replicaSetTemplate)
+				if err != nil {
+					return nil, err
+				}
+
+				rsCopy := replicaSetTemplate.DeepCopy()
+				labels := make(map[string]string)
+				for k, v := range rsCopy.Labels {
+					if k != "pod-template-hash" {
+						labels[k] = v
+					}
+				}
+				rsCopy.Labels = labels
+				replicaHash := util.ComputeHash(rsCopy)
+				isNew = replicaHash == dNodeHash
 			}
 
 			// if parent kind is DaemonSet then compare DaemonSet's Child ControllerRevision's label controller-revision-hash with pod label controller-revision-hash
@@ -1554,9 +1597,7 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 			EphemeralContainers: ephemeralContainers,
 			IsNew:               isNew,
 		}
-
 		podsMetadata = append(podsMetadata, podMetadata)
-
 	}
 	return podsMetadata, nil
 }
