@@ -26,6 +26,7 @@ import (
 	"github.com/devtron-labs/kubelink/internal/lock"
 	"github.com/devtron-labs/kubelink/internal/logger"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
+	"github.com/devtron-labs/kubelink/pkg/clusterCache"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
 	"github.com/devtron-labs/kubelink/pkg/sql"
@@ -58,6 +59,9 @@ func InitializeApp() (*App, error) {
 		service.GetHelmReleaseConfig,
 		k8sInformer.GetHelmReleaseConfig,
 		//pubsub_lib.NewPubSubClientServiceImpl,
+		clusterCache.NewClusterCacheImpl,
+		wire.Bind(new(clusterCache.ClusterCache), new(*clusterCache.ClusterCacheImpl)),
+		clusterCache.GetClusterCacheConfig,
 	)
 	return &App{}, nil
 }
