@@ -4,10 +4,7 @@ import (
 	"errors"
 	"fmt"
 	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
-	"github.com/argoproj/gitops-engine/pkg/utils/kube"
-	"github.com/containerd/containerd/log"
 	"github.com/devtron-labs/kubelink/bean"
-	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"net"
 	"net/url"
@@ -67,48 +64,6 @@ func (l *liveStateCache) getCluster(clusterInfo bean.ClusterInfo, impl *ClusterC
 		return cache, err
 	}
 	cache = clustercache.NewClusterCache(restConfig, getClusterCacheOptions()...)
-	// this part copied from argo cd need to be refactored
-	_ = cache.OnResourceUpdated(func(newRes *clustercache.Resource, oldRes *clustercache.Resource, namespaceResources map[kube.ResourceKey]*clustercache.Resource) {
-		toNotify := make(map[string]bool)
-		var ref v1.ObjectReference
-		if newRes != nil {
-			ref = newRes.Ref
-		} else {
-			ref = oldRes.Ref
-		}
-
-		if cacheSettings.ignoreResourceUpdatesEnabled && oldRes != nil && newRes != nil && skipResourceUpdate(resInfo(oldRes), resInfo(newRes)) {
-			// Additional check for debug level so we don't need to evaluate the
-			// format string in case of non-debug scenarios
-			if log.GetLevel() >= log.DebugLevel {
-				namespace := ref.Namespace
-				if ref.Namespace == "" {
-					namespace = "(cluster-scoped)"
-				}
-				log.WithFields(log.Fields{
-					"server":      cluster.Server,
-					"namespace":   namespace,
-					"name":        ref.Name,
-					"api-version": ref.APIVersion,
-					"kind":        ref.Kind,
-				}).Debug("Ignoring change of object because none of the watched resource fields have changed")
-			}
-			return
-		}
-
-		for _, r := range []*clustercache.Resource{newRes, oldRes} {
-			if r == nil {
-				continue
-			}
-			app := getApp(r, namespaceResources)
-			if app == "" || skipAppRequeuing(r.ResourceKey()) {
-				continue
-			}
-			toNotify[app] = isRootAppNode(r) || toNotify[app]
-		}
-		l.onObjectUpdated(toNotify, ref)
-	})
-
 	l.clustersCache[clusterInfo.ClusterId] = cache
 	return cache, nil
 }
