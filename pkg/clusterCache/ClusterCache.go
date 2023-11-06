@@ -106,7 +106,7 @@ func getClusterCacheOptions() []clustercache.UpdateSettingsFunc {
 		clustercache.SetResyncTimeout(clusterCacheResyncDuration),
 		//clustercache.SetSettings(cacheSettings.clusterSettings),
 		//drop this for now,
-		clustercache.SetNamespaces(cluster.Namespaces),
+		//clustercache.SetNamespaces(cluster.Namespaces),
 		//clustercache.SetClusterResources(cluster.ClusterResources),
 		clustercache.SetPopulateResourceInfoHandler(func(un *unstructured.Unstructured, isRoot bool) (interface{}, bool) {
 			//fmt.Println("resource updated")
