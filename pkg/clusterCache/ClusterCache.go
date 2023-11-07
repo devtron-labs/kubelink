@@ -18,7 +18,7 @@ type ClusterCache interface {
 }
 
 type ClusterCacheConfig struct {
-	ClusterIdList []string `env:"CLUSTER_ID_LIST" envSeparator:","`
+	ClusterIdList []int `env:"CLUSTER_ID_LIST" envSeparator:","`
 }
 
 func GetClusterCacheConfig() (*ClusterCacheConfig, error) {
@@ -59,10 +59,10 @@ func parseClusterIdList(clusterIdList []string) []int {
 }
 
 func (impl *ClusterCacheImpl) SyncCache() error {
-	clusterIdList := parseClusterIdList(impl.clusterCacheConfig.ClusterIdList)
+	//clusterIdList := parseClusterIdList(impl.clusterCacheConfig.ClusterIdList)
 	clustercache := make(map[int]clustercache.ClusterCache)
 	liveState := LiveStateCache{clustercache}
-	for _, clusterId := range clusterIdList {
+	for _, clusterId := range impl.clusterCacheConfig.ClusterIdList {
 		model, err := impl.clusterRepository.FindById(clusterId)
 		if err != nil {
 			impl.logger.Errorw("error in getting cluster from db by cluster id", "clusterId", clusterId)
