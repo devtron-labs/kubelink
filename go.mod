@@ -3,7 +3,7 @@ module github.com/devtron-labs/kubelink
 go 1.20
 
 require (
-	github.com/argoproj/gitops-engine v0.7.3
+	github.com/argoproj/gitops-engine v0.7.1-0.20231013183858-f15cf615b814
 	github.com/aws/aws-sdk-go v1.44.285
 	github.com/caarlos0/env v3.5.0+incompatible
 	github.com/devtron-labs/common-lib v0.0.6

@@ -45,15 +45,15 @@ var (
 	clusterCacheRetryUseBackoff bool = false
 )
 
-type liveStateCache struct {
+type LiveStateCache struct {
 	//clusterId to clusterCache mapping
-	clustersCache map[int]clustercache.ClusterCache
+	ClustersCache map[int]clustercache.ClusterCache
 }
 
-func (l *liveStateCache) getCluster(clusterInfo bean.ClusterInfo, impl *ClusterCacheImpl) (clustercache.ClusterCache, error) {
+func (l *LiveStateCache) getCluster(clusterInfo bean.ClusterInfo, impl *ClusterCacheImpl) (clustercache.ClusterCache, error) {
 	var cache clustercache.ClusterCache
 	var ok bool
-	cache, ok = l.clustersCache[clusterInfo.ClusterId]
+	cache, ok = l.ClustersCache[clusterInfo.ClusterId]
 	if ok {
 		return cache, nil
 	}
@@ -64,7 +64,7 @@ func (l *liveStateCache) getCluster(clusterInfo bean.ClusterInfo, impl *ClusterC
 		return cache, err
 	}
 	cache = clustercache.NewClusterCache(restConfig, getClusterCacheOptions()...)
-	l.clustersCache[clusterInfo.ClusterId] = cache
+	l.ClustersCache[clusterInfo.ClusterId] = cache
 	return cache, nil
 }
 

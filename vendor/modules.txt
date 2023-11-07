@@ -24,13 +24,15 @@ github.com/Masterminds/sprig/v3
 # github.com/Masterminds/squirrel v1.5.4
 ## explicit; go 1.14
 github.com/Masterminds/squirrel
-# github.com/argoproj/gitops-engine v0.7.3
-## explicit; go 1.17
+# github.com/argoproj/gitops-engine v0.7.1-0.20231013183858-f15cf615b814
+## explicit; go 1.19
 github.com/argoproj/gitops-engine/internal/kubernetes_vendor/pkg/api/v1/endpoints
 github.com/argoproj/gitops-engine/internal/kubernetes_vendor/pkg/util/hash
 github.com/argoproj/gitops-engine/pkg/cache
 github.com/argoproj/gitops-engine/pkg/diff
+github.com/argoproj/gitops-engine/pkg/diff/internal/fieldmanager
 github.com/argoproj/gitops-engine/pkg/health
+github.com/argoproj/gitops-engine/pkg/sync/resource
 github.com/argoproj/gitops-engine/pkg/utils/io
 github.com/argoproj/gitops-engine/pkg/utils/json
 github.com/argoproj/gitops-engine/pkg/utils/kube
@@ -1487,6 +1489,7 @@ sigs.k8s.io/kustomize/kyaml/yaml/walk
 # sigs.k8s.io/structured-merge-diff/v4 v4.2.3
 ## explicit; go 1.13
 sigs.k8s.io/structured-merge-diff/v4/fieldpath
+sigs.k8s.io/structured-merge-diff/v4/merge
 sigs.k8s.io/structured-merge-diff/v4/schema
 sigs.k8s.io/structured-merge-diff/v4/typed
 sigs.k8s.io/structured-merge-diff/v4/value

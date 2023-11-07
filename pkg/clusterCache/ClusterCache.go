@@ -14,7 +14,7 @@ import (
 )
 
 type ClusterCache interface {
-	syncClusterCache(clusterInfo bean.ClusterInfo) error
+	SyncClusterCache(clusterInfo bean.ClusterInfo, liveStageCache LiveStateCache) (clustercache.ClusterCache, error)
 }
 
 type ClusterCacheConfig struct {
@@ -65,7 +65,7 @@ func (impl *ClusterCacheImpl) SyncCache() error {
 		var cache clustercache.ClusterCache
 		clusterIdToCache[clusterId] = cache
 	}
-	liveState := liveStateCache{clusterIdToCache}
+	liveState := LiveStateCache{clusterIdToCache}
 	for _, clusterId := range clusterIdList {
 		model, err := impl.clusterRepository.FindById(clusterId)
 		if err != nil {
@@ -73,7 +73,7 @@ func (impl *ClusterCacheImpl) SyncCache() error {
 		}
 		clusterInfo := k8sInformer.GetClusterInfo(model)
 
-		err = impl.syncClusterCache(*clusterInfo, liveState)
+		_, err = impl.SyncClusterCache(*clusterInfo, liveState)
 		if err != nil {
 			impl.logger.Error("error in cluster cache sync for cluster ", "cluster-name ", clusterInfo.ClusterName, "err", err)
 			return err
@@ -82,18 +82,20 @@ func (impl *ClusterCacheImpl) SyncCache() error {
 	return nil
 }
 
-func (impl *ClusterCacheImpl) syncClusterCache(clusterInfo bean.ClusterInfo, liveStageCache liveStateCache) error {
-	c, err := liveStageCache.getCluster(clusterInfo, impl)
+func (impl *ClusterCacheImpl) SyncClusterCache(clusterInfo bean.ClusterInfo, liveStageCache LiveStateCache) (clustercache.ClusterCache, error) {
+	var c clustercache.ClusterCache
+	var err error
+	c, err = liveStageCache.getCluster(clusterInfo, impl)
 	if err != nil {
 		impl.logger.Errorw("failed to get cluster info for", "clusterId", clusterInfo.ClusterId, "error", err)
-		return err
+		return c, err
 	}
 	err = c.EnsureSynced()
 	if err != nil {
 		impl.logger.Errorw("error in syncing cluster cache", "sync-error", err)
-		return err
+		return c, err
 	}
-	return nil
+	return c, nil
 }
 
 func getClusterCacheOptions() []clustercache.UpdateSettingsFunc {
