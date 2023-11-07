@@ -1455,7 +1455,7 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 		}
 
 		// check if pod is new
-		isNew := true
+		isNew := false
 		if len(node.ParentRefs) > 0 {
 			parentRef := node.ParentRefs[0]
 			parentKind := parentRef.Kind
