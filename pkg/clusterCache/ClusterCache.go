@@ -10,11 +10,11 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sync"
 )
 
 type ClusterCache interface {
 	//SyncClusterCache(clusterInfo bean.ClusterInfo, liveStageCache LiveStateCache) (clustercache.ClusterCache, error)
-
 }
 
 type ClusterCacheConfig struct {
@@ -32,20 +32,20 @@ type ClusterCacheImpl struct {
 	clusterCacheConfig *ClusterCacheConfig
 	clusterRepository  repository.ClusterRepository
 	k8sUtil            *k8sUtils.K8sUtil
-	liveStateCache     *LiveStateCache
+	clustersCache      map[int]clustercache.ClusterCache
+	mutex              sync.Mutex
 }
 
 func NewClusterCacheImpl(logger *zap.SugaredLogger, clusterCacheConfig *ClusterCacheConfig,
 	clusterRepository repository.ClusterRepository, k8sUtil *k8sUtils.K8sUtil) *ClusterCacheImpl {
 
-	clusterCache := make(map[int]clustercache.ClusterCache)
-	liveStateCache := &LiveStateCache{clusterCache}
+	clustersCache := make(map[int]clustercache.ClusterCache)
 	clusterCacheImpl := &ClusterCacheImpl{
 		logger:             logger,
 		clusterCacheConfig: clusterCacheConfig,
 		clusterRepository:  clusterRepository,
 		k8sUtil:            k8sUtil,
-		liveStateCache:     liveStateCache,
+		clustersCache:      clustersCache,
 	}
 
 	if len(clusterCacheConfig.ClusterIdList) > 0 {
@@ -73,9 +73,7 @@ func (impl *ClusterCacheImpl) SyncCache() error {
 
 func (impl *ClusterCacheImpl) SyncClusterCache(clusterInfo bean.ClusterInfo) (clustercache.ClusterCache, error) {
 	impl.logger.Infow("cluster cache sync started..", "clusterId", clusterInfo.ClusterId)
-	var c clustercache.ClusterCache
-	var err error
-	c, err = impl.getClusterCache(clusterInfo)
+	c, err := impl.getClusterCache(clusterInfo)
 	if err != nil {
 		impl.logger.Errorw("failed to get cluster info for", "clusterId", clusterInfo.ClusterId, "error", err)
 		return c, err
@@ -85,13 +83,16 @@ func (impl *ClusterCacheImpl) SyncClusterCache(clusterInfo bean.ClusterInfo) (cl
 		impl.logger.Errorw("error in syncing cluster cache", "clusterId", clusterInfo.ClusterId, "sync-error", err)
 		return c, err
 	}
+	impl.mutex.Lock()
+	impl.clustersCache[clusterInfo.ClusterId] = c
+	impl.mutex.Unlock()
 	return c, nil
 }
 
 func (impl *ClusterCacheImpl) getClusterCache(clusterInfo bean.ClusterInfo) (clustercache.ClusterCache, error) {
 	var cache clustercache.ClusterCache
 	var ok bool
-	cache, ok = impl.liveStateCache.ClustersCache[clusterInfo.ClusterId]
+	cache, ok = impl.clustersCache[clusterInfo.ClusterId]
 	if ok {
 		return cache, nil
 	}
@@ -102,7 +103,6 @@ func (impl *ClusterCacheImpl) getClusterCache(clusterInfo bean.ClusterInfo) (clu
 		return cache, err
 	}
 	cache = clustercache.NewClusterCache(restConfig, getClusterCacheOptions()...)
-	impl.liveStateCache.ClustersCache[clusterInfo.ClusterId] = cache
 	return cache, nil
 }
 
