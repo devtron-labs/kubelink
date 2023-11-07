@@ -1,6 +1,7 @@
 package clusterCache
 
 import (
+	"errors"
 	"fmt"
 	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
@@ -19,7 +20,8 @@ import (
 )
 
 type ClusterCache interface {
-	//SyncClusterCache(clusterInfo bean.ClusterInfo, liveStageCache LiveStateCache) (clustercache.ClusterCache, error)
+	//SyncClusterCache(clusterInfo bean.ClusterInfo) (clustercache.ClusterCache, error)
+	GetClusterCacheByClusterId(clusterId int) (clustercache.ClusterCache, error)
 }
 
 type ClusterCacheConfig struct {
@@ -62,14 +64,23 @@ func NewClusterCacheImpl(logger *zap.SugaredLogger, clusterCacheConfig *ClusterC
 	return clusterCacheImpl
 }
 
+func (impl *ClusterCacheImpl) getClusterInfoByClusterId(clusterId int) (*bean.ClusterInfo, error) {
+	model, err := impl.clusterRepository.FindById(clusterId)
+	if err != nil {
+		impl.logger.Errorw("error in getting cluster from db by cluster id", "clusterId", clusterId)
+		return nil, err
+	}
+	clusterInfo := k8sInformer.GetClusterInfo(model)
+	return clusterInfo, nil
+}
+
 func (impl *ClusterCacheImpl) SyncCache() error {
 	for _, clusterId := range impl.clusterCacheConfig.ClusterIdList {
-		model, err := impl.clusterRepository.FindById(clusterId)
+		clusterInfo, err := impl.getClusterInfoByClusterId(clusterId)
 		if err != nil {
-			impl.logger.Errorw("error in getting cluster from db by cluster id", "clusterId", clusterId)
+			impl.logger.Errorw("error in getting clusterInfo by cluster id", "clusterId", clusterId)
 			continue
 		}
-		clusterInfo := k8sInformer.GetClusterInfo(model)
 
 		go impl.SyncClusterCache(*clusterInfo)
 	}
@@ -235,4 +246,11 @@ func getPorts(manifest *unstructured.Unstructured, gvk schema.GroupVersionKind) 
 		}
 	}
 	return ports
+}
+
+func (impl *ClusterCacheImpl) GetClusterCacheByClusterId(clusterId int) (clustercache.ClusterCache, error) {
+	if clusterCache, found := impl.clustersCache[clusterId]; found {
+		return clusterCache, nil
+	}
+	return nil, errors.New("cluster cache not yet synced for this cluster id")
 }

@@ -235,11 +235,16 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 		impl.logger.Errorw("Error in getting helm release ", "err", err)
 		return nil, err
 	}
-
-	resourceTreeResponse, err := impl.buildResourceTree(req, helmRelease)
+	resourceTreeResponse, err := impl.buildResourceTreeFromClusterCache(int(req.ClusterConfig.ClusterId), helmRelease)
 	if err != nil {
-		impl.logger.Errorw("Error in building resource tree ", "err", err)
-		return nil, err
+		impl.logger.Errorw("Error in getting resourceTree from cluster cache", "err", err)
+	}
+	if resourceTreeResponse == nil {
+		resourceTreeResponse, err = impl.buildResourceTree(req, helmRelease)
+		if err != nil {
+			impl.logger.Errorw("Error in building resource tree ", "err", err)
+			return nil, err
+		}
 	}
 
 	appDetail := &bean.AppDetail{
@@ -267,6 +272,27 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 	return appDetail, nil
 }
 
+func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterId int, helmRelease *release.Release) (*bean.ResourceTreeResponse, error) {
+	// TODO building nodes and filling pod metadata and returning resourceTreeResp
+	//clusterCache, err := impl.clusterCache.GetClusterCacheByClusterId(clusterId)
+	//if err != nil {
+	//	impl.logger.Errorw("error in getting cluster cache, or cluster cache not synced for this cluster", "clusterId", clusterId, "err", err)
+	//}
+	//groupVersionKind := manifest.GroupVersionKind()
+	//resourceKey := kube.NewResourceKey(groupVersionKind.Group, groupVersionKind.Kind, namespace, manifest.GetName())
+	//clusterCache.IterateHierarchy(resourceKey, helmReleaseData.action)
+	//podsMetadata, err := buildPodMetadata(nodes)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//resourceTreeResponse := &bean.ResourceTreeResponse{
+	//	ApplicationTree: &bean.ApplicationTree{
+	//		Nodes: nodes,
+	//	},
+	//	PodMetadata: podsMetadata,
+	//}
+	return nil, nil
+}
 func (impl *HelmAppServiceImpl) FetchApplicationStatus(req *client.AppDetailRequest) (*bean.HealthStatusCode, error) {
 	var appStatus *bean.HealthStatusCode
 	helmRelease, err := impl.getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
