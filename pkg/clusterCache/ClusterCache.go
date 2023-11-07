@@ -1,15 +1,21 @@
 package clusterCache
 
 import (
+	"fmt"
 	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
+	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	"github.com/caarlos0/env"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
+	"github.com/devtron-labs/common-lib/utils/k8s/health"
 	"github.com/devtron-labs/kubelink/bean"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
+	"github.com/devtron-labs/kubelink/pkg/service"
+	"github.com/devtron-labs/kubelink/pkg/util/argo"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sync"
 )
 
@@ -117,42 +123,117 @@ func getClusterCacheOptions() []clustercache.UpdateSettingsFunc {
 		clustercache.SetWatchResyncTimeout(clusterCacheWatchResyncDuration),
 		clustercache.SetClusterSyncRetryTimeout(clusterSyncRetryTimeoutDuration),
 		clustercache.SetResyncTimeout(clusterCacheResyncDuration),
-		//clustercache.SetSettings(cacheSettings.clusterSettings),
-		//drop this for now,
-		//clustercache.SetNamespaces(cluster.Namespaces),
-		//clustercache.SetClusterResources(cluster.ClusterResources),
 		clustercache.SetPopulateResourceInfoHandler(func(un *unstructured.Unstructured, isRoot bool) (interface{}, bool) {
-			//fmt.Println("resource updated")
-			//res := &ResourceInfo{}
-			//	populateNodeInfo(un, res, resourceCustomLabels)
-			//	c.lock.RLock()
-			//	cacheSettings := c.cacheSettings
-			//	c.lock.RUnlock()
-			//
-			//	res.Health, _ = health.GetResourceHealth(un, cacheSettings.clusterSettings.ResourceHealthOverride)
-			//
-			//	appName := c.resourceTracking.GetAppName(un, cacheSettings.appInstanceLabelKey, cacheSettings.trackingMethod)
-			//	if isRoot && appName != "" {
-			//		res.AppName = appName
-			//	}
-			//
-			//	gvk := un.GroupVersionKind()
-			//
-			//	if cacheSettings.ignoreResourceUpdatesEnabled && shouldHashManifest(appName, gvk) {
-			//		hash, err := generateManifestHash(un, nil, cacheSettings.resourceOverrides)
-			//		if err != nil {
-			//			log.Errorf("Failed to generate manifest hash: %v", err)
-			//		} else {
-			//			res.manifestHash = hash
-			//		}
-			//	}
-			//
-			//	// edge case. we do not label CRDs, so they miss the tracking label we inject. But we still
-			//	// want the full resource to be available in our cache (to diff), so we store all CRDs
-			//	return res, res.AppName != "" || gvk.Kind == kube.CustomResourceDefinitionKind
-			return nil, true
+			fmt.Println("resource updated")
+			gvk := un.GroupVersionKind()
+			res := &bean.ResourceNode{
+				Port:            getPorts(un, gvk),
+				ResourceVersion: un.GetResourceVersion(),
+				NetworkingInfo: &bean.ResourceNetworkingInfo{
+					Labels: un.GetLabels(),
+				},
+			}
+
+			if k8sUtils.IsService(gvk) && un.GetName() == k8sUtils.DEVTRON_SERVICE_NAME && k8sUtils.IsDevtronApp(res.NetworkingInfo.Labels) {
+
+				res.Health = &bean.HealthStatus{
+					Status: bean.HealthStatusHealthy,
+				}
+			} else {
+				if healthCheck := health.GetHealthCheckFunc(gvk); healthCheck != nil {
+					health, err := healthCheck(un)
+					if err != nil {
+						res.Health = &bean.HealthStatus{
+							Status:  bean.HealthStatusUnknown,
+							Message: err.Error(),
+						}
+					} else if health != nil {
+						res.Health = &bean.HealthStatus{
+							Status:  string(health.Status),
+							Message: health.Message,
+						}
+					}
+				}
+			}
+			if k8sUtils.IsPod(gvk) {
+				infoItems, _ := argo.PopulatePodInfo(un)
+				res.Info = infoItems
+			}
+			// hibernate set starts
+			if un.GetOwnerReferences() == nil {
+				// set CanBeHibernated
+				replicas, found, _ := unstructured.NestedInt64(un.UnstructuredContent(), "spec", "replicas")
+				if found {
+					res.CanBeHibernated = true
+				}
+
+				// set IsHibernated
+				annotations := un.GetAnnotations()
+				if annotations != nil {
+					if val, ok := annotations[service.HibernateReplicaAnnotation]; ok {
+						if val != "0" && replicas == 0 {
+							res.IsHibernated = true
+						}
+					}
+				}
+			}
+			// hibernate set ends
+
+			return res, gvk.Kind == kube.CustomResourceDefinitionKind
 		}),
 		clustercache.SetRetryOptions(clusterCacheAttemptLimit, clusterCacheRetryUseBackoff, isRetryableError),
 	}
 	return clusterCacheOpts
+}
+
+func getPorts(manifest *unstructured.Unstructured, gvk schema.GroupVersionKind) []int64 {
+	ports := make([]int64, 0)
+	if k8sUtils.IsService(gvk) || gvk.Kind == "Service" {
+		if manifest.Object["spec"] != nil {
+			spec := manifest.Object["spec"].(map[string]interface{})
+			if spec["ports"] != nil {
+				portList := spec["ports"].([]interface{})
+				for _, portItem := range portList {
+					if portItem.(map[string]interface{}) != nil {
+						_portNumber := portItem.(map[string]interface{})["port"]
+						portNumber := _portNumber.(int64)
+						if portNumber != 0 {
+							ports = append(ports, portNumber)
+						}
+					}
+				}
+			}
+		}
+	}
+	if manifest.Object["kind"] == "EndpointSlice" {
+		if manifest.Object["ports"] != nil {
+			endPointsSlicePorts := manifest.Object["ports"].([]interface{})
+			for _, val := range endPointsSlicePorts {
+				_portNumber := val.(map[string]interface{})["port"]
+				portNumber := _portNumber.(int64)
+				if portNumber != 0 {
+					ports = append(ports, portNumber)
+				}
+			}
+		}
+	}
+	if gvk.Kind == "Endpoints" {
+		if manifest.Object["subsets"] != nil {
+			subsets := manifest.Object["subsets"].([]interface{})
+			for _, subset := range subsets {
+				subsetObj := subset.(map[string]interface{})
+				if subsetObj != nil {
+					portsIfs := subsetObj["ports"].([]interface{})
+					for _, portsIf := range portsIfs {
+						portsIfObj := portsIf.(map[string]interface{})
+						if portsIfObj != nil {
+							port := portsIfObj["port"].(int64)
+							ports = append(ports, port)
+						}
+					}
+				}
+			}
+		}
+	}
+	return ports
 }
