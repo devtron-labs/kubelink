@@ -49,16 +49,16 @@ func InitializeApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	helmAppServiceImpl := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, serviceHelmReleaseConfig, k8sUtil, clusterRepositoryImpl)
-	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(sugaredLogger, chartRepositoryLocker, helmAppServiceImpl)
-	pProfRestHandlerImpl := pprof.NewPProfRestHandler(sugaredLogger)
-	pProfRouterImpl := pprof.NewPProfRouter(sugaredLogger, pProfRestHandlerImpl)
-	routerImpl := router.NewRouter(sugaredLogger, pProfRouterImpl)
 	clusterCacheConfig, err := clusterCache.GetClusterCacheConfig()
 	if err != nil {
 		return nil, err
 	}
 	clusterCacheImpl := clusterCache.NewClusterCacheImpl(sugaredLogger, clusterCacheConfig, clusterRepositoryImpl, k8sUtil)
-	app := NewApp(sugaredLogger, applicationServiceServerImpl, routerImpl, k8sInformerImpl, clusterCacheImpl, clusterRepositoryImpl)
+	helmAppServiceImpl := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, serviceHelmReleaseConfig, k8sUtil, clusterRepositoryImpl, clusterCacheImpl)
+	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(sugaredLogger, chartRepositoryLocker, helmAppServiceImpl)
+	pProfRestHandlerImpl := pprof.NewPProfRestHandler(sugaredLogger)
+	pProfRouterImpl := pprof.NewPProfRouter(sugaredLogger, pProfRestHandlerImpl)
+	routerImpl := router.NewRouter(sugaredLogger, pProfRouterImpl)
+	app := NewApp(sugaredLogger, applicationServiceServerImpl, routerImpl, k8sInformerImpl)
 	return app, nil
 }

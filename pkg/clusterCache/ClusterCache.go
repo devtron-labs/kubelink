@@ -60,12 +60,8 @@ func parseClusterIdList(clusterIdList []string) []int {
 
 func (impl *ClusterCacheImpl) SyncCache() error {
 	clusterIdList := parseClusterIdList(impl.clusterCacheConfig.ClusterIdList)
-	clusterIdToCache := make(map[int]clustercache.ClusterCache)
-	for _, clusterId := range clusterIdList {
-		var cache clustercache.ClusterCache
-		clusterIdToCache[clusterId] = cache
-	}
-	liveState := LiveStateCache{clusterIdToCache}
+	clustercache := make(map[int]clustercache.ClusterCache)
+	liveState := LiveStateCache{clustercache}
 	for _, clusterId := range clusterIdList {
 		model, err := impl.clusterRepository.FindById(clusterId)
 		if err != nil {
@@ -83,9 +79,10 @@ func (impl *ClusterCacheImpl) SyncCache() error {
 }
 
 func (impl *ClusterCacheImpl) SyncClusterCache(clusterInfo bean.ClusterInfo, liveStageCache LiveStateCache) (clustercache.ClusterCache, error) {
+	impl.logger.Infow("cluster cache sync started..")
 	var c clustercache.ClusterCache
 	var err error
-	c, err = liveStageCache.getCluster(clusterInfo, impl)
+	c, err = getClusterCache(clusterInfo, impl, liveStageCache)
 	if err != nil {
 		impl.logger.Errorw("failed to get cluster info for", "clusterId", clusterInfo.ClusterId, "error", err)
 		return c, err

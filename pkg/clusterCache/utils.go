@@ -50,7 +50,7 @@ type LiveStateCache struct {
 	ClustersCache map[int]clustercache.ClusterCache
 }
 
-func (l *LiveStateCache) getCluster(clusterInfo bean.ClusterInfo, impl *ClusterCacheImpl) (clustercache.ClusterCache, error) {
+func getClusterCache(clusterInfo bean.ClusterInfo, impl *ClusterCacheImpl, l LiveStateCache) (clustercache.ClusterCache, error) {
 	var cache clustercache.ClusterCache
 	var ok bool
 	cache, ok = l.ClustersCache[clusterInfo.ClusterId]
