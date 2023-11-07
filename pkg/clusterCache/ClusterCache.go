@@ -33,7 +33,7 @@ type ClusterCacheImpl struct {
 	clusterRepository  repository.ClusterRepository
 	k8sUtil            *k8sUtils.K8sUtil
 	clustersCache      map[int]clustercache.ClusterCache
-	mutex              sync.Mutex
+	rwMutex            sync.RWMutex
 }
 
 func NewClusterCacheImpl(logger *zap.SugaredLogger, clusterCacheConfig *ClusterCacheConfig,
@@ -83,16 +83,19 @@ func (impl *ClusterCacheImpl) SyncClusterCache(clusterInfo bean.ClusterInfo) (cl
 		impl.logger.Errorw("error in syncing cluster cache", "clusterId", clusterInfo.ClusterId, "sync-error", err)
 		return c, err
 	}
-	impl.mutex.Lock()
+	impl.rwMutex.Lock()
 	impl.clustersCache[clusterInfo.ClusterId] = c
-	impl.mutex.Unlock()
+	impl.rwMutex.Unlock()
 	return c, nil
 }
 
 func (impl *ClusterCacheImpl) getClusterCache(clusterInfo bean.ClusterInfo) (clustercache.ClusterCache, error) {
 	var cache clustercache.ClusterCache
 	var ok bool
+	impl.rwMutex.RLock()
 	cache, ok = impl.clustersCache[clusterInfo.ClusterId]
+	impl.rwMutex.RUnlock()
+
 	if ok {
 		return cache, nil
 	}
