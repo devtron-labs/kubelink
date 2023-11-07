@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
-	"github.com/devtron-labs/kubelink/bean"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"net"
 	"net/url"
@@ -48,24 +47,6 @@ var (
 type LiveStateCache struct {
 	//clusterId to clusterCache mapping
 	ClustersCache map[int]clustercache.ClusterCache
-}
-
-func getClusterCache(clusterInfo bean.ClusterInfo, impl *ClusterCacheImpl, l LiveStateCache) (clustercache.ClusterCache, error) {
-	var cache clustercache.ClusterCache
-	var ok bool
-	cache, ok = l.ClustersCache[clusterInfo.ClusterId]
-	if ok {
-		return cache, nil
-	}
-	clusterConfig := clusterInfo.GetClusterConfig()
-	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(clusterConfig)
-	if err != nil {
-		impl.logger.Errorw("error in getting rest config", "err", err, "clusterName", clusterConfig.ClusterName)
-		return cache, err
-	}
-	cache = clustercache.NewClusterCache(restConfig, getClusterCacheOptions()...)
-	l.ClustersCache[clusterInfo.ClusterId] = cache
-	return cache, nil
 }
 
 // isRetryableError is a helper method to see whether an error

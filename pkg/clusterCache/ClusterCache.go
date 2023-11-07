@@ -10,15 +10,15 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"strconv"
 )
 
 type ClusterCache interface {
-	SyncClusterCache(clusterInfo bean.ClusterInfo, liveStageCache LiveStateCache) (clustercache.ClusterCache, error)
+	//SyncClusterCache(clusterInfo bean.ClusterInfo, liveStageCache LiveStateCache) (clustercache.ClusterCache, error)
+
 }
 
 type ClusterCacheConfig struct {
-	ClusterIdList []int `env:"CLUSTER_ID_LIST" envSeparator:"," evDefault:"1,2,3"`
+	ClusterIdList []int `env:"CLUSTER_ID_LIST" envSeparator:"," envDefault:"1,2,3"`
 }
 
 func GetClusterCacheConfig() (*ClusterCacheConfig, error) {
@@ -32,15 +32,20 @@ type ClusterCacheImpl struct {
 	clusterCacheConfig *ClusterCacheConfig
 	clusterRepository  repository.ClusterRepository
 	k8sUtil            *k8sUtils.K8sUtil
+	liveStateCache     *LiveStateCache
 }
 
 func NewClusterCacheImpl(logger *zap.SugaredLogger, clusterCacheConfig *ClusterCacheConfig,
 	clusterRepository repository.ClusterRepository, k8sUtil *k8sUtils.K8sUtil) *ClusterCacheImpl {
+
+	clusterCache := make(map[int]clustercache.ClusterCache)
+	liveStateCache := &LiveStateCache{clusterCache}
 	clusterCacheImpl := &ClusterCacheImpl{
 		logger:             logger,
 		clusterCacheConfig: clusterCacheConfig,
 		clusterRepository:  clusterRepository,
 		k8sUtil:            k8sUtil,
+		liveStateCache:     liveStateCache,
 	}
 
 	if len(clusterCacheConfig.ClusterIdList) > 0 {
@@ -52,46 +57,53 @@ func NewClusterCacheImpl(logger *zap.SugaredLogger, clusterCacheConfig *ClusterC
 	return clusterCacheImpl
 }
 
-func parseClusterIdList(clusterIdList []string) []int {
-	clusterIds := make([]int, 0)
-	for _, clusterId := range clusterIdList {
-		intValue, _ := strconv.Atoi(clusterId)
-		clusterIds = append(clusterIds, intValue)
-	}
-	return clusterIds
-}
-
 func (impl *ClusterCacheImpl) SyncCache() error {
-	//clusterIdList := parseClusterIdList(impl.clusterCacheConfig.ClusterIdList)
-	clustercache := make(map[int]clustercache.ClusterCache)
-	liveState := LiveStateCache{clustercache}
 	for _, clusterId := range impl.clusterCacheConfig.ClusterIdList {
 		model, err := impl.clusterRepository.FindById(clusterId)
 		if err != nil {
 			impl.logger.Errorw("error in getting cluster from db by cluster id", "clusterId", clusterId)
+			continue
 		}
 		clusterInfo := k8sInformer.GetClusterInfo(model)
 
-		go impl.SyncClusterCache(*clusterInfo, liveState)
+		go impl.SyncClusterCache(*clusterInfo)
 	}
 	return nil
 }
 
-func (impl *ClusterCacheImpl) SyncClusterCache(clusterInfo bean.ClusterInfo, liveStageCache LiveStateCache) (clustercache.ClusterCache, error) {
-	impl.logger.Infow("cluster cache sync started..")
+func (impl *ClusterCacheImpl) SyncClusterCache(clusterInfo bean.ClusterInfo) (clustercache.ClusterCache, error) {
+	impl.logger.Infow("cluster cache sync started..", "clusterId", clusterInfo.ClusterId)
 	var c clustercache.ClusterCache
 	var err error
-	c, err = getClusterCache(clusterInfo, impl, liveStageCache)
+	c, err = impl.getClusterCache(clusterInfo)
 	if err != nil {
 		impl.logger.Errorw("failed to get cluster info for", "clusterId", clusterInfo.ClusterId, "error", err)
 		return c, err
 	}
 	err = c.EnsureSynced()
 	if err != nil {
-		impl.logger.Errorw("error in syncing cluster cache", "sync-error", err)
+		impl.logger.Errorw("error in syncing cluster cache", "clusterId", clusterInfo.ClusterId, "sync-error", err)
 		return c, err
 	}
 	return c, nil
+}
+
+func (impl *ClusterCacheImpl) getClusterCache(clusterInfo bean.ClusterInfo) (clustercache.ClusterCache, error) {
+	var cache clustercache.ClusterCache
+	var ok bool
+	cache, ok = impl.liveStateCache.ClustersCache[clusterInfo.ClusterId]
+	if ok {
+		return cache, nil
+	}
+	clusterConfig := clusterInfo.GetClusterConfig()
+	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(clusterConfig)
+	if err != nil {
+		impl.logger.Errorw("error in getting rest config", "err", err, "clusterName", clusterConfig.ClusterName)
+		return cache, err
+	}
+	cache = clustercache.NewClusterCache(restConfig, getClusterCacheOptions()...)
+	impl.liveStateCache.ClustersCache[clusterInfo.ClusterId] = cache
+	return cache, nil
 }
 
 func getClusterCacheOptions() []clustercache.UpdateSettingsFunc {
