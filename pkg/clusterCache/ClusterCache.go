@@ -18,7 +18,7 @@ type ClusterCache interface {
 }
 
 type ClusterCacheConfig struct {
-	ClusterIdList []int `env:"CLUSTER_ID_LIST" envSeparator:","`
+	ClusterIdList []int `env:"CLUSTER_ID_LIST" envSeparator:"," evDefault:"1,2,3"`
 }
 
 func GetClusterCacheConfig() (*ClusterCacheConfig, error) {
@@ -44,7 +44,10 @@ func NewClusterCacheImpl(logger *zap.SugaredLogger, clusterCacheConfig *ClusterC
 	}
 
 	if len(clusterCacheConfig.ClusterIdList) > 0 {
-		go clusterCacheImpl.SyncCache()
+		err := clusterCacheImpl.SyncCache()
+		if err != nil {
+			return nil
+		}
 	}
 	return clusterCacheImpl
 }
@@ -69,11 +72,7 @@ func (impl *ClusterCacheImpl) SyncCache() error {
 		}
 		clusterInfo := k8sInformer.GetClusterInfo(model)
 
-		_, err = impl.SyncClusterCache(*clusterInfo, liveState)
-		if err != nil {
-			impl.logger.Error("error in cluster cache sync for cluster ", "cluster-name ", clusterInfo.ClusterName, "err", err)
-			return err
-		}
+		go impl.SyncClusterCache(*clusterInfo, liveState)
 	}
 	return nil
 }
