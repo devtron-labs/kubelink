@@ -3,7 +3,6 @@ package clusterCache
 import (
 	"errors"
 	"fmt"
-	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"net"
 	"net/url"
@@ -44,10 +43,9 @@ var (
 	clusterCacheRetryUseBackoff bool = false
 )
 
-type LiveStateCache struct {
-	//clusterId to clusterCache mapping
-	ClustersCache map[int]clustercache.ClusterCache
-}
+const (
+	hibernateReplicaAnnotation = "hibernator.devtron.ai/replicas"
+)
 
 // isRetryableError is a helper method to see whether an error
 // returned from the dynamic client is potentially retryable.

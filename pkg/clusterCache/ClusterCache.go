@@ -10,7 +10,6 @@ import (
 	"github.com/devtron-labs/kubelink/bean"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
-	"github.com/devtron-labs/kubelink/pkg/service"
 	"github.com/devtron-labs/kubelink/pkg/util/argo"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
@@ -24,7 +23,7 @@ type ClusterCache interface {
 }
 
 type ClusterCacheConfig struct {
-	ClusterIdList []int `env:"CLUSTER_ID_LIST" envSeparator:"," envDefault:"1,2,3"`
+	ClusterIdList []int `env:"CLUSTER_ID_LIST" envSeparator:","`
 }
 
 func GetClusterCacheConfig() (*ClusterCacheConfig, error) {
@@ -170,7 +169,7 @@ func getClusterCacheOptions() []clustercache.UpdateSettingsFunc {
 				// set IsHibernated
 				annotations := un.GetAnnotations()
 				if annotations != nil {
-					if val, ok := annotations[service.HibernateReplicaAnnotation]; ok {
+					if val, ok := annotations[hibernateReplicaAnnotation]; ok {
 						if val != "0" && replicas == 0 {
 							res.IsHibernated = true
 						}

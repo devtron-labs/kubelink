@@ -59,7 +59,7 @@ import (
 )
 
 const (
-	HibernateReplicaAnnotation            = "hibernator.devtron.ai/replicas"
+	hibernateReplicaAnnotation            = "hibernator.devtron.ai/replicas"
 	hibernatePatch                        = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
 	chartWorkingDirectory                 = "/home/devtron/devtroncd/charts/"
 	ReadmeFileName                        = "README.md"
@@ -382,9 +382,9 @@ func (impl HelmAppServiceImpl) ScaleObjects(ctx context.Context, clusterConfig *
 				hibernateStatus.ErrorMsg = "object is already scaled down"
 				continue
 			}
-			patchRequest.Patch = fmt.Sprintf(hibernatePatch, 0, HibernateReplicaAnnotation, strconv.Itoa(int(replicas)))
+			patchRequest.Patch = fmt.Sprintf(hibernatePatch, 0, hibernateReplicaAnnotation, strconv.Itoa(int(replicas)))
 		} else {
-			originalReplicaCount, err := strconv.Atoi(liveManifest.GetAnnotations()[HibernateReplicaAnnotation])
+			originalReplicaCount, err := strconv.Atoi(liveManifest.GetAnnotations()[hibernateReplicaAnnotation])
 			if err != nil {
 				hibernateStatus.ErrorMsg = err.Error()
 				continue
@@ -393,7 +393,7 @@ func (impl HelmAppServiceImpl) ScaleObjects(ctx context.Context, clusterConfig *
 				hibernateStatus.ErrorMsg = "object is already scaled up"
 				continue
 			}
-			patchRequest.Patch = fmt.Sprintf(hibernatePatch, originalReplicaCount, HibernateReplicaAnnotation, "0")
+			patchRequest.Patch = fmt.Sprintf(hibernatePatch, originalReplicaCount, hibernateReplicaAnnotation, "0")
 		}
 		// STEP-2 ends
 
@@ -1410,7 +1410,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 			// set IsHibernated
 			annotations := node.Manifest.GetAnnotations()
 			if annotations != nil {
-				if val, ok := annotations[HibernateReplicaAnnotation]; ok {
+				if val, ok := annotations[hibernateReplicaAnnotation]; ok {
 					if val != "0" && replicas == 0 {
 						node.IsHibernated = true
 					}
