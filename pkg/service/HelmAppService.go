@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/argoproj/gitops-engine/pkg/cache"
+	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/common-lib/utils/k8s/health"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
@@ -273,26 +275,74 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 }
 
 func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterId int, helmRelease *release.Release) (*bean.ResourceTreeResponse, error) {
-	// TODO building nodes and filling pod metadata and returning resourceTreeResp
-	//clusterCache, err := impl.clusterCache.GetClusterCacheByClusterId(clusterId)
-	//if err != nil {
-	//	impl.logger.Errorw("error in getting cluster cache, or cluster cache not synced for this cluster", "clusterId", clusterId, "err", err)
-	//}
-	//groupVersionKind := manifest.GroupVersionKind()
-	//resourceKey := kube.NewResourceKey(groupVersionKind.Group, groupVersionKind.Kind, namespace, manifest.GetName())
-	//clusterCache.IterateHierarchy(resourceKey, helmReleaseData.action)
-	//podsMetadata, err := buildPodMetadata(nodes)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//resourceTreeResponse := &bean.ResourceTreeResponse{
-	//	ApplicationTree: &bean.ApplicationTree{
-	//		Nodes: nodes,
-	//	},
-	//	PodMetadata: podsMetadata,
-	//}
-	return nil, nil
+	clusterCache, err := impl.clusterCache.GetClusterCacheByClusterId(clusterId)
+	if err != nil {
+		impl.logger.Errorw("error in getting cluster cache, or cluster cache not synced for this cluster", "clusterId", clusterId, "err", err)
+	}
+
+	uidToGvkMapping := make(map[types.UID]*bean.ResourceRef)
+	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
+	hierarchy := make([]*cache.Resource, 0)
+	for _, manifest := range manifests {
+		groupVersionKind := manifest.GroupVersionKind()
+		uidToGvkMapping[manifest.GetUID()] = getResourceRef(manifest)
+
+		resourceKey := kube.NewResourceKey(groupVersionKind.Group, groupVersionKind.Kind, helmRelease.Namespace, manifest.GetName())
+		clusterCache.IterateHierarchy(resourceKey, func(resource *cache.Resource, _ map[kube.ResourceKey]*cache.Resource) bool {
+			hierarchy = append(hierarchy, resource)
+			return true
+		})
+	}
+
+	nodes := make([]*bean.ResourceNode, 0, len(hierarchy))
+	//convert cache.Resource type into bean.ResourceNode type
+	for _, node := range hierarchy {
+		if node.Info != nil {
+			nodes = append(nodes, getNodeInfoFromHierarchy(node, uidToGvkMapping))
+		}
+	}
+
+	podsMetadata, err := buildPodMetadata(nodes)
+	if err != nil {
+		return nil, err
+	}
+	resourceTreeResponse := &bean.ResourceTreeResponse{
+		ApplicationTree: &bean.ApplicationTree{
+			Nodes: nodes,
+		},
+		PodMetadata: podsMetadata,
+	}
+	return resourceTreeResponse, nil
 }
+
+func getNodeInfoFromHierarchy(node *cache.Resource, uidToGvkMapping map[types.UID]*bean.ResourceRef) *bean.ResourceNode {
+	resourceNode := &bean.ResourceNode{}
+	var ok bool
+	if resourceNode, ok = node.Info.(*bean.ResourceNode); ok {
+		resourceNode.CreatedAt = node.CreationTimestamp.String()
+		resourceNode.ResourceRef = uidToGvkMapping[node.Ref.UID]
+		if node.OwnerRefs != nil {
+			parentRefs := make([]*bean.ResourceRef, 0)
+			for _, ownerRef := range node.OwnerRefs {
+				parentRefs = append(parentRefs, uidToGvkMapping[ownerRef.UID])
+			}
+			resourceNode.ParentRefs = parentRefs
+		}
+	}
+	return resourceNode
+}
+func getResourceRef(manifest unstructured.Unstructured) *bean.ResourceRef {
+	return &bean.ResourceRef{
+		Group:     manifest.GroupVersionKind().Group,
+		Version:   manifest.GroupVersionKind().Version,
+		Kind:      manifest.GroupVersionKind().Kind,
+		Namespace: manifest.GetNamespace(),
+		Name:      manifest.GetName(),
+		UID:       string(manifest.GetUID()),
+		Manifest:  manifest,
+	}
+}
+
 func (impl *HelmAppServiceImpl) FetchApplicationStatus(req *client.AppDetailRequest) (*bean.HealthStatusCode, error) {
 	var appStatus *bean.HealthStatusCode
 	helmRelease, err := impl.getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)

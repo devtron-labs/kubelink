@@ -106,13 +106,8 @@ func (impl *ClusterCacheImpl) SyncClusterCache(clusterInfo bean.ClusterInfo) (cl
 }
 
 func (impl *ClusterCacheImpl) getClusterCache(clusterInfo bean.ClusterInfo) (clustercache.ClusterCache, error) {
-	var cache clustercache.ClusterCache
-	var ok bool
-	impl.rwMutex.RLock()
-	cache, ok = impl.clustersCache[clusterInfo.ClusterId]
-	impl.rwMutex.RUnlock()
-
-	if ok {
+	cache, err := impl.GetClusterCacheByClusterId(clusterInfo.ClusterId)
+	if err == nil {
 		return cache, nil
 	}
 	clusterConfig := clusterInfo.GetClusterConfig()
@@ -249,6 +244,8 @@ func getPorts(manifest *unstructured.Unstructured, gvk schema.GroupVersionKind) 
 }
 
 func (impl *ClusterCacheImpl) GetClusterCacheByClusterId(clusterId int) (clustercache.ClusterCache, error) {
+	impl.rwMutex.RLock()
+	defer impl.rwMutex.RUnlock()
 	if clusterCache, found := impl.clustersCache[clusterId]; found {
 		return clusterCache, nil
 	}
