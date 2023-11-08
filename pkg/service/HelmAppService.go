@@ -1522,10 +1522,31 @@ func getReplicaSetPodHash(replicasetObj *v1beta1.ReplicaSet, deploymentObj *v1be
 	return podHash
 }
 
+func getRolloutPodTemplateHash(replicasetObj *v1beta1.ReplicaSet) string {
+	if rolloutPodTemplateHash, ok := replicasetObj.Labels["rollouts-pod-template-hash"]; ok {
+		return rolloutPodTemplateHash
+	}
+	return ""
+}
+
+func getRolloutPodHash(rollout map[string]interface{}) string {
+	if s, ok := rollout["status"]; ok {
+		if sm, ok := s.(map[string]interface{}); ok {
+			if cph, ok := sm["currentPodHash"]; ok {
+				if cphs, ok := cph.(string); ok {
+					return cphs
+				}
+			}
+		}
+	}
+	return ""
+}
+
 func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 
 	dPodHashMap := make(map[string]string)
 	deploymentMap := make(map[string]*v1beta1.Deployment)
+	rolloutMap := make(map[string]map[string]interface{})
 	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
 	for _, node := range nodes {
 		if node.Kind == k8sCommonBean.DeploymentKind {
@@ -1536,6 +1557,9 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 			deploymentMap[node.Name] = deployment
 			dpodHash := ComputeHash(&deployment.Spec.Template, deployment.Status.CollisionCount)
 			dPodHashMap[node.Name] = dpodHash
+		} else if node.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
+			rolloutIf := node.Manifest.UnstructuredContent()
+			rolloutMap[node.Name] = rolloutIf
 		}
 	}
 
@@ -1592,6 +1616,19 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 					}
 					rPodHash := getReplicaSetPodHash(replicasetObj, deployment)
 					isNew = rPodHash == dPodHash
+				} else if replicaSetParent.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
+
+					rolloutIf := rolloutMap[replicaSetParent.Name]
+					replicasetObj, err := convertToV1ReplicaSet(replicaSetNode)
+					if err != nil {
+						return nil, err
+					}
+
+					rolloutPodHash := getRolloutPodHash(rolloutIf)
+					podHash := getRolloutPodTemplateHash(replicasetObj)
+
+					isNew = rolloutPodHash == podHash
+
 				}
 			}
 
@@ -1613,7 +1650,7 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 						if err != nil {
 							return nil, err
 						}
-						//isNew = controlRevision.GetLabels()["controller-revision-hash"] == pod.GetLabels()["controller-revision-hash"]
+						isNew = controlRevision.GetLabels()["controller-revision-hash"] == pod.GetLabels()["controller-revision-hash"]
 					}
 				}
 			}
