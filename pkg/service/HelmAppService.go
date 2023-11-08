@@ -1522,6 +1522,18 @@ func getReplicaSetPodHash(replicasetObj *v1beta1.ReplicaSet, deploymentObj *v1be
 	return podHash
 }
 
+func getStatefulSetPodHash(replicasetObj *v1beta1.ReplicaSet, deploymentObj *v1beta1.Deployment) string {
+	labels := make(map[string]string)
+	for k, v := range replicasetObj.Spec.Template.Labels {
+		if k != "controller-revision-hash" {
+			labels[k] = v
+		}
+	}
+	replicasetObj.Spec.Template.Labels = labels
+	podHash := ComputeHash(&replicasetObj.Spec.Template, deploymentObj.Status.CollisionCount)
+	return podHash
+}
+
 func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 
 	dPodHashMap := make(map[string]string)
@@ -1573,7 +1585,7 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 					if err != nil {
 						return nil, err
 					}
-					rPodHash := getReplicaSetPodHash(replicasetObj, deployment)
+					rPodHash := getStatefulSetPodHash(replicasetObj, deployment)
 					isNew = rPodHash == dPodHash
 				}
 			}
