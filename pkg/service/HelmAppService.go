@@ -1564,7 +1564,18 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 				if err != nil {
 					return nil, err
 				}
-				isNew = statefulSet.Status.UpdateRevision == pod.GetLabels()["controller-revision-hash"]
+
+				statefulSetNode := getMatchingNode(nodes, parentKind, statefulSet.Name)
+				if replicaSetParent := statefulSetNode.ParentRefs[0]; statefulSetNode != nil && len(statefulSetNode.ParentRefs) > 0 && replicaSetParent.Kind == k8sCommonBean.DeploymentKind {
+					dPodHash := dPodHashMap[replicaSetParent.Name]
+					deployment := deploymentMap[replicaSetParent.Name]
+					replicasetObj, err := convertToV1ReplicaSet(statefulSetNode)
+					if err != nil {
+						return nil, err
+					}
+					rPodHash := getReplicaSetPodHash(replicasetObj, deployment)
+					isNew = rPodHash == dPodHash
+				}
 			}
 
 			// if parent is Job - then pod label controller-revision-hash should match StatefulSet's update revision
