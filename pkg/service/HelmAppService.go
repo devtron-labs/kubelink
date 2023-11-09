@@ -5,16 +5,12 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/common-lib/utils/k8s/health"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
-	"hash"
-	"hash/fnv"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -1446,102 +1442,6 @@ func buildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstruc
 	return resourceRef
 }
 
-// We omit vowels from the set of available characters to reduce the chances
-// of "bad words" being formed.
-const alphanums = "bcdfghjklmnpqrstvwxz2456789"
-
-// SafeEncodeString encodes s using the same characters as rand.String. This reduces the chances of bad words and
-// ensures that strings generated from hash functions appear consistent throughout the API.
-func SafeEncodeString(s string) string {
-	r := make([]byte, len(s))
-	for i, b := range []rune(s) {
-		r[i] = alphanums[(int(b) % len(alphanums))]
-	}
-	return string(r)
-}
-
-// DeepHashObject writes specified object to hash using the spew library
-// which follows pointers and prints actual values of the nested objects
-// ensuring the hash does not change when a pointer changes.
-func DeepHashObject(hasher hash.Hash, objectToWrite interface{}) {
-	hasher.Reset()
-	printer := spew.ConfigState{
-		Indent:         " ",
-		SortKeys:       true,
-		DisableMethods: true,
-		SpewKeys:       true,
-	}
-	_, err := printer.Fprintf(hasher, "%#v", objectToWrite)
-	if err != nil {
-		fmt.Println(err)
-	}
-}
-
-func ComputeHash(template *coreV1.PodTemplateSpec, collisionCount *int32) string {
-	podTemplateSpecHasher := fnv.New32a()
-	DeepHashObject(podTemplateSpecHasher, *template)
-
-	// Add collisionCount in the hash if it exists.
-	if collisionCount != nil {
-		collisionCountBytes := make([]byte, 8)
-		binary.LittleEndian.PutUint32(collisionCountBytes, uint32(*collisionCount))
-		_, err := podTemplateSpecHasher.Write(collisionCountBytes)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}
-	return SafeEncodeString(fmt.Sprint(podTemplateSpecHasher.Sum32()))
-}
-
-func convertToV1Deployment(node *bean.ResourceNode) (*v1beta1.Deployment, error) {
-	deploymentObj := v1beta1.Deployment{}
-	err := runtime.DefaultUnstructuredConverter.FromUnstructured(node.Manifest.UnstructuredContent(), &deploymentObj)
-	if err != nil {
-		return nil, err
-	}
-	return &deploymentObj, nil
-}
-func convertToV1ReplicaSet(node *bean.ResourceNode) (*v1beta1.ReplicaSet, error) {
-	replicaSetObj := v1beta1.ReplicaSet{}
-	err := runtime.DefaultUnstructuredConverter.FromUnstructured(node.Manifest.UnstructuredContent(), &replicaSetObj)
-	if err != nil {
-		return nil, err
-	}
-	return &replicaSetObj, nil
-}
-
-func getReplicaSetPodHash(replicasetObj *v1beta1.ReplicaSet, deploymentObj *v1beta1.Deployment) string {
-	labels := make(map[string]string)
-	for k, v := range replicasetObj.Spec.Template.Labels {
-		if k != "pod-template-hash" {
-			labels[k] = v
-		}
-	}
-	replicasetObj.Spec.Template.Labels = labels
-	podHash := ComputeHash(&replicasetObj.Spec.Template, deploymentObj.Status.CollisionCount)
-	return podHash
-}
-
-func getRolloutPodTemplateHash(replicasetObj *v1beta1.ReplicaSet) string {
-	if rolloutPodTemplateHash, ok := replicasetObj.Labels["rollouts-pod-template-hash"]; ok {
-		return rolloutPodTemplateHash
-	}
-	return ""
-}
-
-func getRolloutPodHash(rollout map[string]interface{}) string {
-	if s, ok := rollout["status"]; ok {
-		if sm, ok := s.(map[string]interface{}); ok {
-			if cph, ok := sm["currentPodHash"]; ok {
-				if cphs, ok := cph.(string); ok {
-					return cphs
-				}
-			}
-		}
-	}
-	return ""
-}
-
 func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 
 	dPodHashMap := make(map[string]string)
@@ -1550,12 +1450,12 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
 	for _, node := range nodes {
 		if node.Kind == k8sCommonBean.DeploymentKind {
-			deployment, err := convertToV1Deployment(node)
+			deployment, err := util.ConvertToV1Deployment(node)
 			if err != nil {
 				return nil, err
 			}
 			deploymentMap[node.Name] = deployment
-			dpodHash := ComputeHash(&deployment.Spec.Template, deployment.Status.CollisionCount)
+			dpodHash := util.ComputePodHash(&deployment.Spec.Template, deployment.Status.CollisionCount)
 			dPodHashMap[node.Name] = dpodHash
 		} else if node.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
 			rolloutIf := node.Manifest.UnstructuredContent()
@@ -1610,22 +1510,22 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 				if replicaSetParent := replicaSetNode.ParentRefs[0]; replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetParent.Kind == k8sCommonBean.DeploymentKind {
 					dPodHash := dPodHashMap[replicaSetParent.Name]
 					deployment := deploymentMap[replicaSetParent.Name]
-					replicasetObj, err := convertToV1ReplicaSet(replicaSetNode)
+					replicasetObj, err := util.ConvertToV1ReplicaSet(replicaSetNode)
 					if err != nil {
 						return nil, err
 					}
-					rPodHash := getReplicaSetPodHash(replicasetObj, deployment)
+					rPodHash := util.GetReplicaSetPodHash(replicasetObj, deployment)
 					isNew = rPodHash == dPodHash
 				} else if replicaSetParent.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
 
 					rolloutIf := rolloutMap[replicaSetParent.Name]
-					replicasetObj, err := convertToV1ReplicaSet(replicaSetNode)
+					replicasetObj, err := util.ConvertToV1ReplicaSet(replicaSetNode)
 					if err != nil {
 						return nil, err
 					}
 
-					rolloutPodHash := getRolloutPodHash(rolloutIf)
-					podHash := getRolloutPodTemplateHash(replicasetObj)
+					rolloutPodHash := util.GetRolloutPodHash(rolloutIf)
+					podHash := util.GetRolloutPodTemplateHash(replicasetObj)
 
 					isNew = rolloutPodHash == podHash
 
