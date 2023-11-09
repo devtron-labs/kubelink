@@ -237,14 +237,14 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 		impl.logger.Errorw("Error in getting helm release ", "err", err)
 		return nil, err
 	}
-	resourceTreeResponse, err := impl.buildResourceTreeFromClusterCache(int(req.ClusterConfig.ClusterId), helmRelease)
+	resourceTreeResponse, err := impl.buildResourceTreeFromClusterCache(req.ClusterConfig, helmRelease)
 	if err != nil {
-		impl.logger.Errorw("Error in getting resourceTree from cluster cache", "err", err)
+		impl.logger.Errorw("error in getting resourceTree from cluster cache", "clusterName", req.ClusterConfig.ClusterName, "releaseName", helmRelease.Name, "err", err)
 	}
 	if resourceTreeResponse == nil {
 		resourceTreeResponse, err = impl.buildResourceTree(req, helmRelease)
 		if err != nil {
-			impl.logger.Errorw("Error in building resource tree ", "err", err)
+			impl.logger.Errorw("error in building resource tree ", "err", err)
 			return nil, err
 		}
 	}
@@ -274,20 +274,30 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 	return appDetail, nil
 }
 
-func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterId int, helmRelease *release.Release) (*bean.ResourceTreeResponse, error) {
-	clusterCache, err := impl.clusterCache.GetClusterCacheByClusterId(clusterId)
+func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig *client.ClusterConfig, helmRelease *release.Release) (*bean.ResourceTreeResponse, error) {
+	clusterCache, err := impl.clusterCache.GetClusterCacheByClusterId(int(clusterConfig.ClusterId))
 	if err != nil {
-		impl.logger.Errorw("error in getting cluster cache, or cluster cache not synced for this cluster", "clusterId", clusterId, "err", err)
+		impl.logger.Errorw("error in getting cluster cache, or cluster cache not synced for this cluster", "clusterId", clusterConfig.ClusterId, "err", err)
+	}
+	conf, err := impl.getRestConfigForClusterConfig(clusterConfig)
+	if err != nil {
+		impl.logger.Errorw("error in getRestConfigForClusterConfig", "helmReleaseName", helmRelease.Name, "err", err)
+		return nil, err
+	}
+	desiredOrLiveManifests, err := impl.getLiveManifests(conf, helmRelease)
+	if err != nil {
+		impl.logger.Errorw("error in getLiveManifest", "helmReleaseName", helmRelease.Name, "err", err)
+		return nil, err
 	}
 
-	uidToGvkMapping := make(map[types.UID]*bean.ResourceRef)
-	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
-	hierarchy := make([]*cache.Resource, 0)
-	for _, manifest := range manifests {
-		groupVersionKind := manifest.GroupVersionKind()
-		uidToGvkMapping[manifest.GetUID()] = getResourceRef(manifest)
+	uidToResourceRefMapping := impl.getResourceRefMappingForAllResources(desiredOrLiveManifests, conf, helmRelease.Namespace)
 
-		resourceKey := kube.NewResourceKey(groupVersionKind.Group, groupVersionKind.Kind, helmRelease.Namespace, manifest.GetName())
+	hierarchy := make([]*cache.Resource, 0)
+	for _, desiredOrLiveManifest := range desiredOrLiveManifests {
+		manifest := desiredOrLiveManifest.Manifest
+		gvk := manifest.GroupVersionKind()
+
+		resourceKey := kube.NewResourceKey(gvk.Group, gvk.Kind, helmRelease.Namespace, manifest.GetName())
 		clusterCache.IterateHierarchy(resourceKey, func(resource *cache.Resource, _ map[kube.ResourceKey]*cache.Resource) bool {
 			hierarchy = append(hierarchy, resource)
 			return true
@@ -298,7 +308,7 @@ func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterId int,
 	//convert cache.Resource type into bean.ResourceNode type
 	for _, node := range hierarchy {
 		if node.Info != nil {
-			nodes = append(nodes, getNodeInfoFromHierarchy(node, uidToGvkMapping))
+			nodes = append(nodes, getNodeInfoFromHierarchy(node, uidToResourceRefMapping))
 		}
 	}
 
@@ -313,6 +323,51 @@ func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterId int,
 		PodMetadata: podsMetadata,
 	}
 	return resourceTreeResponse, nil
+}
+
+func (impl *HelmAppServiceImpl) getLiveManifests(config *rest.Config, helmRelease *release.Release) ([]*bean.DesiredOrLiveManifest, error) {
+	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
+	// get live manifests from kubernetes
+	desiredOrLiveManifests, err := impl.getDesiredOrLiveManifests(config, manifests, helmRelease.Namespace)
+	if err != nil {
+		impl.logger.Errorw("error in getting desired or live manifest", "host", config.Host, "helmReleaseName", helmRelease.Name, "err", err)
+		return nil, err
+	}
+	return desiredOrLiveManifests, nil
+}
+
+func (impl *HelmAppServiceImpl) getRestConfigForClusterConfig(clusterConfig *client.ClusterConfig) (*rest.Config, error) {
+	k8sClusterConfig := GetClusterConfigFromClientBean(clusterConfig)
+	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
+	if err != nil {
+		impl.logger.Errorw("error in getting rest config by cluster", "clusterName", k8sClusterConfig.ClusterName)
+		return nil, err
+	}
+	return conf, nil
+}
+
+// getResourceRefMappingForAllResources, prepares mapping of unique UID to ResourceRef for all objects, including children resources
+func (impl *HelmAppServiceImpl) getResourceRefMappingForAllResources(desiredOrLiveManifests []*bean.DesiredOrLiveManifest, conf *rest.Config, namespace string) map[types.UID]*bean.ResourceRef {
+	uidToResourceRefMapping := make(map[types.UID]*bean.ResourceRef)
+	//making local copy so that original obj is not hindered
+	liveManifests := desiredOrLiveManifests
+	manifestsSize := len(liveManifests)
+	for i := 0; i < manifestsSize; i++ {
+		manifest := liveManifests[i].Manifest
+		uidToResourceRefMapping[manifest.GetUID()] = getResourceRef(*manifest)
+		gvk := manifest.GroupVersionKind()
+		children, err := impl.k8sService.GetChildObjects(conf, namespace, gvk, manifest.GetName(), manifest.GetAPIVersion())
+		if err != nil {
+			continue
+		}
+		for _, child := range children {
+			liveManifests = append(liveManifests, &bean.DesiredOrLiveManifest{
+				Manifest: child,
+			})
+			manifestsSize += 1
+		}
+	}
+	return uidToResourceRefMapping
 }
 
 func getNodeInfoFromHierarchy(node *cache.Resource, uidToGvkMapping map[types.UID]*bean.ResourceRef) *bean.ResourceNode {
@@ -1190,17 +1245,11 @@ func (impl *HelmAppServiceImpl) getNodes(appDetailRequest *client.AppDetailReque
 }
 
 func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDetailRequest, release *release.Release) (*bean.ResourceTreeResponse, error) {
-	k8sClusterConfig := GetClusterConfigFromClientBean(appDetailRequest.ClusterConfig)
-	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
+	conf, err := impl.getRestConfigForClusterConfig(appDetailRequest.ClusterConfig)
 	if err != nil {
 		return nil, err
 	}
-	manifests, err := yamlUtil.SplitYAMLs([]byte(release.Manifest))
-	if err != nil {
-		return nil, err
-	}
-	// get live manifests from kubernetes
-	desiredOrLiveManifests, err := impl.getDesiredOrLiveManifests(conf, manifests, appDetailRequest.Namespace)
+	desiredOrLiveManifests, err := impl.getLiveManifests(conf, release)
 	if err != nil {
 		return nil, err
 	}
