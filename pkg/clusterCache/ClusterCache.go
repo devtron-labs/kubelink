@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
-	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	"github.com/caarlos0/env"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/common-lib/utils/k8s/health"
@@ -132,7 +131,7 @@ func getClusterCacheOptions() []clustercache.UpdateSettingsFunc {
 			fmt.Println("resource updated")
 			gvk := un.GroupVersionKind()
 			res := &bean.ResourceNode{
-				Port:            getPorts(un, gvk),
+				Port:            GetPorts(un, gvk),
 				ResourceVersion: un.GetResourceVersion(),
 				NetworkingInfo: &bean.ResourceNetworkingInfo{
 					Labels: un.GetLabels(),
@@ -184,14 +183,14 @@ func getClusterCacheOptions() []clustercache.UpdateSettingsFunc {
 			}
 			// hibernate set ends
 
-			return res, gvk.Kind == kube.CustomResourceDefinitionKind
+			return res, false
 		}),
 		clustercache.SetRetryOptions(clusterCacheAttemptLimit, clusterCacheRetryUseBackoff, isRetryableError),
 	}
 	return clusterCacheOpts
 }
 
-func getPorts(manifest *unstructured.Unstructured, gvk schema.GroupVersionKind) []int64 {
+func GetPorts(manifest *unstructured.Unstructured, gvk schema.GroupVersionKind) []int64 {
 	ports := make([]int64, 0)
 	if k8sUtils.IsService(gvk) || gvk.Kind == "Service" {
 		if manifest.Object["spec"] != nil {

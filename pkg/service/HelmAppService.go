@@ -274,6 +274,15 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 	return appDetail, nil
 }
 
+type Resource struct {
+	CacheResources []*cache.Resource
+}
+
+func (k *Resource) action(resource *cache.Resource, _ map[kube.ResourceKey]*cache.Resource) bool {
+	k.CacheResources = append(k.CacheResources, resource)
+	return true
+}
+
 func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig *client.ClusterConfig, helmRelease *release.Release) (*bean.ResourceTreeResponse, error) {
 	clusterCache, err := impl.clusterCache.GetClusterCacheByClusterId(int(clusterConfig.ClusterId))
 	if err != nil {
@@ -292,21 +301,20 @@ func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig 
 
 	uidToResourceRefMapping := impl.getResourceRefMappingForAllResources(desiredOrLiveManifests, conf, helmRelease.Namespace)
 
-	hierarchy := make([]*cache.Resource, 0)
+	resourceHierarchy := Resource{CacheResources: make([]*cache.Resource, 0)}
 	for _, desiredOrLiveManifest := range desiredOrLiveManifests {
 		manifest := desiredOrLiveManifest.Manifest
 		gvk := manifest.GroupVersionKind()
 
 		resourceKey := kube.NewResourceKey(gvk.Group, gvk.Kind, helmRelease.Namespace, manifest.GetName())
-		clusterCache.IterateHierarchy(resourceKey, func(resource *cache.Resource, _ map[kube.ResourceKey]*cache.Resource) bool {
-			hierarchy = append(hierarchy, resource)
-			return true
-		})
+		clusterCache.IterateHierarchy(resourceKey, resourceHierarchy.action)
 	}
+	//special handling for CRDs
+	addCRDsInResourceHierarchy(&resourceHierarchy, uidToResourceRefMapping)
 
-	nodes := make([]*bean.ResourceNode, 0, len(hierarchy))
+	nodes := make([]*bean.ResourceNode, 0, len(resourceHierarchy.CacheResources))
 	//convert cache.Resource type into bean.ResourceNode type
-	for _, node := range hierarchy {
+	for _, node := range resourceHierarchy.CacheResources {
 		if node.Info != nil {
 			nodes = append(nodes, getNodeInfoFromHierarchy(node, uidToResourceRefMapping))
 		}
@@ -323,6 +331,29 @@ func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig 
 		PodMetadata: podsMetadata,
 	}
 	return resourceTreeResponse, nil
+}
+
+func addCRDsInResourceHierarchy(resourceHierarchy *Resource, uidToResourceRefMapping map[types.UID]*bean.ResourceRef) {
+	for _, resource := range uidToResourceRefMapping {
+		if kube.IsCRD(&resource.Manifest) {
+			gvk := resource.Manifest.GroupVersionKind()
+			createdAt := resource.Manifest.GetCreationTimestamp()
+			resourceHierarchy.CacheResources = append(resourceHierarchy.CacheResources, &cache.Resource{
+				ResourceVersion:   resource.Manifest.GetResourceVersion(),
+				Ref:               kube.GetObjectRef(&resource.Manifest),
+				CreationTimestamp: &createdAt,
+				Info: &bean.ResourceNode{
+					NetworkingInfo: &bean.ResourceNetworkingInfo{
+						Labels: resource.Manifest.GetLabels(),
+					},
+					ResourceVersion: resource.Manifest.GetResourceVersion(),
+					Port:            clusterCache.GetPorts(&resource.Manifest, gvk),
+					CreatedAt:       createdAt.String(),
+				},
+			})
+
+		}
+	}
 }
 
 func (impl *HelmAppServiceImpl) getLiveManifests(config *rest.Config, helmRelease *release.Release) ([]*bean.DesiredOrLiveManifest, error) {
