@@ -1444,7 +1444,7 @@ func buildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstruc
 
 func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 
-	dPodHashMap := make(map[string]string)
+	deploymentPodHashMap := make(map[string]string)
 	deploymentMap := make(map[string]*v1beta1.Deployment)
 	rolloutMap := make(map[string]map[string]interface{})
 	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
@@ -1455,8 +1455,8 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 				return nil, err
 			}
 			deploymentMap[node.Name] = deployment
-			dpodHash := util.ComputePodHash(&deployment.Spec.Template, deployment.Status.CollisionCount)
-			dPodHashMap[node.Name] = dpodHash
+			deploymentPodHash := util.ComputePodHash(&deployment.Spec.Template, deployment.Status.CollisionCount)
+			deploymentPodHashMap[node.Name] = deploymentPodHash
 		} else if node.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
 			rolloutIf := node.Manifest.UnstructuredContent()
 			rolloutMap[node.Name] = rolloutIf
@@ -1508,14 +1508,14 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 
 				// if parent of replicaset is deployment, compare label pod-template-hash
 				if replicaSetParent := replicaSetNode.ParentRefs[0]; replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetParent.Kind == k8sCommonBean.DeploymentKind {
-					dPodHash := dPodHashMap[replicaSetParent.Name]
+					deploymentPodHash := deploymentPodHashMap[replicaSetParent.Name]
 					deployment := deploymentMap[replicaSetParent.Name]
 					replicasetObj, err := util.ConvertToV1ReplicaSet(replicaSetNode)
 					if err != nil {
 						return nil, err
 					}
-					rPodHash := util.GetReplicaSetPodHash(replicasetObj, deployment)
-					isNew = rPodHash == dPodHash
+					replicaSetPodHash := util.GetReplicaSetPodHash(replicasetObj, deployment)
+					isNew = replicaSetPodHash == deploymentPodHash
 				} else if replicaSetParent.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
 
 					rolloutIf := rolloutMap[replicaSetParent.Name]
@@ -1525,9 +1525,9 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 					}
 
 					rolloutPodHash := util.GetRolloutPodHash(rolloutIf)
-					podHash := util.GetRolloutPodTemplateHash(replicasetObj)
+					replicasetPodHash := util.GetRolloutPodTemplateHash(replicasetObj)
 
-					isNew = rolloutPodHash == podHash
+					isNew = rolloutPodHash == replicasetPodHash
 
 				}
 			}
