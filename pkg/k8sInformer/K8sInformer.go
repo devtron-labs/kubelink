@@ -92,6 +92,7 @@ func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.
 }
 
 func (impl *K8sInformerImpl) OnStateChange(clusterId int) {
+	impl.logger.Infow("syncing informer on cluster config update", "clusterId", clusterId)
 	err := impl.syncInformer(clusterId)
 	if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
 		impl.logger.Error("error in updating informer for cluster", "id", clusterId, "err", err)

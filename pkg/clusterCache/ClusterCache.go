@@ -83,6 +83,7 @@ func (impl *ClusterCacheImpl) OnStateChange(clusterId int) {
 		impl.logger.Errorw("error in getting clusterInfo by cluster id", "clusterId", clusterId)
 		return
 	}
+	impl.logger.Infow("syncing cluster cache on cluster config update", "clusterId", clusterId)
 	go impl.SyncClusterCache(*clusterInfo)
 }
 
