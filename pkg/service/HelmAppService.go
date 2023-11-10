@@ -334,6 +334,7 @@ func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig 
 
 func addCRDsInResourceHierarchy(resourceHierarchy *Resource, manifest unstructured.Unstructured) {
 	createdAt := manifest.GetCreationTimestamp()
+	gvk := manifest.GroupVersionKind()
 	crdNode := &cache.Resource{
 		ResourceVersion:   manifest.GetResourceVersion(),
 		Ref:               kube.GetObjectRef(&manifest),
@@ -343,8 +344,17 @@ func addCRDsInResourceHierarchy(resourceHierarchy *Resource, manifest unstructur
 				Labels: manifest.GetLabels(),
 			},
 			ResourceVersion: manifest.GetResourceVersion(),
-			Port:            clusterMetadataCache.GetPorts(&manifest, manifest.GroupVersionKind()),
+			Port:            clusterMetadataCache.GetPorts(&manifest, gvk),
 			CreatedAt:       createdAt.String(),
+			ResourceRef: &bean.ResourceRef{
+				Group:     gvk.Group,
+				Version:   gvk.Version,
+				Kind:      gvk.Kind,
+				Namespace: manifest.GetNamespace(),
+				Name:      manifest.GetName(),
+				UID:       string(manifest.GetUID()),
+				Manifest:  manifest,
+			},
 		},
 	}
 	resourceHierarchy.CacheResources = append(resourceHierarchy.CacheResources, crdNode)

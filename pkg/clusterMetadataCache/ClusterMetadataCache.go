@@ -76,14 +76,19 @@ func (impl *ClusterCacheImpl) getClusterInfoByClusterId(clusterId int) (*bean.Cl
 	return clusterInfo, nil
 }
 
-func (impl *ClusterCacheImpl) OnStateChange(clusterId int) {
-	clusterInfo, err := impl.getClusterInfoByClusterId(clusterId)
-	if err != nil {
-		impl.logger.Errorw("error in getting clusterInfo by cluster id", "clusterId", clusterId)
-		return
+func (impl *ClusterCacheImpl) OnStateChange(clusterId int, action string) {
+	switch action {
+	case k8sInformer.UPDATE:
+		clusterInfo, err := impl.getClusterInfoByClusterId(clusterId)
+		if err != nil {
+			impl.logger.Errorw("error in getting clusterInfo by cluster id", "clusterId", clusterId)
+			return
+		}
+		impl.logger.Infow("syncing cluster cache on cluster config update", "clusterId", clusterId)
+		go impl.SyncClusterCache(*clusterInfo)
+	case k8sInformer.DELETE:
+		//TODO disc case of delete
 	}
-	impl.logger.Infow("syncing cluster cache on cluster config update", "clusterId", clusterId)
-	go impl.SyncClusterCache(*clusterInfo)
 }
 
 func (impl *ClusterCacheImpl) SyncCache() error {
