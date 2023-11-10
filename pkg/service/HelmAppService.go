@@ -275,10 +275,14 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 }
 
 type Resource struct {
-	CacheResources []*cache.Resource
+	CacheResources          []*cache.Resource
+	UidToResourceRefMapping map[string]*bean.ResourceRef
 }
 
 func (k *Resource) action(resource *cache.Resource, _ map[kube.ResourceKey]*cache.Resource) bool {
+	if resourceNode, ok := resource.Info.(*bean.ResourceNode); ok {
+		k.UidToResourceRefMapping[resourceNode.UID] = resourceNode.ResourceRef
+	}
 	k.CacheResources = append(k.CacheResources, resource)
 	return true
 }
@@ -290,35 +294,28 @@ func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig 
 		impl.logger.Errorw("error in getting cluster cache, or cluster cache not synced for this cluster", "clusterId", clusterConfig.ClusterId, "err", err)
 		return nil, err
 	}
-	conf, err := impl.getRestConfigForClusterConfig(clusterConfig)
-	if err != nil {
-		impl.logger.Errorw("error in getRestConfigForClusterConfig", "helmReleaseName", helmRelease.Name, "err", err)
-		return nil, err
-	}
-	desiredOrLiveManifests, err := impl.getLiveManifests(conf, helmRelease)
-	if err != nil {
-		impl.logger.Errorw("error in getLiveManifest", "helmReleaseName", helmRelease.Name, "err", err)
-		return nil, err
+	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
+
+	resourceHierarchy := &Resource{
+		CacheResources:          make([]*cache.Resource, 0),
+		UidToResourceRefMapping: make(map[string]*bean.ResourceRef),
 	}
 
-	uidToResourceRefMapping := impl.getResourceRefMappingForAllResources(desiredOrLiveManifests, conf, helmRelease.Namespace)
-
-	resourceHierarchy := Resource{CacheResources: make([]*cache.Resource, 0)}
-	for _, desiredOrLiveManifest := range desiredOrLiveManifests {
-		manifest := desiredOrLiveManifest.Manifest
+	for _, manifest := range manifests {
 		gvk := manifest.GroupVersionKind()
-
+		//special handling for CRDs
+		if gvk.Kind == kube.CustomResourceDefinitionKind {
+			addCRDsInResourceHierarchy(resourceHierarchy, manifest)
+		}
 		resourceKey := kube.NewResourceKey(gvk.Group, gvk.Kind, helmRelease.Namespace, manifest.GetName())
 		clusterCache.IterateHierarchy(resourceKey, resourceHierarchy.action)
 	}
-	//special handling for CRDs
-	addCRDsInResourceHierarchy(&resourceHierarchy, uidToResourceRefMapping)
 
 	nodes := make([]*bean.ResourceNode, 0, len(resourceHierarchy.CacheResources))
 	//convert cache.Resource type into bean.ResourceNode type
 	for _, node := range resourceHierarchy.CacheResources {
 		if node.Info != nil {
-			nodes = append(nodes, getNodeInfoFromHierarchy(node, uidToResourceRefMapping))
+			nodes = append(nodes, getNodeInfoFromHierarchy(node, resourceHierarchy.UidToResourceRefMapping))
 		}
 	}
 
@@ -335,27 +332,22 @@ func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig 
 	return resourceTreeResponse, nil
 }
 
-func addCRDsInResourceHierarchy(resourceHierarchy *Resource, uidToResourceRefMapping map[types.UID]*bean.ResourceRef) {
-	for _, resource := range uidToResourceRefMapping {
-		if kube.IsCRD(&resource.Manifest) {
-			gvk := resource.Manifest.GroupVersionKind()
-			createdAt := resource.Manifest.GetCreationTimestamp()
-			resourceHierarchy.CacheResources = append(resourceHierarchy.CacheResources, &cache.Resource{
-				ResourceVersion:   resource.Manifest.GetResourceVersion(),
-				Ref:               kube.GetObjectRef(&resource.Manifest),
-				CreationTimestamp: &createdAt,
-				Info: &bean.ResourceNode{
-					NetworkingInfo: &bean.ResourceNetworkingInfo{
-						Labels: resource.Manifest.GetLabels(),
-					},
-					ResourceVersion: resource.Manifest.GetResourceVersion(),
-					Port:            clusterCache.GetPorts(&resource.Manifest, gvk),
-					CreatedAt:       createdAt.String(),
-				},
-			})
-
-		}
+func addCRDsInResourceHierarchy(resourceHierarchy *Resource, manifest unstructured.Unstructured) {
+	createdAt := manifest.GetCreationTimestamp()
+	crdNode := &cache.Resource{
+		ResourceVersion:   manifest.GetResourceVersion(),
+		Ref:               kube.GetObjectRef(&manifest),
+		CreationTimestamp: &createdAt,
+		Info: &bean.ResourceNode{
+			NetworkingInfo: &bean.ResourceNetworkingInfo{
+				Labels: manifest.GetLabels(),
+			},
+			ResourceVersion: manifest.GetResourceVersion(),
+			Port:            clusterCache.GetPorts(&manifest, manifest.GroupVersionKind()),
+			CreatedAt:       createdAt.String(),
+		},
 	}
+	resourceHierarchy.CacheResources = append(resourceHierarchy.CacheResources, crdNode)
 }
 
 func (impl *HelmAppServiceImpl) getLiveManifests(config *rest.Config, helmRelease *release.Release) ([]*bean.DesiredOrLiveManifest, error) {
@@ -379,56 +371,19 @@ func (impl *HelmAppServiceImpl) getRestConfigForClusterConfig(clusterConfig *cli
 	return conf, nil
 }
 
-// getResourceRefMappingForAllResources, prepares mapping of unique UID to ResourceRef for all objects, including children resources
-func (impl *HelmAppServiceImpl) getResourceRefMappingForAllResources(desiredOrLiveManifests []*bean.DesiredOrLiveManifest, conf *rest.Config, namespace string) map[types.UID]*bean.ResourceRef {
-	uidToResourceRefMapping := make(map[types.UID]*bean.ResourceRef)
-	//making local copy so that original obj is not hindered
-	liveManifests := desiredOrLiveManifests
-	manifestsSize := len(liveManifests)
-	for i := 0; i < manifestsSize; i++ {
-		manifest := liveManifests[i].Manifest
-		uidToResourceRefMapping[manifest.GetUID()] = getResourceRef(*manifest)
-		gvk := manifest.GroupVersionKind()
-		children, err := impl.k8sService.GetChildObjects(conf, namespace, gvk, manifest.GetName(), manifest.GetAPIVersion())
-		if err != nil {
-			continue
-		}
-		for _, child := range children {
-			liveManifests = append(liveManifests, &bean.DesiredOrLiveManifest{
-				Manifest: child,
-			})
-			manifestsSize += 1
-		}
-	}
-	return uidToResourceRefMapping
-}
-
-func getNodeInfoFromHierarchy(node *cache.Resource, uidToGvkMapping map[types.UID]*bean.ResourceRef) *bean.ResourceNode {
+func getNodeInfoFromHierarchy(node *cache.Resource, uidToResourceRefMapping map[string]*bean.ResourceRef) *bean.ResourceNode {
 	resourceNode := &bean.ResourceNode{}
 	var ok bool
 	if resourceNode, ok = node.Info.(*bean.ResourceNode); ok {
-		resourceNode.CreatedAt = node.CreationTimestamp.String()
-		resourceNode.ResourceRef = uidToGvkMapping[node.Ref.UID]
 		if node.OwnerRefs != nil {
 			parentRefs := make([]*bean.ResourceRef, 0)
 			for _, ownerRef := range node.OwnerRefs {
-				parentRefs = append(parentRefs, uidToGvkMapping[ownerRef.UID])
+				parentRefs = append(parentRefs, uidToResourceRefMapping[string(ownerRef.UID)])
 			}
 			resourceNode.ParentRefs = parentRefs
 		}
 	}
 	return resourceNode
-}
-func getResourceRef(manifest unstructured.Unstructured) *bean.ResourceRef {
-	return &bean.ResourceRef{
-		Group:     manifest.GroupVersionKind().Group,
-		Version:   manifest.GroupVersionKind().Version,
-		Kind:      manifest.GroupVersionKind().Kind,
-		Namespace: manifest.GetNamespace(),
-		Name:      manifest.GetName(),
-		UID:       string(manifest.GetUID()),
-		Manifest:  manifest,
-	}
 }
 
 func (impl *HelmAppServiceImpl) FetchApplicationStatus(req *client.AppDetailRequest) (*bean.HealthStatusCode, error) {
