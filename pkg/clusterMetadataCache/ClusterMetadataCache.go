@@ -148,6 +148,16 @@ func getClusterCacheOptions() []clustercache.UpdateSettingsFunc {
 				NetworkingInfo: &bean.ResourceNetworkingInfo{
 					Labels: un.GetLabels(),
 				},
+				CreatedAt: un.GetCreationTimestamp().String(),
+				ResourceRef: &bean.ResourceRef{
+					Group:     gvk.Group,
+					Version:   gvk.Version,
+					Kind:      gvk.Kind,
+					Namespace: un.GetNamespace(),
+					Name:      un.GetName(),
+					UID:       string(un.GetUID()),
+					Manifest:  *un,
+				},
 			}
 
 			if k8sUtils.IsService(gvk) && un.GetName() == k8sUtils.DEVTRON_SERVICE_NAME && k8sUtils.IsDevtronApp(res.NetworkingInfo.Labels) {
