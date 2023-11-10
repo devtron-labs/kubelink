@@ -2,7 +2,6 @@ package clusterCache
 
 import (
 	"errors"
-	"fmt"
 	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
 	"github.com/caarlos0/env"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
@@ -142,7 +141,6 @@ func getClusterCacheOptions() []clustercache.UpdateSettingsFunc {
 		clustercache.SetClusterSyncRetryTimeout(clusterSyncRetryTimeoutDuration),
 		clustercache.SetResyncTimeout(clusterCacheResyncDuration),
 		clustercache.SetPopulateResourceInfoHandler(func(un *unstructured.Unstructured, isRoot bool) (interface{}, bool) {
-			fmt.Println("resource updated")
 			gvk := un.GroupVersionKind()
 			res := &bean.ResourceNode{
 				Port:            GetPorts(un, gvk),
