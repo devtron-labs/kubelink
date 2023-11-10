@@ -19,6 +19,7 @@ import (
 )
 
 type ClusterCache interface {
+	k8sInformer.ClusterSecretUpdateListener
 	//SyncClusterCache(clusterInfo bean.ClusterInfo) (clustercache.ClusterCache, error)
 	GetClusterCacheByClusterId(clusterId int) (clustercache.ClusterCache, error)
 }
@@ -40,10 +41,11 @@ type ClusterCacheImpl struct {
 	k8sUtil            *k8sUtils.K8sUtil
 	clustersCache      map[int]clustercache.ClusterCache
 	rwMutex            sync.RWMutex
+	k8sInformer        k8sInformer.K8sInformer
 }
 
 func NewClusterCacheImpl(logger *zap.SugaredLogger, clusterCacheConfig *ClusterCacheConfig,
-	clusterRepository repository.ClusterRepository, k8sUtil *k8sUtils.K8sUtil) *ClusterCacheImpl {
+	clusterRepository repository.ClusterRepository, k8sUtil *k8sUtils.K8sUtil, k8sInformer k8sInformer.K8sInformer) *ClusterCacheImpl {
 
 	clustersCache := make(map[int]clustercache.ClusterCache)
 	clusterCacheImpl := &ClusterCacheImpl{
@@ -52,7 +54,9 @@ func NewClusterCacheImpl(logger *zap.SugaredLogger, clusterCacheConfig *ClusterC
 		clusterRepository:  clusterRepository,
 		k8sUtil:            k8sUtil,
 		clustersCache:      clustersCache,
+		k8sInformer:        k8sInformer,
 	}
+	k8sInformer.RegisterListener(clusterCacheImpl)
 
 	if len(clusterCacheConfig.ClusterIdList) > 0 {
 		err := clusterCacheImpl.SyncCache()
@@ -71,6 +75,15 @@ func (impl *ClusterCacheImpl) getClusterInfoByClusterId(clusterId int) (*bean.Cl
 	}
 	clusterInfo := k8sInformer.GetClusterInfo(model)
 	return clusterInfo, nil
+}
+
+func (impl *ClusterCacheImpl) OnStateChange(clusterId int) {
+	clusterInfo, err := impl.getClusterInfoByClusterId(clusterId)
+	if err != nil {
+		impl.logger.Errorw("error in getting clusterInfo by cluster id", "clusterId", clusterId)
+		return
+	}
+	go impl.SyncClusterCache(*clusterInfo)
 }
 
 func (impl *ClusterCacheImpl) SyncCache() error {
