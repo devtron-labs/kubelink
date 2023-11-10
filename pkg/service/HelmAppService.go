@@ -13,7 +13,7 @@ import (
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/common-lib/utils/k8s/health"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
-	"github.com/devtron-labs/kubelink/pkg/clusterCache"
+	"github.com/devtron-labs/kubelink/pkg/clusterMetadataCache"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -124,14 +124,14 @@ type HelmAppServiceImpl struct {
 	k8sUtil           *k8sUtils.K8sUtil
 	pubsubClient      *pubsub_lib.PubSubClientServiceImpl
 	clusterRepository repository.ClusterRepository
-	clusterCache      clusterCache.ClusterCache
+	clusterCache      clusterMetadataCache.ClusterCache
 }
 
 func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 	k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig,
 	k8sUtil *k8sUtils.K8sUtil,
 	clusterRepository repository.ClusterRepository,
-	clusterCache clusterCache.ClusterCache) *HelmAppServiceImpl {
+	clusterCache clusterMetadataCache.ClusterCache) *HelmAppServiceImpl {
 
 	var pubsubClient *pubsub_lib.PubSubClientServiceImpl
 	if helmReleaseConfig.RunHelmInstallInAsyncMode {
@@ -343,7 +343,7 @@ func addCRDsInResourceHierarchy(resourceHierarchy *Resource, manifest unstructur
 				Labels: manifest.GetLabels(),
 			},
 			ResourceVersion: manifest.GetResourceVersion(),
-			Port:            clusterCache.GetPorts(&manifest, manifest.GroupVersionKind()),
+			Port:            clusterMetadataCache.GetPorts(&manifest, manifest.GroupVersionKind()),
 			CreatedAt:       createdAt.String(),
 		},
 	}
