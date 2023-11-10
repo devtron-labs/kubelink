@@ -1,4 +1,4 @@
-package clusterMetadataCache
+package clusterMetadataCacheService
 
 import (
 	"errors"
@@ -19,7 +19,7 @@ import (
 
 type ClusterCache interface {
 	k8sInformer.ClusterSecretUpdateListener
-	//SyncClusterCache(clusterInfo bean.ClusterInfo) (clustercache.ClusterCache, error)
+	//SyncClusterCache(clusterInfo *bean.ClusterInfo) (clustercache.ClusterCache, error)
 	GetClusterCacheByClusterId(clusterId int) (clustercache.ClusterCache, error)
 }
 
@@ -85,9 +85,14 @@ func (impl *ClusterCacheImpl) OnStateChange(clusterId int, action string) {
 			return
 		}
 		impl.logger.Infow("syncing cluster cache on cluster config update", "clusterId", clusterId)
-		go impl.SyncClusterCache(*clusterInfo)
+		go impl.SyncClusterCache(clusterInfo)
 	case k8sInformer.DELETE:
-		//TODO disc case of delete
+		impl.logger.Infow("invalidating cluster cache on cluster config delete", "clusterId", clusterId)
+		impl.rwMutex.Lock()
+		impl.clustersCache[clusterId].Invalidate()
+		impl.rwMutex.Unlock()
+
+		delete(impl.clustersCache, clusterId)
 	}
 }
 
@@ -99,30 +104,30 @@ func (impl *ClusterCacheImpl) SyncCache() error {
 			continue
 		}
 
-		go impl.SyncClusterCache(*clusterInfo)
+		go impl.SyncClusterCache(clusterInfo)
 	}
 	return nil
 }
 
-func (impl *ClusterCacheImpl) SyncClusterCache(clusterInfo bean.ClusterInfo) (clustercache.ClusterCache, error) {
+func (impl *ClusterCacheImpl) SyncClusterCache(clusterInfo *bean.ClusterInfo) (clustercache.ClusterCache, error) {
 	impl.logger.Infow("cluster cache sync started..", "clusterId", clusterInfo.ClusterId)
-	c, err := impl.getClusterCache(clusterInfo)
+	cache, err := impl.getClusterCache(clusterInfo)
 	if err != nil {
 		impl.logger.Errorw("failed to get cluster info for", "clusterId", clusterInfo.ClusterId, "error", err)
-		return c, err
+		return cache, err
 	}
-	err = c.EnsureSynced()
+	err = cache.EnsureSynced()
 	if err != nil {
 		impl.logger.Errorw("error in syncing cluster cache", "clusterId", clusterInfo.ClusterId, "sync-error", err)
-		return c, err
+		return cache, err
 	}
 	impl.rwMutex.Lock()
-	impl.clustersCache[clusterInfo.ClusterId] = c
+	impl.clustersCache[clusterInfo.ClusterId] = cache
 	impl.rwMutex.Unlock()
-	return c, nil
+	return cache, nil
 }
 
-func (impl *ClusterCacheImpl) getClusterCache(clusterInfo bean.ClusterInfo) (clustercache.ClusterCache, error) {
+func (impl *ClusterCacheImpl) getClusterCache(clusterInfo *bean.ClusterInfo) (clustercache.ClusterCache, error) {
 	cache, err := impl.GetClusterCacheByClusterId(clusterInfo.ClusterId)
 	if err == nil {
 		return cache, nil

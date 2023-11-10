@@ -1,4 +1,4 @@
-package clusterMetadataCache
+package clusterMetadataCacheService
 
 import (
 	"errors"

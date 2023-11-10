@@ -13,7 +13,7 @@ import (
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/common-lib/utils/k8s/health"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
-	"github.com/devtron-labs/kubelink/pkg/clusterMetadataCache"
+	"github.com/devtron-labs/kubelink/pkg/clusterMetadataCacheService"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -124,14 +124,14 @@ type HelmAppServiceImpl struct {
 	k8sUtil           *k8sUtils.K8sUtil
 	pubsubClient      *pubsub_lib.PubSubClientServiceImpl
 	clusterRepository repository.ClusterRepository
-	clusterCache      clusterMetadataCache.ClusterCache
+	clusterCache      clusterMetadataCacheService.ClusterCache
 }
 
 func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 	k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig,
 	k8sUtil *k8sUtils.K8sUtil,
 	clusterRepository repository.ClusterRepository,
-	clusterCache clusterMetadataCache.ClusterCache) *HelmAppServiceImpl {
+	clusterCache clusterMetadataCacheService.ClusterCache) *HelmAppServiceImpl {
 
 	var pubsubClient *pubsub_lib.PubSubClientServiceImpl
 	if helmReleaseConfig.RunHelmInstallInAsyncMode {
@@ -303,13 +303,11 @@ func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig 
 
 	for _, manifest := range manifests {
 		gvk := manifest.GroupVersionKind()
-		//special handling for CRDs
-		if gvk.Kind == kube.CustomResourceDefinitionKind {
-			addCRDsInResourceHierarchy(resourceHierarchy, manifest)
-		}
 		resourceKey := kube.NewResourceKey(gvk.Group, gvk.Kind, helmRelease.Namespace, manifest.GetName())
 		clusterCache.IterateHierarchy(resourceKey, resourceHierarchy.action)
 	}
+	//special handling for CRDs
+	addCRDsInResourceHierarchy(resourceHierarchy, manifests)
 
 	nodes := make([]*bean.ResourceNode, 0, len(resourceHierarchy.CacheResources))
 	//convert cache.Resource type into bean.ResourceNode type
@@ -332,7 +330,22 @@ func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig 
 	return resourceTreeResponse, nil
 }
 
-func addCRDsInResourceHierarchy(resourceHierarchy *Resource, manifest unstructured.Unstructured) {
+func addCRDsInResourceHierarchy(resourceHierarchy *Resource, manifests []unstructured.Unstructured) {
+	kindMapping := make(map[string]bool)
+	for _, resource := range resourceHierarchy.CacheResources {
+		if _, ok := kindMapping[resource.Ref.Kind]; !ok {
+			kindMapping[resource.Ref.Kind] = true
+		}
+	}
+
+	for _, manifest := range manifests {
+		if _, ok := kindMapping[manifest.GetKind()]; !ok {
+			createCRDsCacheResourceObject(resourceHierarchy, manifest)
+		}
+	}
+}
+
+func createCRDsCacheResourceObject(resourceHierarchy *Resource, manifest unstructured.Unstructured) {
 	createdAt := manifest.GetCreationTimestamp()
 	gvk := manifest.GroupVersionKind()
 	crdNode := &cache.Resource{
@@ -344,7 +357,7 @@ func addCRDsInResourceHierarchy(resourceHierarchy *Resource, manifest unstructur
 				Labels: manifest.GetLabels(),
 			},
 			ResourceVersion: manifest.GetResourceVersion(),
-			Port:            clusterMetadataCache.GetPorts(&manifest, gvk),
+			Port:            clusterMetadataCacheService.GetPorts(&manifest, gvk),
 			CreatedAt:       createdAt.String(),
 			ResourceRef: &bean.ResourceRef{
 				Group:     gvk.Group,
