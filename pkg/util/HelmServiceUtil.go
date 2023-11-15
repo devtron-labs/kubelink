@@ -12,6 +12,7 @@ import (
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 // GetAppId returns AppID by logic  cluster_id|namespace|release_name
@@ -100,20 +101,6 @@ func GetAppStatusOnBasisOfHealthyNonHealthy(healthStatusArray []*bean.HealthStat
 	return &appHealthStatus
 }
 
-// We omit vowels from the set of available characters to reduce the chances
-// of "bad words" being formed.
-const alphanums = "bcdfghjklmnpqrstvwxz2456789"
-
-// SafeEncodeString encodes s using the same characters as rand.String. This reduces the chances of bad words and
-// ensures that strings generated from hash functions appear consistent throughout the API.
-func SafeEncodeString(s string) string {
-	r := make([]byte, len(s))
-	for i, b := range []rune(s) {
-		r[i] = alphanums[(int(b) % len(alphanums))]
-	}
-	return string(r)
-}
-
 // DeepHashObject writes specified object to hash using the spew library
 // which follows pointers and prints actual values of the nested objects
 // ensuring the hash does not change when a pointer changes.
@@ -144,7 +131,7 @@ func ComputePodHash(template *coreV1.PodTemplateSpec, collisionCount *int32) str
 			fmt.Println(err)
 		}
 	}
-	return SafeEncodeString(fmt.Sprint(podTemplateSpecHasher.Sum32()))
+	return rand.SafeEncodeString(fmt.Sprint(podTemplateSpecHasher.Sum32()))
 }
 
 func ConvertToV1Deployment(node *bean.ResourceNode) (*v1beta1.Deployment, error) {
