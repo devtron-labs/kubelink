@@ -19,7 +19,6 @@ import (
 
 type ClusterCache interface {
 	k8sInformer.ClusterSecretUpdateListener
-	//SyncClusterCache(clusterInfo *bean.ClusterInfo) (clustercache.ClusterCache, error)
 	GetClusterCacheByClusterId(clusterId int) (clustercache.ClusterCache, error)
 }
 
