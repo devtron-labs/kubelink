@@ -1599,7 +1599,8 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 	}
 
 	impl.logger.Debug("Upgrading release")
-	_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), updateChartSpec)
+	res, err := helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), updateChartSpec)
+	impl.logger.Debugw("response form UpgradeReleaseWithChartInfo", "res", res)
 	if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
 		if UpgradeErr != nil {
 			if UpgradeErr.Err == driver.ErrNoDeployedReleases {
@@ -1615,6 +1616,11 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 
 			}
 		}
+	} else if err != nil {
+
+		impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
+		return false, err
+
 	}
 	return true, nil
 }
