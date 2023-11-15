@@ -8,12 +8,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/argoproj/gitops-engine/pkg/cache"
+	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/common-lib/utils/k8s/health"
+	"github.com/devtron-labs/kubelink/pkg/cache"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
-	"github.com/devtron-labs/kubelink/pkg/clusterMetadataCacheService"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -124,14 +124,14 @@ type HelmAppServiceImpl struct {
 	k8sUtil           *k8sUtils.K8sUtil
 	pubsubClient      *pubsub_lib.PubSubClientServiceImpl
 	clusterRepository repository.ClusterRepository
-	clusterCache      clusterMetadataCacheService.ClusterCache
+	clusterCache      cache.ClusterCache
 }
 
 func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 	k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig,
 	k8sUtil *k8sUtils.K8sUtil,
 	clusterRepository repository.ClusterRepository,
-	clusterCache clusterMetadataCacheService.ClusterCache) *HelmAppServiceImpl {
+	clusterCache cache.ClusterCache) *HelmAppServiceImpl {
 
 	var pubsubClient *pubsub_lib.PubSubClientServiceImpl
 	if helmReleaseConfig.RunHelmInstallInAsyncMode {
@@ -275,11 +275,11 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 }
 
 type Resource struct {
-	CacheResources          []*cache.Resource
+	CacheResources          []*clustercache.Resource
 	UidToResourceRefMapping map[string]*bean.ResourceRef
 }
 
-func (k *Resource) action(resource *cache.Resource, _ map[kube.ResourceKey]*cache.Resource) bool {
+func (k *Resource) action(resource *clustercache.Resource, _ map[kube.ResourceKey]*clustercache.Resource) bool {
 	if resourceNode, ok := resource.Info.(*bean.ResourceNode); ok {
 		k.UidToResourceRefMapping[resourceNode.UID] = resourceNode.ResourceRef
 	}
@@ -297,7 +297,7 @@ func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig 
 	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
 
 	resourceHierarchy := &Resource{
-		CacheResources:          make([]*cache.Resource, 0),
+		CacheResources:          make([]*clustercache.Resource, 0),
 		UidToResourceRefMapping: make(map[string]*bean.ResourceRef),
 	}
 
@@ -348,7 +348,7 @@ func addCRDsInResourceHierarchy(resourceHierarchy *Resource, manifests []unstruc
 func createCRDsCacheResourceObject(resourceHierarchy *Resource, manifest unstructured.Unstructured) {
 	createdAt := manifest.GetCreationTimestamp()
 	gvk := manifest.GroupVersionKind()
-	crdNode := &cache.Resource{
+	crdNode := &clustercache.Resource{
 		ResourceVersion:   manifest.GetResourceVersion(),
 		Ref:               kube.GetObjectRef(&manifest),
 		CreationTimestamp: &createdAt,
@@ -357,7 +357,7 @@ func createCRDsCacheResourceObject(resourceHierarchy *Resource, manifest unstruc
 				Labels: manifest.GetLabels(),
 			},
 			ResourceVersion: manifest.GetResourceVersion(),
-			Port:            clusterMetadataCacheService.GetPorts(&manifest, gvk),
+			Port:            util.GetPorts(&manifest, gvk),
 			CreatedAt:       createdAt.String(),
 			ResourceRef: &bean.ResourceRef{
 				Group:     gvk.Group,
@@ -394,7 +394,7 @@ func (impl *HelmAppServiceImpl) getRestConfigForClusterConfig(clusterConfig *cli
 	return conf, nil
 }
 
-func getNodeInfoFromHierarchy(node *cache.Resource, uidToResourceRefMapping map[string]*bean.ResourceRef) *bean.ResourceNode {
+func getNodeInfoFromHierarchy(node *clustercache.Resource, uidToResourceRefMapping map[string]*bean.ResourceRef) *bean.ResourceNode {
 	resourceNode := &bean.ResourceNode{}
 	var ok bool
 	if resourceNode, ok = node.Info.(*bean.ResourceNode); ok {

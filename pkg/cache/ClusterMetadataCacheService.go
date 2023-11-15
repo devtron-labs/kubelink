@@ -1,19 +1,14 @@
-package clusterMetadataCacheService
+package cache
 
 import (
 	"errors"
 	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
 	"github.com/caarlos0/env"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
-	"github.com/devtron-labs/common-lib/utils/k8s/health"
 	"github.com/devtron-labs/kubelink/bean"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
-	"github.com/devtron-labs/kubelink/pkg/util/argo"
 	"go.uber.org/zap"
-	"golang.org/x/sync/semaphore"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sync"
 )
 
@@ -139,145 +134,6 @@ func (impl *ClusterCacheImpl) getClusterCache(clusterInfo *bean.ClusterInfo) (cl
 	}
 	cache = clustercache.NewClusterCache(restConfig, getClusterCacheOptions()...)
 	return cache, nil
-}
-
-func getResourceNodeFromManifest(un *unstructured.Unstructured, gvk schema.GroupVersionKind) *bean.ResourceNode {
-	return &bean.ResourceNode{
-		Port:            GetPorts(un, gvk),
-		ResourceVersion: un.GetResourceVersion(),
-		NetworkingInfo: &bean.ResourceNetworkingInfo{
-			Labels: un.GetLabels(),
-		},
-		CreatedAt: un.GetCreationTimestamp().String(),
-		ResourceRef: &bean.ResourceRef{
-			Group:     gvk.Group,
-			Version:   gvk.Version,
-			Kind:      gvk.Kind,
-			Namespace: un.GetNamespace(),
-			Name:      un.GetName(),
-			UID:       string(un.GetUID()),
-			Manifest:  *un,
-		},
-	}
-}
-
-func setHealthStatusForNode(res *bean.ResourceNode, un *unstructured.Unstructured, gvk schema.GroupVersionKind) {
-	if k8sUtils.IsService(gvk) && un.GetName() == k8sUtils.DEVTRON_SERVICE_NAME && k8sUtils.IsDevtronApp(res.NetworkingInfo.Labels) {
-		res.Health = &bean.HealthStatus{
-			Status: bean.HealthStatusHealthy,
-		}
-	} else {
-		if healthCheck := health.GetHealthCheckFunc(gvk); healthCheck != nil {
-			health, err := healthCheck(un)
-			if err != nil {
-				res.Health = &bean.HealthStatus{
-					Status:  bean.HealthStatusUnknown,
-					Message: err.Error(),
-				}
-			} else if health != nil {
-				res.Health = &bean.HealthStatus{
-					Status:  string(health.Status),
-					Message: health.Message,
-				}
-			}
-		}
-	}
-}
-func setHibernationRules(res *bean.ResourceNode, un *unstructured.Unstructured) {
-	if un.GetOwnerReferences() == nil {
-		// set CanBeHibernated
-		replicas, found, _ := unstructured.NestedInt64(un.UnstructuredContent(), "spec", "replicas")
-		if found {
-			res.CanBeHibernated = true
-		}
-
-		// set IsHibernated
-		annotations := un.GetAnnotations()
-		if annotations != nil {
-			if val, ok := annotations[hibernateReplicaAnnotation]; ok {
-				if val != "0" && replicas == 0 {
-					res.IsHibernated = true
-				}
-			}
-		}
-	}
-}
-
-func getClusterCacheOptions() []clustercache.UpdateSettingsFunc {
-	clusterCacheOpts := []clustercache.UpdateSettingsFunc{
-		clustercache.SetListSemaphore(semaphore.NewWeighted(clusterCacheListSemaphoreSize)),
-		clustercache.SetListPageSize(clusterCacheListPageSize),
-		clustercache.SetListPageBufferSize(clusterCacheListPageBufferSize),
-		clustercache.SetWatchResyncTimeout(clusterCacheWatchResyncDuration),
-		clustercache.SetClusterSyncRetryTimeout(clusterSyncRetryTimeoutDuration),
-		clustercache.SetResyncTimeout(clusterCacheResyncDuration),
-		clustercache.SetRetryOptions(clusterCacheAttemptLimit, clusterCacheRetryUseBackoff, isRetryableError),
-		clustercache.SetPopulateResourceInfoHandler(func(un *unstructured.Unstructured, isRoot bool) (interface{}, bool) {
-			gvk := un.GroupVersionKind()
-			res := getResourceNodeFromManifest(un, gvk)
-			setHealthStatusForNode(res, un, gvk)
-
-			if k8sUtils.IsPod(gvk) {
-				infoItems, _ := argo.PopulatePodInfo(un)
-				res.Info = infoItems
-			}
-			setHibernationRules(res, un)
-			return res, false
-		}),
-	}
-	return clusterCacheOpts
-}
-
-func GetPorts(manifest *unstructured.Unstructured, gvk schema.GroupVersionKind) []int64 {
-	ports := make([]int64, 0)
-	if k8sUtils.IsService(gvk) || gvk.Kind == "Service" {
-		if manifest.Object["spec"] != nil {
-			spec := manifest.Object["spec"].(map[string]interface{})
-			if spec["ports"] != nil {
-				portList := spec["ports"].([]interface{})
-				for _, portItem := range portList {
-					if portItem.(map[string]interface{}) != nil {
-						_portNumber := portItem.(map[string]interface{})["port"]
-						portNumber := _portNumber.(int64)
-						if portNumber != 0 {
-							ports = append(ports, portNumber)
-						}
-					}
-				}
-			}
-		}
-	}
-	if manifest.Object["kind"] == "EndpointSlice" {
-		if manifest.Object["ports"] != nil {
-			endPointsSlicePorts := manifest.Object["ports"].([]interface{})
-			for _, val := range endPointsSlicePorts {
-				_portNumber := val.(map[string]interface{})["port"]
-				portNumber := _portNumber.(int64)
-				if portNumber != 0 {
-					ports = append(ports, portNumber)
-				}
-			}
-		}
-	}
-	if gvk.Kind == "Endpoints" {
-		if manifest.Object["subsets"] != nil {
-			subsets := manifest.Object["subsets"].([]interface{})
-			for _, subset := range subsets {
-				subsetObj := subset.(map[string]interface{})
-				if subsetObj != nil {
-					portsIfs := subsetObj["ports"].([]interface{})
-					for _, portsIf := range portsIfs {
-						portsIfObj := portsIf.(map[string]interface{})
-						if portsIfObj != nil {
-							port := portsIfObj["port"].(int64)
-							ports = append(ports, port)
-						}
-					}
-				}
-			}
-		}
-	}
-	return ports
 }
 
 func (impl *ClusterCacheImpl) GetClusterCacheByClusterId(clusterId int) (clustercache.ClusterCache, error) {

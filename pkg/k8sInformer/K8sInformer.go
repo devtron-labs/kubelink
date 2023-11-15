@@ -83,7 +83,6 @@ func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.
 		helmReleaseConfig: helmReleaseConfig,
 		k8sUtil:           k8sUtil,
 	}
-	informerFactory.RegisterListener(informerFactory)
 	informerFactory.HelmListClusterMap = make(map[int]map[string]*client.DeployedAppDetail)
 	informerFactory.informerStopper = make(map[int]chan struct{})
 	if helmReleaseConfig.EnableHelmReleaseCache {
@@ -293,9 +292,8 @@ func (impl *K8sInformerImpl) startInformer(clusterInfo bean.ClusterInfo) error {
 						}
 					}
 					if string(action) == UPDATE {
-						for _, listener := range impl.listeners {
-							listener.OnStateChange(id_int, string(action))
-						}
+						impl.OnStateChange(id_int, string(action))
+						impl.informOtherListeners(id_int, string(action))
 					}
 				}
 			},
@@ -311,9 +309,8 @@ func (impl *K8sInformerImpl) startInformer(clusterInfo bean.ClusterInfo) error {
 					id_int, _ := strconv.Atoi(id)
 
 					if string(action) == DELETE {
-						for _, listener := range impl.listeners {
-							listener.OnStateChange(id_int, string(action))
-						}
+						impl.OnStateChange(id_int, string(action))
+						impl.informOtherListeners(id_int, string(action))
 					}
 				}
 			},
@@ -331,6 +328,12 @@ func (impl *K8sInformerImpl) startInformer(clusterInfo bean.ClusterInfo) error {
 	}
 
 	return nil
+}
+
+func (impl *K8sInformerImpl) informOtherListeners(clusterId int, action string) {
+	for _, listener := range impl.listeners {
+		listener.OnStateChange(clusterId, action)
+	}
 }
 
 func (impl *K8sInformerImpl) syncInformer(clusterId int) error {

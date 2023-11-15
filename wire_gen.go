@@ -12,8 +12,8 @@ import (
 	"github.com/devtron-labs/kubelink/api/router"
 	"github.com/devtron-labs/kubelink/internal/lock"
 	"github.com/devtron-labs/kubelink/internal/logger"
+	"github.com/devtron-labs/kubelink/pkg/cache"
 	"github.com/devtron-labs/kubelink/pkg/cluster"
-	"github.com/devtron-labs/kubelink/pkg/clusterMetadataCacheService"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
 	"github.com/devtron-labs/kubelink/pkg/sql"
@@ -49,11 +49,11 @@ func InitializeApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	clusterCacheConfig, err := clusterMetadataCacheService.GetClusterCacheConfig()
+	clusterCacheConfig, err := cache.GetClusterCacheConfig()
 	if err != nil {
 		return nil, err
 	}
-	clusterCacheImpl := clusterMetadataCacheService.NewClusterCacheImpl(sugaredLogger, clusterCacheConfig, clusterRepositoryImpl, k8sUtil, k8sInformerImpl)
+	clusterCacheImpl := cache.NewClusterCacheImpl(sugaredLogger, clusterCacheConfig, clusterRepositoryImpl, k8sUtil, k8sInformerImpl)
 	helmAppServiceImpl := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, serviceHelmReleaseConfig, k8sUtil, clusterRepositoryImpl, clusterCacheImpl)
 	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(sugaredLogger, chartRepositoryLocker, helmAppServiceImpl)
 	pProfRestHandlerImpl := pprof.NewPProfRestHandler(sugaredLogger)
