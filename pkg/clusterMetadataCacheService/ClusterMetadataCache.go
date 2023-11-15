@@ -142,6 +142,68 @@ func (impl *ClusterCacheImpl) getClusterCache(clusterInfo *bean.ClusterInfo) (cl
 	return cache, nil
 }
 
+func getResourceNodeFromManifest(un *unstructured.Unstructured, gvk schema.GroupVersionKind) *bean.ResourceNode {
+	return &bean.ResourceNode{
+		Port:            GetPorts(un, gvk),
+		ResourceVersion: un.GetResourceVersion(),
+		NetworkingInfo: &bean.ResourceNetworkingInfo{
+			Labels: un.GetLabels(),
+		},
+		CreatedAt: un.GetCreationTimestamp().String(),
+		ResourceRef: &bean.ResourceRef{
+			Group:     gvk.Group,
+			Version:   gvk.Version,
+			Kind:      gvk.Kind,
+			Namespace: un.GetNamespace(),
+			Name:      un.GetName(),
+			UID:       string(un.GetUID()),
+			Manifest:  *un,
+		},
+	}
+}
+
+func setHealthStatusForNode(res *bean.ResourceNode, un *unstructured.Unstructured, gvk schema.GroupVersionKind) {
+	if k8sUtils.IsService(gvk) && un.GetName() == k8sUtils.DEVTRON_SERVICE_NAME && k8sUtils.IsDevtronApp(res.NetworkingInfo.Labels) {
+		res.Health = &bean.HealthStatus{
+			Status: bean.HealthStatusHealthy,
+		}
+	} else {
+		if healthCheck := health.GetHealthCheckFunc(gvk); healthCheck != nil {
+			health, err := healthCheck(un)
+			if err != nil {
+				res.Health = &bean.HealthStatus{
+					Status:  bean.HealthStatusUnknown,
+					Message: err.Error(),
+				}
+			} else if health != nil {
+				res.Health = &bean.HealthStatus{
+					Status:  string(health.Status),
+					Message: health.Message,
+				}
+			}
+		}
+	}
+}
+func setHibernationRules(res *bean.ResourceNode, un *unstructured.Unstructured) {
+	if un.GetOwnerReferences() == nil {
+		// set CanBeHibernated
+		replicas, found, _ := unstructured.NestedInt64(un.UnstructuredContent(), "spec", "replicas")
+		if found {
+			res.CanBeHibernated = true
+		}
+
+		// set IsHibernated
+		annotations := un.GetAnnotations()
+		if annotations != nil {
+			if val, ok := annotations[hibernateReplicaAnnotation]; ok {
+				if val != "0" && replicas == 0 {
+					res.IsHibernated = true
+				}
+			}
+		}
+	}
+}
+
 func getClusterCacheOptions() []clustercache.UpdateSettingsFunc {
 	clusterCacheOpts := []clustercache.UpdateSettingsFunc{
 		clustercache.SetListSemaphore(semaphore.NewWeighted(clusterCacheListSemaphoreSize)),
@@ -150,74 +212,19 @@ func getClusterCacheOptions() []clustercache.UpdateSettingsFunc {
 		clustercache.SetWatchResyncTimeout(clusterCacheWatchResyncDuration),
 		clustercache.SetClusterSyncRetryTimeout(clusterSyncRetryTimeoutDuration),
 		clustercache.SetResyncTimeout(clusterCacheResyncDuration),
+		clustercache.SetRetryOptions(clusterCacheAttemptLimit, clusterCacheRetryUseBackoff, isRetryableError),
 		clustercache.SetPopulateResourceInfoHandler(func(un *unstructured.Unstructured, isRoot bool) (interface{}, bool) {
 			gvk := un.GroupVersionKind()
-			res := &bean.ResourceNode{
-				Port:            GetPorts(un, gvk),
-				ResourceVersion: un.GetResourceVersion(),
-				NetworkingInfo: &bean.ResourceNetworkingInfo{
-					Labels: un.GetLabels(),
-				},
-				CreatedAt: un.GetCreationTimestamp().String(),
-				ResourceRef: &bean.ResourceRef{
-					Group:     gvk.Group,
-					Version:   gvk.Version,
-					Kind:      gvk.Kind,
-					Namespace: un.GetNamespace(),
-					Name:      un.GetName(),
-					UID:       string(un.GetUID()),
-					Manifest:  *un,
-				},
-			}
+			res := getResourceNodeFromManifest(un, gvk)
+			setHealthStatusForNode(res, un, gvk)
 
-			if k8sUtils.IsService(gvk) && un.GetName() == k8sUtils.DEVTRON_SERVICE_NAME && k8sUtils.IsDevtronApp(res.NetworkingInfo.Labels) {
-
-				res.Health = &bean.HealthStatus{
-					Status: bean.HealthStatusHealthy,
-				}
-			} else {
-				if healthCheck := health.GetHealthCheckFunc(gvk); healthCheck != nil {
-					health, err := healthCheck(un)
-					if err != nil {
-						res.Health = &bean.HealthStatus{
-							Status:  bean.HealthStatusUnknown,
-							Message: err.Error(),
-						}
-					} else if health != nil {
-						res.Health = &bean.HealthStatus{
-							Status:  string(health.Status),
-							Message: health.Message,
-						}
-					}
-				}
-			}
 			if k8sUtils.IsPod(gvk) {
 				infoItems, _ := argo.PopulatePodInfo(un)
 				res.Info = infoItems
 			}
-			// hibernate set starts
-			if un.GetOwnerReferences() == nil {
-				// set CanBeHibernated
-				replicas, found, _ := unstructured.NestedInt64(un.UnstructuredContent(), "spec", "replicas")
-				if found {
-					res.CanBeHibernated = true
-				}
-
-				// set IsHibernated
-				annotations := un.GetAnnotations()
-				if annotations != nil {
-					if val, ok := annotations[hibernateReplicaAnnotation]; ok {
-						if val != "0" && replicas == 0 {
-							res.IsHibernated = true
-						}
-					}
-				}
-			}
-			// hibernate set ends
-
+			setHibernationRules(res, un)
 			return res, false
 		}),
-		clustercache.SetRetryOptions(clusterCacheAttemptLimit, clusterCacheRetryUseBackoff, isRetryableError),
 	}
 	return clusterCacheOpts
 }
