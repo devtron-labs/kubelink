@@ -17,6 +17,7 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
+	"k8s.io/api/extensions/v1beta1"
 	"path"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -1582,8 +1583,28 @@ func buildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstruc
 }
 
 func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
+
+	deploymentPodHashMap := make(map[string]string)
+	deploymentMap := make(map[string]*v1beta1.Deployment)
+	rolloutMap := make(map[string]map[string]interface{})
 	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
 	for _, node := range nodes {
+		if node.Kind == k8sCommonBean.DeploymentKind {
+			deployment, err := util.ConvertToV1Deployment(node)
+			if err != nil {
+				return nil, err
+			}
+			deploymentMap[node.Name] = deployment
+			deploymentPodHash := util.ComputePodHash(&deployment.Spec.Template, deployment.Status.CollisionCount)
+			deploymentPodHashMap[node.Name] = deploymentPodHash
+		} else if node.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
+			rolloutIf := node.Manifest.UnstructuredContent()
+			rolloutMap[node.Name] = rolloutIf
+		}
+	}
+
+	for _, node := range nodes {
+
 		if node.Kind != k8sCommonBean.PodKind {
 			continue
 		}
@@ -1626,8 +1647,28 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 				replicaSetNode := getMatchingNode(nodes, parentKind, replicaSet.Name)
 
 				// if parent of replicaset is deployment, compare label pod-template-hash
-				if replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetNode.ParentRefs[0].Kind == k8sCommonBean.DeploymentKind {
-					isNew = replicaSet.GetLabels()["pod-template-hash"] == pod.GetLabels()["pod-template-hash"]
+				if replicaSetParent := replicaSetNode.ParentRefs[0]; replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetParent.Kind == k8sCommonBean.DeploymentKind {
+					deploymentPodHash := deploymentPodHashMap[replicaSetParent.Name]
+					deployment := deploymentMap[replicaSetParent.Name]
+					replicasetObj, err := util.ConvertToV1ReplicaSet(replicaSetNode)
+					if err != nil {
+						return nil, err
+					}
+					replicaSetPodHash := util.GetReplicaSetPodHash(replicasetObj, deployment)
+					isNew = replicaSetPodHash == deploymentPodHash
+				} else if replicaSetParent.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
+
+					rolloutIf := rolloutMap[replicaSetParent.Name]
+					replicasetObj, err := util.ConvertToV1ReplicaSet(replicaSetNode)
+					if err != nil {
+						return nil, err
+					}
+
+					rolloutPodHash := util.GetRolloutPodHash(rolloutIf)
+					replicasetPodHash := util.GetRolloutPodTemplateHash(replicasetObj)
+
+					isNew = rolloutPodHash == replicasetPodHash
+
 				}
 			}
 
