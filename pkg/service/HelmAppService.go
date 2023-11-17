@@ -289,7 +289,7 @@ func (k *Resource) action(resource *clustercache.Resource, _ map[kube.ResourceKe
 	return true
 }
 
-func (impl *HelmAppServiceImpl) addHooksInManifest(helmRelease *release.Release, manifests []unstructured.Unstructured) []unstructured.Unstructured {
+func (impl *HelmAppServiceImpl) addHookResourcesInManifest(helmRelease *release.Release, manifests []unstructured.Unstructured) []unstructured.Unstructured {
 	for _, helmHook := range helmRelease.Hooks {
 		var hook unstructured.Unstructured
 		err := yaml.Unmarshal([]byte(helmHook.Manifest), &hook)
@@ -311,7 +311,7 @@ func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig 
 	}
 	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
 
-	manifests = impl.addHooksInManifest(helmRelease, manifests)
+	manifests = impl.addHookResourcesInManifest(helmRelease, manifests)
 
 	resourceHierarchy := &Resource{
 		CacheResources:          make([]*clustercache.Resource, 0),
@@ -392,7 +392,7 @@ func createCRDsCacheResourceObject(resourceHierarchy *Resource, manifest unstruc
 
 func (impl *HelmAppServiceImpl) getLiveManifests(config *rest.Config, helmRelease *release.Release) ([]*bean.DesiredOrLiveManifest, error) {
 	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
-	manifests = impl.addHooksInManifest(helmRelease, manifests)
+	manifests = impl.addHookResourcesInManifest(helmRelease, manifests)
 	// get live manifests from kubernetes
 	desiredOrLiveManifests, err := impl.getDesiredOrLiveManifests(config, manifests, helmRelease.Namespace)
 	if err != nil {
