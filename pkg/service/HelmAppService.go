@@ -755,7 +755,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 	_, err = helmClientObj.UpgradeReleaseWithChartInfo(ctx, chartSpec)
 	if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
 		if UpgradeErr != nil {
-			if UpgradeErr.Err == driver.ErrReleaseNotFound {
+			if UpgradeErr.Err == driver.ErrNoDeployedReleases {
 				_, err := helmClientObj.InstallChart(ctx, chartSpec)
 				if err != nil {
 					impl.logger.Errorw("Error in install release ", "err", err)
