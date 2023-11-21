@@ -649,7 +649,7 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 	}
 
 	impl.logger.Debugw("Installing release", "name", releaseIdentifier.ReleaseName, "namespace", releaseIdentifier.ReleaseNamespace, "dry-run", dryRun)
-	rel, err := helmClientObj.InstallChart(context.Background(), chartSpec)
+	rel, err := helmClientObj.InstallChart(ctx, chartSpec)
 	if err != nil {
 		impl.logger.Errorw("Error in install release ", "err", err)
 		return nil, err
@@ -1775,38 +1775,6 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 	return registryPushResponse, err
 }
 
-func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallError(ctx context.Context, helmInstallMessage HelmReleaseStatusConfig, releaseIdentifier *client.ReleaseIdentifier, installationErr error) (string, error) {
-	helmInstallMessage.Message = installationErr.Error()
-	isReleaseInstalled, err := impl.IsReleaseInstalled(ctx, releaseIdentifier)
-	if err != nil {
-		impl.logger.Errorw("error in checking if release is installed or not")
-		return "", err
-	}
-	if isReleaseInstalled {
-		helmInstallMessage.IsReleaseInstalled = true
-	} else {
-		helmInstallMessage.IsReleaseInstalled = false
-	}
-	helmInstallMessage.ErrorInInstallation = true
-	data, err := json.Marshal(helmInstallMessage)
-	if err != nil {
-		impl.logger.Errorw("error in marshalling nats message")
-		return string(data), err
-	}
-	return string(data), nil
-}
-
-func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallSuccess(helmInstallMessage HelmReleaseStatusConfig) (string, error) {
-	helmInstallMessage.Message = RELEASE_INSTALLED
-	helmInstallMessage.IsReleaseInstalled = true
-	helmInstallMessage.ErrorInInstallation = false
-	data, err := json.Marshal(helmInstallMessage)
-	if err != nil {
-		impl.logger.Errorw("error in marshalling nats message")
-		return string(data), err
-	}
-	return string(data), nil
-}
 func GetClusterConfigFromClientBean(config *client.ClusterConfig) *k8sUtils.ClusterConfig {
 	clusterConfig := &k8sUtils.ClusterConfig{}
 	if config != nil {
