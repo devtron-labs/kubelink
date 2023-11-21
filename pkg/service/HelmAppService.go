@@ -8,12 +8,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
+	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/common-lib/utils/k8s/health"
+	"github.com/devtron-labs/kubelink/pkg/cache"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
+	"k8s.io/api/extensions/v1beta1"
 	"path"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -118,12 +122,14 @@ type HelmAppServiceImpl struct {
 	helmReleaseConfig *HelmReleaseConfig
 	k8sUtil           *k8sUtils.K8sUtil
 	clusterRepository repository.ClusterRepository
+	clusterCache      cache.ClusterCache
 }
 
 func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 	k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig,
 	k8sUtil *k8sUtils.K8sUtil,
-	clusterRepository repository.ClusterRepository) *HelmAppServiceImpl {
+	clusterRepository repository.ClusterRepository,
+	clusterCache cache.ClusterCache) *HelmAppServiceImpl {
 	helmAppServiceImpl := &HelmAppServiceImpl{
 		logger:            logger,
 		k8sService:        k8sService,
@@ -132,6 +138,7 @@ func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 		helmReleaseConfig: helmReleaseConfig,
 		k8sUtil:           k8sUtil,
 		clusterRepository: clusterRepository,
+		clusterCache:      clusterCache,
 	}
 	err := os.MkdirAll(chartWorkingDirectory, os.ModePerm)
 	if err != nil {
@@ -222,11 +229,16 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 		impl.logger.Errorw("Error in getting helm release ", "err", err)
 		return nil, err
 	}
-
-	resourceTreeResponse, err := impl.buildResourceTree(req, helmRelease)
+	resourceTreeResponse, err := impl.buildResourceTreeFromClusterCache(req.ClusterConfig, helmRelease)
 	if err != nil {
-		impl.logger.Errorw("Error in building resource tree ", "err", err)
-		return nil, err
+		impl.logger.Errorw("error in getting resourceTree from cluster cache", "clusterName", req.ClusterConfig.ClusterName, "releaseName", helmRelease.Name, "err", err)
+	}
+	if resourceTreeResponse == nil {
+		resourceTreeResponse, err = impl.buildResourceTree(req, helmRelease)
+		if err != nil {
+			impl.logger.Errorw("error in building resource tree ", "err", err)
+			return nil, err
+		}
 	}
 
 	appDetail := &bean.AppDetail{
@@ -252,6 +264,141 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 	}
 
 	return appDetail, nil
+}
+
+type Resource struct {
+	CacheResources          []*clustercache.Resource
+	UidToResourceRefMapping map[string]*bean.ResourceRef
+}
+
+func (k *Resource) action(resource *clustercache.Resource, _ map[kube.ResourceKey]*clustercache.Resource) bool {
+	if resourceNode, ok := resource.Info.(*bean.ResourceNode); ok {
+		k.UidToResourceRefMapping[resourceNode.UID] = resourceNode.ResourceRef
+	}
+	k.CacheResources = append(k.CacheResources, resource)
+	return true
+}
+
+func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig *client.ClusterConfig, helmRelease *release.Release) (*bean.ResourceTreeResponse, error) {
+	impl.logger.Infow("building resource tree from cluster cache", "clusterName", clusterConfig.ClusterName, "helmReleaseName", helmRelease.Name)
+	clusterCache, err := impl.clusterCache.GetClusterCacheByClusterId(int(clusterConfig.ClusterId))
+	if err != nil {
+		impl.logger.Errorw("error in getting cluster cache, or cluster cache not synced for this cluster", "clusterId", clusterConfig.ClusterId, "err", err)
+		return nil, err
+	}
+	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
+
+	resourceHierarchy := &Resource{
+		CacheResources:          make([]*clustercache.Resource, 0),
+		UidToResourceRefMapping: make(map[string]*bean.ResourceRef),
+	}
+
+	for _, manifest := range manifests {
+		gvk := manifest.GroupVersionKind()
+		resourceKey := kube.NewResourceKey(gvk.Group, gvk.Kind, helmRelease.Namespace, manifest.GetName())
+		clusterCache.IterateHierarchy(resourceKey, resourceHierarchy.action)
+	}
+	//special handling for CRDs
+	addCRDsInResourceHierarchy(resourceHierarchy, manifests)
+
+	nodes := make([]*bean.ResourceNode, 0, len(resourceHierarchy.CacheResources))
+	//convert cache.Resource type into bean.ResourceNode type
+	for _, node := range resourceHierarchy.CacheResources {
+		if node.Info != nil {
+			nodes = append(nodes, getNodeInfoFromHierarchy(node, resourceHierarchy.UidToResourceRefMapping))
+		}
+	}
+
+	podsMetadata, err := buildPodMetadata(nodes)
+	if err != nil {
+		return nil, err
+	}
+	resourceTreeResponse := &bean.ResourceTreeResponse{
+		ApplicationTree: &bean.ApplicationTree{
+			Nodes: nodes,
+		},
+		PodMetadata: podsMetadata,
+	}
+	return resourceTreeResponse, nil
+}
+
+func addCRDsInResourceHierarchy(resourceHierarchy *Resource, manifests []unstructured.Unstructured) {
+	kindMapping := make(map[string]bool)
+	for _, resource := range resourceHierarchy.CacheResources {
+		if _, ok := kindMapping[resource.Ref.Kind]; !ok {
+			kindMapping[resource.Ref.Kind] = true
+		}
+	}
+
+	for _, manifest := range manifests {
+		if _, ok := kindMapping[manifest.GetKind()]; !ok {
+			createCRDsCacheResourceObject(resourceHierarchy, manifest)
+		}
+	}
+}
+
+func createCRDsCacheResourceObject(resourceHierarchy *Resource, manifest unstructured.Unstructured) {
+	createdAt := manifest.GetCreationTimestamp()
+	gvk := manifest.GroupVersionKind()
+	crdNode := &clustercache.Resource{
+		ResourceVersion:   manifest.GetResourceVersion(),
+		Ref:               kube.GetObjectRef(&manifest),
+		CreationTimestamp: &createdAt,
+		Info: &bean.ResourceNode{
+			NetworkingInfo: &bean.ResourceNetworkingInfo{
+				Labels: manifest.GetLabels(),
+			},
+			ResourceVersion: manifest.GetResourceVersion(),
+			Port:            util.GetPorts(&manifest, gvk),
+			CreatedAt:       createdAt.String(),
+			ResourceRef: &bean.ResourceRef{
+				Group:     gvk.Group,
+				Version:   gvk.Version,
+				Kind:      gvk.Kind,
+				Namespace: manifest.GetNamespace(),
+				Name:      manifest.GetName(),
+				UID:       string(manifest.GetUID()),
+				Manifest:  manifest,
+			},
+		},
+	}
+	resourceHierarchy.CacheResources = append(resourceHierarchy.CacheResources, crdNode)
+}
+
+func (impl *HelmAppServiceImpl) getLiveManifests(config *rest.Config, helmRelease *release.Release) ([]*bean.DesiredOrLiveManifest, error) {
+	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
+	// get live manifests from kubernetes
+	desiredOrLiveManifests, err := impl.getDesiredOrLiveManifests(config, manifests, helmRelease.Namespace)
+	if err != nil {
+		impl.logger.Errorw("error in getting desired or live manifest", "host", config.Host, "helmReleaseName", helmRelease.Name, "err", err)
+		return nil, err
+	}
+	return desiredOrLiveManifests, nil
+}
+
+func (impl *HelmAppServiceImpl) getRestConfigForClusterConfig(clusterConfig *client.ClusterConfig) (*rest.Config, error) {
+	k8sClusterConfig := GetClusterConfigFromClientBean(clusterConfig)
+	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
+	if err != nil {
+		impl.logger.Errorw("error in getting rest config by cluster", "clusterName", k8sClusterConfig.ClusterName)
+		return nil, err
+	}
+	return conf, nil
+}
+
+func getNodeInfoFromHierarchy(node *clustercache.Resource, uidToResourceRefMapping map[string]*bean.ResourceRef) *bean.ResourceNode {
+	resourceNode := &bean.ResourceNode{}
+	var ok bool
+	if resourceNode, ok = node.Info.(*bean.ResourceNode); ok {
+		if node.OwnerRefs != nil {
+			parentRefs := make([]*bean.ResourceRef, 0)
+			for _, ownerRef := range node.OwnerRefs {
+				parentRefs = append(parentRefs, uidToResourceRefMapping[string(ownerRef.UID)])
+			}
+			resourceNode.ParentRefs = parentRefs
+		}
+	}
+	return resourceNode
 }
 
 func (impl *HelmAppServiceImpl) FetchApplicationStatus(req *client.AppDetailRequest) (*bean.HealthStatusCode, error) {
@@ -993,17 +1140,11 @@ func (impl *HelmAppServiceImpl) getNodes(appDetailRequest *client.AppDetailReque
 }
 
 func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDetailRequest, release *release.Release) (*bean.ResourceTreeResponse, error) {
-	k8sClusterConfig := GetClusterConfigFromClientBean(appDetailRequest.ClusterConfig)
-	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
+	conf, err := impl.getRestConfigForClusterConfig(appDetailRequest.ClusterConfig)
 	if err != nil {
 		return nil, err
 	}
-	manifests, err := yamlUtil.SplitYAMLs([]byte(release.Manifest))
-	if err != nil {
-		return nil, err
-	}
-	// get live manifests from kubernetes
-	desiredOrLiveManifests, err := impl.getDesiredOrLiveManifests(conf, manifests, appDetailRequest.Namespace)
+	desiredOrLiveManifests, err := impl.getLiveManifests(conf, release)
 	if err != nil {
 		return nil, err
 	}
@@ -1325,8 +1466,28 @@ func buildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstruc
 }
 
 func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
+
+	deploymentPodHashMap := make(map[string]string)
+	deploymentMap := make(map[string]*v1beta1.Deployment)
+	rolloutMap := make(map[string]map[string]interface{})
 	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
 	for _, node := range nodes {
+		if node.Kind == k8sCommonBean.DeploymentKind {
+			deployment, err := util.ConvertToV1Deployment(node)
+			if err != nil {
+				return nil, err
+			}
+			deploymentMap[node.Name] = deployment
+			deploymentPodHash := util.ComputePodHash(&deployment.Spec.Template, deployment.Status.CollisionCount)
+			deploymentPodHashMap[node.Name] = deploymentPodHash
+		} else if node.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
+			rolloutIf := node.Manifest.UnstructuredContent()
+			rolloutMap[node.Name] = rolloutIf
+		}
+	}
+
+	for _, node := range nodes {
+
 		if node.Kind != k8sCommonBean.PodKind {
 			continue
 		}
@@ -1369,8 +1530,28 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 				replicaSetNode := getMatchingNode(nodes, parentKind, replicaSet.Name)
 
 				// if parent of replicaset is deployment, compare label pod-template-hash
-				if replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetNode.ParentRefs[0].Kind == k8sCommonBean.DeploymentKind {
-					isNew = replicaSet.GetLabels()["pod-template-hash"] == pod.GetLabels()["pod-template-hash"]
+				if replicaSetParent := replicaSetNode.ParentRefs[0]; replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetParent.Kind == k8sCommonBean.DeploymentKind {
+					deploymentPodHash := deploymentPodHashMap[replicaSetParent.Name]
+					deployment := deploymentMap[replicaSetParent.Name]
+					replicasetObj, err := util.ConvertToV1ReplicaSet(replicaSetNode)
+					if err != nil {
+						return nil, err
+					}
+					replicaSetPodHash := util.GetReplicaSetPodHash(replicasetObj, deployment)
+					isNew = replicaSetPodHash == deploymentPodHash
+				} else if replicaSetParent.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
+
+					rolloutIf := rolloutMap[replicaSetParent.Name]
+					replicasetObj, err := util.ConvertToV1ReplicaSet(replicaSetNode)
+					if err != nil {
+						return nil, err
+					}
+
+					rolloutPodHash := util.GetRolloutPodHash(rolloutIf)
+					replicasetPodHash := util.GetRolloutPodTemplateHash(replicasetObj)
+
+					isNew = rolloutPodHash == replicasetPodHash
+
 				}
 			}
 
