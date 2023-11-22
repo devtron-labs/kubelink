@@ -1117,7 +1117,7 @@ func (impl K8sUtil) ListEvents(restConfig *rest.Config, namespace string, groupV
 		impl.logger.Errorw("error in getting dynamic interface for resource", "err", err, "resource", name)
 		return nil, err
 	}
-	groupVersionKind.Kind = "List"
+
 	if !namespaced {
 		namespace = "default"
 	}
@@ -1133,10 +1133,10 @@ func (impl K8sUtil) ListEvents(restConfig *rest.Config, namespace string, groupV
 	}
 	eventsIf := eventsClient.Events(namespace)
 	eventsExp := eventsIf.(v12.EventExpansion)
-	fieldSelector := eventsExp.GetFieldSelector(pointer.StringPtr(name), pointer.StringPtr(namespace), nil, nil)
+	fieldSelector := eventsExp.GetFieldSelector(pointer.StringPtr(name), pointer.StringPtr(namespace), pointer.StringPtr(groupVersionKind.Kind), nil)
 	listOptions := metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       groupVersionKind.Kind,
+			Kind:       "List",
 			APIVersion: groupVersionKind.GroupVersion().String(),
 		},
 		FieldSelector: fieldSelector.String(),
