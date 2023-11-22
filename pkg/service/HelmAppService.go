@@ -294,7 +294,7 @@ func (impl *HelmAppServiceImpl) addHookResourcesInManifest(helmRelease *release.
 		var hook unstructured.Unstructured
 		err := yaml.Unmarshal([]byte(helmHook.Manifest), &hook)
 		if err != nil {
-			impl.logger.Errorw("error in converting string manifest into unstructured obj", "releaseName", helmRelease.Name, "manifest", helmRelease.Manifest, "err", err)
+			impl.logger.Errorw("error in converting string manifest into unstructured obj", "hookName", helmHook.Name, "releaseName", helmRelease.Name, "err", err)
 			continue
 		}
 		manifests = append(manifests, hook)
