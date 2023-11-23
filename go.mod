@@ -6,7 +6,7 @@ require (
 	github.com/argoproj/gitops-engine v0.7.1-0.20231013183858-f15cf615b814
 	github.com/aws/aws-sdk-go v1.44.285
 	github.com/caarlos0/env v3.5.0+incompatible
-	github.com/devtron-labs/common-lib v0.0.6
+	github.com/devtron-labs/common-lib v0.0.7
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/go-pg/pg v6.15.1+incompatible
@@ -30,7 +30,10 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
-require github.com/devtron-labs/authenticator v0.4.31
+require (
+	github.com/davecgh/go-spew v1.1.1
+	github.com/devtron-labs/authenticator v0.4.31
+)
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230106234847-43070de90fa1 // indirect
@@ -50,7 +53,6 @@ require (
 	github.com/containerd/containerd v1.7.0 // indirect
 	github.com/coreos/go-oidc v2.2.1+incompatible // indirect
 	github.com/cyphar/filepath-securejoin v0.2.3 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/cli v20.10.21+incompatible // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/docker/docker v20.10.24+incompatible // indirect
