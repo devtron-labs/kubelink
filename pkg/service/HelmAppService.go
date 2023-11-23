@@ -18,6 +18,7 @@ import (
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"path"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -288,6 +289,19 @@ func (k *Resource) action(resource *clustercache.Resource, _ map[kube.ResourceKe
 	return true
 }
 
+func (impl *HelmAppServiceImpl) addHookResourcesInManifest(helmRelease *release.Release, manifests []unstructured.Unstructured) []unstructured.Unstructured {
+	for _, helmHook := range helmRelease.Hooks {
+		var hook unstructured.Unstructured
+		err := yaml.Unmarshal([]byte(helmHook.Manifest), &hook)
+		if err != nil {
+			impl.logger.Errorw("error in converting string manifest into unstructured obj", "hookName", helmHook.Name, "releaseName", helmRelease.Name, "err", err)
+			continue
+		}
+		manifests = append(manifests, hook)
+	}
+	return manifests
+}
+
 func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig *client.ClusterConfig, helmRelease *release.Release) (*bean.ResourceTreeResponse, error) {
 	impl.logger.Infow("building resource tree from cluster cache", "clusterName", clusterConfig.ClusterName, "helmReleaseName", helmRelease.Name)
 	clusterCache, err := impl.clusterCache.GetClusterCacheByClusterId(int(clusterConfig.ClusterId))
@@ -296,6 +310,8 @@ func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig 
 		return nil, err
 	}
 	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
+
+	manifests = impl.addHookResourcesInManifest(helmRelease, manifests)
 
 	resourceHierarchy := &Resource{
 		CacheResources:          make([]*clustercache.Resource, 0),
@@ -376,6 +392,7 @@ func createCRDsCacheResourceObject(resourceHierarchy *Resource, manifest unstruc
 
 func (impl *HelmAppServiceImpl) getLiveManifests(config *rest.Config, helmRelease *release.Release) ([]*bean.DesiredOrLiveManifest, error) {
 	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
+	manifests = impl.addHookResourcesInManifest(helmRelease, manifests)
 	// get live manifests from kubernetes
 	desiredOrLiveManifests, err := impl.getDesiredOrLiveManifests(config, manifests, helmRelease.Namespace)
 	if err != nil {
