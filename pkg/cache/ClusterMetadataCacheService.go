@@ -71,6 +71,10 @@ func (impl *ClusterCacheImpl) getClusterInfoByClusterId(clusterId int) (*bean.Cl
 }
 
 func (impl *ClusterCacheImpl) OnStateChange(clusterId int, action string) {
+	isValidClusterId := isInClusterIdList(clusterId, impl.clusterCacheConfig.ClusterIdList)
+	if !isValidClusterId {
+		return
+	}
 	switch action {
 	case k8sInformer.UPDATE:
 		clusterInfo, err := impl.getClusterInfoByClusterId(clusterId)

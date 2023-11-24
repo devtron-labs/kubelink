@@ -202,3 +202,12 @@ func setHibernationRules(res *bean.ResourceNode, un *unstructured.Unstructured) 
 		}
 	}
 }
+
+func isInClusterIdList(clusterId int, clusterIdList []int) bool {
+	for _, id := range clusterIdList {
+		if id == clusterId {
+			return true
+		}
+	}
+	return false
+}
