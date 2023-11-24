@@ -12,6 +12,7 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/common-lib/utils/k8s/health"
+	k8sObjectUtils "github.com/devtron-labs/common-lib/utils/k8sObjectsUtil"
 	"github.com/devtron-labs/kubelink/pkg/cache"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -63,17 +64,16 @@ import (
 )
 
 const (
-	hibernateReplicaAnnotation                       = "hibernator.devtron.ai/replicas"
-	hibernatePatch                                   = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
-	chartWorkingDirectory                            = "/home/devtron/devtroncd/charts/"
-	ReadmeFileName                                   = "README.md"
-	REGISTRY_TYPE_ECR                                = "ecr"
-	REGISTRYTYPE_GCR                                 = "gcr"
-	REGISTRYTYPE_ARTIFACT_REGISTRY                   = "artifact-registry"
-	JSON_KEY_USERNAME                         string = "_json_key"
-	HELM_CLIENT_ERROR                                = "Error in creating Helm client"
-	RELEASE_INSTALLED                                = "Release Installed"
-	EphemeralContainerStartingShellScriptName        = "./tmp/%s-devtron.sh"
+	hibernateReplicaAnnotation            = "hibernator.devtron.ai/replicas"
+	hibernatePatch                        = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
+	chartWorkingDirectory                 = "/home/devtron/devtroncd/charts/"
+	ReadmeFileName                        = "README.md"
+	REGISTRY_TYPE_ECR                     = "ecr"
+	REGISTRYTYPE_GCR                      = "gcr"
+	REGISTRYTYPE_ARTIFACT_REGISTRY        = "artifact-registry"
+	JSON_KEY_USERNAME              string = "_json_key"
+	HELM_CLIENT_ERROR                     = "Error in creating Helm client"
+	RELEASE_INSTALLED                     = "Release Installed"
 )
 
 type HelmAppService interface {
@@ -1750,7 +1750,7 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 			if _, ok := ephemeralContainerStatusMap[ec.Name]; ok {
 				containerData := &bean.EphemeralContainerData{
 					Name:       ec.Name,
-					IsExternal: isExternalEphemeralContainer(ec.Command, ec.Name),
+					IsExternal: k8sObjectUtils.IsExternalEphemeralContainer(ec.Command, ec.Name),
 				}
 				ephemeralContainers = append(ephemeralContainers, containerData)
 			}
@@ -1769,18 +1769,6 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 
 	}
 	return podsMetadata, nil
-}
-
-func isExternalEphemeralContainer(cmds []string, name string) bool {
-	isExternal := true
-	matchingCmd := fmt.Sprintf("sh "+EphemeralContainerStartingShellScriptName, name)
-	for _, cmd := range cmds {
-		if strings.Contains(cmd, matchingCmd) {
-			isExternal = false
-			break
-		}
-	}
-	return isExternal
 }
 
 func getMatchingNode(nodes []*bean.ResourceNode, kind string, name string) *bean.ResourceNode {
