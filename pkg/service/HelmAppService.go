@@ -63,16 +63,17 @@ import (
 )
 
 const (
-	hibernateReplicaAnnotation            = "hibernator.devtron.ai/replicas"
-	hibernatePatch                        = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
-	chartWorkingDirectory                 = "/home/devtron/devtroncd/charts/"
-	ReadmeFileName                        = "README.md"
-	REGISTRY_TYPE_ECR                     = "ecr"
-	REGISTRYTYPE_GCR                      = "gcr"
-	REGISTRYTYPE_ARTIFACT_REGISTRY        = "artifact-registry"
-	JSON_KEY_USERNAME              string = "_json_key"
-	HELM_CLIENT_ERROR                     = "Error in creating Helm client"
-	RELEASE_INSTALLED                     = "Release Installed"
+	hibernateReplicaAnnotation                       = "hibernator.devtron.ai/replicas"
+	hibernatePatch                                   = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
+	chartWorkingDirectory                            = "/home/devtron/devtroncd/charts/"
+	ReadmeFileName                                   = "README.md"
+	REGISTRY_TYPE_ECR                                = "ecr"
+	REGISTRYTYPE_GCR                                 = "gcr"
+	REGISTRYTYPE_ARTIFACT_REGISTRY                   = "artifact-registry"
+	JSON_KEY_USERNAME                         string = "_json_key"
+	HELM_CLIENT_ERROR                                = "Error in creating Helm client"
+	RELEASE_INSTALLED                                = "Release Installed"
+	EphemeralContainerStartingShellScriptName        = "./tmp/%s-devtron.sh"
 )
 
 type HelmAppService interface {
@@ -1772,7 +1773,7 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 
 func isExternalEphemeralContainer(cmds []string, name string) bool {
 	isExternal := true
-	matchingCmd := fmt.Sprintf("sh %s-devtron.sh", name)
+	matchingCmd := fmt.Sprintf("sh "+EphemeralContainerStartingShellScriptName, name)
 	for _, cmd := range cmds {
 		if strings.Contains(cmd, matchingCmd) {
 			isExternal = false
