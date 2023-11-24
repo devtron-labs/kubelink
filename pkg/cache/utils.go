@@ -203,9 +203,9 @@ func setHibernationRules(res *bean.ResourceNode, un *unstructured.Unstructured) 
 	}
 }
 
-func isInClusterIdList(value int, list []int) bool {
-	for _, v := range list {
-		if v == value {
+func isInClusterIdList(clusterId int, clusterIdList []int) bool {
+	for _, id := range clusterIdList {
+		if id == clusterId {
 			return true
 		}
 	}
