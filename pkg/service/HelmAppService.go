@@ -1121,7 +1121,7 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 		impl.logger.Errorw(HELM_CLIENT_ERROR, "err", err)
 		return "", err
 	}
-
+	//registryClient.Login(request.RegistryCredential.RegistryUrl)
 	var chartName, repoURL string
 
 	switch request.IsOCIRepo {
