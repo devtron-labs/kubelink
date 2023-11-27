@@ -18,7 +18,8 @@ type ClusterCache interface {
 }
 
 type ClusterCacheConfig struct {
-	ClusterIdList []int `env:"CLUSTER_ID_LIST" envSeparator:","`
+	ClusterIdList                 []int `env:"CLUSTER_ID_LIST" envSeparator:","`
+	ClusterCacheListSemaphoreSize int64 `env:"CLUSTER_CACHE_LIST_SEMAPHORE_SIZE" envDefault:"5"`
 }
 
 func GetClusterCacheConfig() (*ClusterCacheConfig, error) {
@@ -136,7 +137,7 @@ func (impl *ClusterCacheImpl) getClusterCache(clusterInfo *bean.ClusterInfo) (cl
 		impl.logger.Errorw("error in getting rest config", "err", err, "clusterName", clusterConfig.ClusterName)
 		return cache, err
 	}
-	cache = clustercache.NewClusterCache(restConfig, getClusterCacheOptions()...)
+	cache = clustercache.NewClusterCache(restConfig, getClusterCacheOptions(impl.clusterCacheConfig)...)
 	return cache, nil
 }
 
