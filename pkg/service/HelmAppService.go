@@ -334,15 +334,15 @@ func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig 
 		}
 	}
 
-	podsMetadata, err := buildPodMetadata(nodes)
-	if err != nil {
-		return nil, err
-	}
+	//podsMetadata, err := buildPodMetadata(nodes)
+	//if err != nil {
+	//	return nil, err
+	//}
 	resourceTreeResponse := &bean.ResourceTreeResponse{
 		ApplicationTree: &bean.ApplicationTree{
 			Nodes: nodes,
 		},
-		PodMetadata: podsMetadata,
+		//PodMetadata: podsMetadata,
 	}
 	return resourceTreeResponse, nil
 }

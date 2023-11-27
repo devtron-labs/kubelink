@@ -156,7 +156,7 @@ func getResourceNodeFromManifest(un *unstructured.Unstructured, gvk schema.Group
 			Namespace: un.GetNamespace(),
 			Name:      un.GetName(),
 			UID:       string(un.GetUID()),
-			Manifest:  *un,
+			//Manifest:  *un,
 		},
 	}
 }
