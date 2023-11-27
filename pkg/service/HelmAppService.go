@@ -838,7 +838,7 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 		impl.logger.Debugw("Installing release", "name", releaseIdentifier.ReleaseName, "namespace", releaseIdentifier.ReleaseNamespace, "dry-run", dryRun)
 		rel, err := helmClientObj.InstallChart(context.Background(), chartSpec)
 		if err != nil {
-			impl.logger.Errorw("Error in install release ", "err", err)
+			impl.logger.Errorw("Error in install release ", "err", err, "clusterConfig", releaseIdentifier.ClusterConfig)
 			return nil, err
 		}
 		//helmInstallMessage := HelmReleaseStatusConfig{
