@@ -119,7 +119,7 @@ func isTransientNetworkErr(err error) bool {
 func getClusterCacheOptions(clusterCacheConfig *ClusterCacheConfig) []clustercache.UpdateSettingsFunc {
 	clusterCacheOpts := []clustercache.UpdateSettingsFunc{
 		clustercache.SetListSemaphore(semaphore.NewWeighted(clusterCacheConfig.ClusterCacheListSemaphoreSize)),
-		clustercache.SetListPageSize(clusterCacheListPageSize),
+		clustercache.SetListPageSize(clusterCacheConfig.ClusterCacheListPageSize),
 		clustercache.SetListPageBufferSize(clusterCacheListPageBufferSize),
 		clustercache.SetWatchResyncTimeout(clusterCacheWatchResyncDuration),
 		clustercache.SetClusterSyncRetryTimeout(clusterSyncRetryTimeoutDuration),
