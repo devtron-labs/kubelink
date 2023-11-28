@@ -19,8 +19,8 @@ type ClusterCache interface {
 
 type ClusterCacheConfig struct {
 	ClusterIdList                 []int `env:"CLUSTER_ID_LIST" envSeparator:","`
-	ClusterCacheListSemaphoreSize int64 `env:"CLUSTER_CACHE_LIST_SEMAPHORE_SIZE" envDefault:"5"`
-	ClusterCacheListPageSize      int64 `env:"CLUSTER_CACHE_LIST_PAGE_SIZE" envDefault:"50"`
+	ClusterCacheListSemaphoreSize int64 `env:"CLUSTER_CACHE_LIST_SEMAPHORE_SIZE" envDefault:"50"`
+	ClusterCacheListPageSize      int64 `env:"CLUSTER_CACHE_LIST_PAGE_SIZE" envDefault:"500"`
 }
 
 func GetClusterCacheConfig() (*ClusterCacheConfig, error) {
@@ -85,6 +85,10 @@ func (impl *ClusterCacheImpl) OnStateChange(clusterId int, action string) {
 			return
 		}
 		impl.logger.Infow("syncing cluster cache on cluster config update", "clusterId", clusterId)
+		impl.rwMutex.Lock()
+		impl.clustersCache[clusterId].Invalidate()
+		impl.rwMutex.Unlock()
+		delete(impl.clustersCache, clusterId)
 		go impl.SyncClusterCache(clusterInfo)
 	case k8sInformer.DELETE:
 		impl.logger.Infow("invalidating cluster cache on cluster config delete", "clusterId", clusterId)
