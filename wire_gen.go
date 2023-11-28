@@ -44,13 +44,13 @@ func InitializeApp() (*App, error) {
 		return nil, err
 	}
 	k8sUtil := k8s.NewK8sUtil(sugaredLogger, runtimeConfig)
-	converterImpl := converter.NewConverterImpl()
-	k8sInformerImpl := k8sInformer.Newk8sInformerImpl(sugaredLogger, clusterRepositoryImpl, helmReleaseConfig, k8sUtil, converterImpl)
+	clusterBeanConverterImpl := converter.NewConverterImpl()
+	k8sInformerImpl := k8sInformer.Newk8sInformerImpl(sugaredLogger, clusterRepositoryImpl, helmReleaseConfig, k8sUtil, clusterBeanConverterImpl)
 	serviceHelmReleaseConfig, err := service.GetHelmReleaseConfig()
 	if err != nil {
 		return nil, err
 	}
-	helmAppServiceImpl := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, serviceHelmReleaseConfig, k8sUtil, clusterRepositoryImpl, converterImpl)
+	helmAppServiceImpl := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, serviceHelmReleaseConfig, k8sUtil, clusterRepositoryImpl, clusterBeanConverterImpl)
 	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(sugaredLogger, chartRepositoryLocker, helmAppServiceImpl)
 	pProfRestHandlerImpl := pprof.NewPProfRestHandler(sugaredLogger)
 	pProfRouterImpl := pprof.NewPProfRouter(sugaredLogger, pProfRestHandlerImpl)

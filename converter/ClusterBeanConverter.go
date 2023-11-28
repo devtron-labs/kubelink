@@ -7,20 +7,20 @@ import (
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 )
 
-type Converter interface {
+type ClusterBeanConverter interface {
 	GetClusterConfigFromClientBean(config *client.ClusterConfig) *k8sUtils.ClusterConfig
 	GetClusterConfig(cluster *bean.ClusterInfo) *k8sUtils.ClusterConfig
 	GetClusterInfo(c *repository.Cluster) *bean.ClusterInfo
 }
 
-type ConverterImpl struct {
+type ClusterBeanConverterImpl struct {
 }
 
-func NewConverterImpl() *ConverterImpl {
-	return &ConverterImpl{}
+func NewConverterImpl() *ClusterBeanConverterImpl {
+	return &ClusterBeanConverterImpl{}
 }
 
-func (impl *ConverterImpl) GetClusterConfigFromClientBean(config *client.ClusterConfig) *k8sUtils.ClusterConfig {
+func (impl *ClusterBeanConverterImpl) GetClusterConfigFromClientBean(config *client.ClusterConfig) *k8sUtils.ClusterConfig {
 	clusterConfig := &k8sUtils.ClusterConfig{}
 	if config != nil {
 		clusterConfig = &k8sUtils.ClusterConfig{
@@ -38,7 +38,7 @@ func (impl *ConverterImpl) GetClusterConfigFromClientBean(config *client.Cluster
 	return clusterConfig
 }
 
-func (impl *ConverterImpl) GetClusterConfig(cluster *bean.ClusterInfo) *k8sUtils.ClusterConfig {
+func (impl *ClusterBeanConverterImpl) GetClusterConfig(cluster *bean.ClusterInfo) *k8sUtils.ClusterConfig {
 	clusterConfig := &k8sUtils.ClusterConfig{}
 	if cluster != nil {
 		clusterConfig = &k8sUtils.ClusterConfig{
@@ -54,7 +54,7 @@ func (impl *ConverterImpl) GetClusterConfig(cluster *bean.ClusterInfo) *k8sUtils
 	return clusterConfig
 }
 
-func (impl *ConverterImpl) GetClusterInfo(c *repository.Cluster) *bean.ClusterInfo {
+func (impl *ClusterBeanConverterImpl) GetClusterInfo(c *repository.Cluster) *bean.ClusterInfo {
 	clusterInfo := &bean.ClusterInfo{}
 	if c != nil {
 		config := c.Config
