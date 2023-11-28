@@ -85,10 +85,6 @@ func (impl *ClusterCacheImpl) OnStateChange(clusterId int, action string) {
 			return
 		}
 		impl.logger.Infow("syncing cluster cache on cluster config update", "clusterId", clusterId)
-		impl.rwMutex.Lock()
-		impl.clustersCache[clusterId].Invalidate()
-		impl.rwMutex.Unlock()
-		delete(impl.clustersCache, clusterId)
 		go impl.SyncClusterCache(clusterInfo)
 	case k8sInformer.DELETE:
 		impl.logger.Infow("invalidating cluster cache on cluster config delete", "clusterId", clusterId)
@@ -115,6 +111,12 @@ func (impl *ClusterCacheImpl) SyncCache() error {
 
 func (impl *ClusterCacheImpl) SyncClusterCache(clusterInfo *bean.ClusterInfo) (clustercache.ClusterCache, error) {
 	impl.logger.Infow("cluster cache sync started..", "clusterId", clusterInfo.ClusterId)
+	if _, ok := impl.clustersCache[clusterInfo.ClusterId]; ok {
+		impl.rwMutex.Lock()
+		impl.clustersCache[clusterInfo.ClusterId].Invalidate()
+		impl.rwMutex.Unlock()
+		delete(impl.clustersCache, clusterInfo.ClusterId)
+	}
 	cache, err := impl.getClusterCache(clusterInfo)
 	if err != nil {
 		impl.logger.Errorw("failed to get cluster info for", "clusterId", clusterInfo.ClusterId, "error", err)
