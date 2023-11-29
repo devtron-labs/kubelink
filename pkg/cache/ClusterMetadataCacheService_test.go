@@ -30,6 +30,7 @@ func TestHelmAppServiceImpl_SyncCache(t *testing.T) {
 		runTimeConfig, _ := client2.GetRuntimeConfig()
 		k8sUtil := k8sUtils.NewK8sUtil(logger, runTimeConfig)
 		clusterCacheConfig, err := GetClusterCacheConfig()
+		clusterCacheConfig.ClusterIdList = []int{1}
 		assert.Nil(t, err)
 		impl := &ClusterCacheImpl{
 			logger:             logger,
