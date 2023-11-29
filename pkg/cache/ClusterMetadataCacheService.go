@@ -53,7 +53,7 @@ func NewClusterCacheImpl(logger *zap.SugaredLogger, clusterCacheConfig *ClusterC
 	}
 
 	if len(clusterCacheConfig.ClusterIdList) > 0 {
-		k8sInformer.RegisterListener(clusterCacheImpl)
+		//k8sInformer.RegisterListener(clusterCacheImpl)
 		err := clusterCacheImpl.SyncCache()
 		if err != nil {
 			return nil
@@ -111,12 +111,6 @@ func (impl *ClusterCacheImpl) SyncCache() error {
 
 func (impl *ClusterCacheImpl) SyncClusterCache(clusterInfo *bean.ClusterInfo) (clustercache.ClusterCache, error) {
 	impl.logger.Infow("cluster cache sync started..", "clusterId", clusterInfo.ClusterId)
-	if _, ok := impl.clustersCache[clusterInfo.ClusterId]; ok {
-		impl.rwMutex.Lock()
-		impl.clustersCache[clusterInfo.ClusterId].Invalidate()
-		impl.rwMutex.Unlock()
-		delete(impl.clustersCache, clusterInfo.ClusterId)
-	}
 	cache, err := impl.getClusterCache(clusterInfo)
 	if err != nil {
 		impl.logger.Errorw("failed to get cluster info for", "clusterId", clusterInfo.ClusterId, "error", err)
