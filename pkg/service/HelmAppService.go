@@ -20,6 +20,7 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"path"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -45,11 +46,8 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
 	"io/ioutil"
-	appsV1 "k8s.io/api/apps/v1"
-	coreV1 "k8s.io/api/core/v1"
 	errors2 "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -59,7 +57,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 )
 
 const (
@@ -74,6 +71,12 @@ const (
 	HELM_CLIENT_ERROR                     = "Error in creating Helm client"
 	RELEASE_INSTALLED                     = "Release Installed"
 )
+
+type ExtraNodeInfo struct {
+	// UpdateRevision is only used for StatefulSets, if not empty, indicates the version of the StatefulSet used to generate Pods in the sequence
+	UpdateRevision         string
+	ResourceNetworkingInfo *bean.ResourceNetworkingInfo
+}
 
 type HelmAppService interface {
 	GetApplicationListForCluster(config *client.ClusterConfig) *client.DeployedAppList
@@ -334,15 +337,15 @@ func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig 
 		}
 	}
 
-	//podsMetadata, err := buildPodMetadata(nodes)
-	//if err != nil {
-	//	return nil, err
-	//}
+	podsMetadata, err := buildPodMetadata(nodes)
+	if err != nil {
+		return nil, err
+	}
 	resourceTreeResponse := &bean.ResourceTreeResponse{
 		ApplicationTree: &bean.ApplicationTree{
 			Nodes: nodes,
 		},
-		//PodMetadata: podsMetadata,
+		PodMetadata: podsMetadata,
 	}
 	return resourceTreeResponse, nil
 }
@@ -1589,6 +1592,9 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 			infoItems, _ := argo.PopulatePodInfo(manifest)
 			node.Info = infoItems
 		}
+		if gvk.Kind == k8sCommonBean.StatefulSetKind {
+			node.UpdateRevision = cache.GetUpdateRevisionForStatefulSet(manifest.Object)
+		}
 
 		nodes = append(nodes, node)
 		healthStatusArray = append(healthStatusArray, node.Health)
@@ -1630,33 +1636,32 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 			rolloutMap[node.Name] = rolloutIf
 		}
 	}
-
+	uidVsExtraNodeInfoMapping := make(map[string]*ExtraNodeInfo)
+	for _, node := range nodes {
+		if node.Kind == k8sCommonBean.StatefulSetKind || node.Kind == k8sCommonBean.DaemonSetKind {
+			if _, ok := uidVsExtraNodeInfoMapping[node.UID]; !ok {
+				uidVsExtraNodeInfoMapping[node.UID] = &ExtraNodeInfo{UpdateRevision: node.UpdateRevision, ResourceNetworkingInfo: node.NetworkingInfo}
+			}
+		}
+	}
 	for _, node := range nodes {
 
 		if node.Kind != k8sCommonBean.PodKind {
 			continue
 		}
-
-		var pod coreV1.Pod
-		err := runtime.DefaultUnstructuredConverter.FromUnstructured(node.Manifest.UnstructuredContent(), &pod)
-		if err != nil {
-			return nil, err
-		}
-
 		// check if pod is new
 		isNew := true
 		if len(node.ParentRefs) > 0 {
 			parentRef := node.ParentRefs[0]
 			parentKind := parentRef.Kind
+			extraNodeInfo := &ExtraNodeInfo{}
+			if _, ok := uidVsExtraNodeInfoMapping[parentRef.UID]; ok {
+				extraNodeInfo = uidVsExtraNodeInfoMapping[parentRef.UID]
+			}
 
 			// if parent is StatefulSet - then pod label controller-revision-hash should match StatefulSet's update revision
 			if parentKind == k8sCommonBean.StatefulSetKind {
-				var statefulSet appsV1.StatefulSet
-				err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &statefulSet)
-				if err != nil {
-					return nil, err
-				}
-				isNew = statefulSet.Status.UpdateRevision == pod.GetLabels()["controller-revision-hash"]
+				isNew = extraNodeInfo.UpdateRevision == node.NetworkingInfo.Labels["controller-revision-hash"]
 			}
 
 			// if parent is Job - then pod label controller-revision-hash should match StatefulSet's update revision
@@ -1667,12 +1672,7 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 
 			// if parent kind is replica set then
 			if parentKind == k8sCommonBean.ReplicaSetKind {
-				var replicaSet appsV1.ReplicaSet
-				err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &replicaSet)
-				if err != nil {
-					return nil, err
-				}
-				replicaSetNode := getMatchingNode(nodes, parentKind, replicaSet.Name)
+				replicaSetNode := getMatchingNode(nodes, parentKind, parentRef.Name)
 
 				// if parent of replicaset is deployment, compare label pod-template-hash
 				if replicaSetParent := replicaSetNode.ParentRefs[0]; replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetParent.Kind == k8sCommonBean.DeploymentKind {
@@ -1702,50 +1702,48 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 
 			// if parent kind is DaemonSet then compare DaemonSet's Child ControllerRevision's label controller-revision-hash with pod label controller-revision-hash
 			if parentKind == k8sCommonBean.DaemonSetKind {
-				var daemonSet appsV1.DaemonSet
-				err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &daemonSet)
-				if err != nil {
-					return nil, err
-				}
-
 				controllerRevisionNodes := getMatchingNodes(nodes, "ControllerRevision")
 				for _, controllerRevisionNode := range controllerRevisionNodes {
 					if len(controllerRevisionNode.ParentRefs) > 0 && controllerRevisionNode.ParentRefs[0].Kind == parentKind &&
-						controllerRevisionNode.ParentRefs[0].Name == daemonSet.Name {
+						controllerRevisionNode.ParentRefs[0].Name == parentRef.Name && extraNodeInfo.ResourceNetworkingInfo != nil {
 
-						var controlRevision appsV1.ControllerRevision
-						err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &controlRevision)
-						if err != nil {
-							return nil, err
-						}
-						isNew = controlRevision.GetLabels()["controller-revision-hash"] == pod.GetLabels()["controller-revision-hash"]
+						isNew = extraNodeInfo.ResourceNetworkingInfo.Labels["controller-revision-hash"] == node.NetworkingInfo.Labels["controller-revision-hash"]
 					}
 				}
 			}
 		}
 
 		// set containers,initContainers and ephemeral container names
-		containerNames := make([]string, 0, len(pod.Spec.Containers))
-		initContainerNames := make([]string, 0, len(pod.Spec.InitContainers))
-		ephemeralContainers := make([]*bean.EphemeralContainerData, 0, len(pod.Spec.EphemeralContainers))
-		for _, container := range pod.Spec.Containers {
-			containerNames = append(containerNames, container.Name)
-		}
-		for _, initContainer := range pod.Spec.InitContainers {
-			initContainerNames = append(initContainerNames, initContainer.Name)
+		var containerNames []string
+		var initContainerNames []string
+		var ephemeralContainersInfo []bean.EphemeralContainerInfo
+		var ephemeralContainerStatus []bean.EphemeralContainerStatusesInfo
+
+		for _, nodeInfo := range node.Info {
+			switch nodeInfo.Name {
+			case bean.ContainersType:
+				containerNames = nodeInfo.ContainerNames
+			case bean.InitContainersType:
+				initContainerNames = nodeInfo.InitContainerNames
+			case bean.EphemeralContainersType:
+				ephemeralContainersInfo = nodeInfo.EphemeralContainersInfo
+				ephemeralContainerStatus = nodeInfo.EphemeralContainerStatuses
+			default:
+				continue
+			}
 		}
 
 		ephemeralContainerStatusMap := make(map[string]bool)
-		for _, c := range pod.Status.EphemeralContainerStatuses {
+		for _, c := range ephemeralContainerStatus {
 			//c.state contains three states running,waiting and terminated
 			// at any point of time only one state will be there
 			if c.State.Running != nil {
 				ephemeralContainerStatusMap[c.Name] = true
 			}
 		}
-
+		ephemeralContainers := make([]*bean.EphemeralContainerData, 0, len(ephemeralContainersInfo))
 		//sending only running ephemeral containers in the list
-		for _, ec := range pod.Spec.EphemeralContainers {
+		for _, ec := range ephemeralContainersInfo {
 			if _, ok := ephemeralContainerStatusMap[ec.Name]; ok {
 				containerData := &bean.EphemeralContainerData{
 					Name:       ec.Name,

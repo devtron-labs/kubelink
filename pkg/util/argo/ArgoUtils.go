@@ -92,16 +92,51 @@ func PopulatePodInfo(un *unstructured.Unstructured) ([]bean.InfoItem, error) {
 	} else if pod.DeletionTimestamp != nil {
 		reason = "Terminating"
 	}
+	infoItems = getAllInfoItems(infoItems, reason, restarts, readyContainers, totalContainers, pod)
+	return infoItems, nil
+}
 
+func getAllInfoItems(infoItems []bean.InfoItem, reason string, restarts int, readyContainers int, totalContainers int, pod v1.Pod) []bean.InfoItem {
 	if reason != "" {
 		infoItems = append(infoItems, bean.InfoItem{Name: "Status Reason", Value: reason})
 	}
-
 	infoItems = append(infoItems, bean.InfoItem{Name: "Node", Value: pod.Spec.NodeName})
-	infoItems = append(infoItems, bean.InfoItem{Name: "Containers", Value: fmt.Sprintf("%d/%d", readyContainers, totalContainers)})
+
+	containerNames, initContainerNames, ephemeralContainersInfo, ephemeralContainerStatus := getContainersInfo(pod)
+
+	infoItems = append(infoItems, bean.InfoItem{Name: bean.ContainersType, Value: fmt.Sprintf("%d/%d", readyContainers, totalContainers), ContainerNames: containerNames})
+	infoItems = append(infoItems, bean.InfoItem{Name: bean.InitContainersType, InitContainerNames: initContainerNames})
+	infoItems = append(infoItems, bean.InfoItem{Name: bean.EphemeralContainersType, EphemeralContainersInfo: ephemeralContainersInfo, EphemeralContainerStatuses: ephemeralContainerStatus})
 	if restarts > 0 {
 		infoItems = append(infoItems, bean.InfoItem{Name: "Restart Count", Value: fmt.Sprintf("%d", restarts)})
 	}
+	return infoItems
+}
 
-	return infoItems, nil
+func getContainersInfo(pod v1.Pod) ([]string, []string, []bean.EphemeralContainerInfo, []bean.EphemeralContainerStatusesInfo) {
+	containerNames := make([]string, 0, len(pod.Spec.Containers))
+	initContainerNames := make([]string, 0, len(pod.Spec.InitContainers))
+	ephemeralContainers := make([]bean.EphemeralContainerInfo, 0, len(pod.Spec.EphemeralContainers))
+	ephemeralContainerStatus := make([]bean.EphemeralContainerStatusesInfo, 0, len(pod.Status.EphemeralContainerStatuses))
+	for _, container := range pod.Spec.Containers {
+		containerNames = append(containerNames, container.Name)
+	}
+	for _, initContainer := range pod.Spec.InitContainers {
+		initContainerNames = append(initContainerNames, initContainer.Name)
+	}
+	for _, ec := range pod.Spec.EphemeralContainers {
+		ecData := bean.EphemeralContainerInfo{
+			Name:    ec.Name,
+			Command: ec.Command,
+		}
+		ephemeralContainers = append(ephemeralContainers, ecData)
+	}
+	for _, ecStatus := range pod.Status.EphemeralContainerStatuses {
+		status := bean.EphemeralContainerStatusesInfo{
+			Name:  ecStatus.Name,
+			State: ecStatus.State,
+		}
+		ephemeralContainerStatus = append(ephemeralContainerStatus, status)
+	}
+	return containerNames, initContainerNames, ephemeralContainers, ephemeralContainerStatus
 }

@@ -3,6 +3,7 @@ package bean
 import (
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	client "github.com/devtron-labs/kubelink/grpc"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"time"
@@ -58,6 +59,11 @@ const (
 	// StatusPendingRollback indicates that an rollback operation is underway.
 	StatusPendingRollback HelmReleaseStatus = "pending-rollback"
 )
+const (
+	ContainersType          = "Container"
+	InitContainersType      = "InitContainer"
+	EphemeralContainersType = "EphemeralContainer"
+)
 
 type ChartMetadata struct {
 	// The name of the chart
@@ -96,6 +102,7 @@ type ResourceNode struct {
 	Info            []InfoItem              `json:"info,omitempty"`
 	Port            []int64                 `json:"port,omitempty"`
 	CreatedAt       string                  `json:"createdAt,omitempty"`
+	UpdateRevision  string                  `json:"updateRevision,omitempty"`
 }
 
 // ResourceRef includes fields which unique identify resource
@@ -190,6 +197,24 @@ type InfoItem struct {
 	Name string `json:"name,omitempty"`
 	// Value is human readable content.
 	Value string `json:"value,omitempty"`
+	// InitContainers contains all info about init containers
+	InitContainerNames []string `json:"initContainerNames,omitempty"`
+	// Containers contains all info about containers inside a pod
+	ContainerNames []string `json:"containerNames,omitempty"`
+	// EphemeralContainers contains all info about ephemeral containers
+	EphemeralContainersInfo []EphemeralContainerInfo `json:"ephemeralContainersInfo,omitempty"`
+	// EphemeralContainerStatuses contains statuses about about ephemeral containers
+	EphemeralContainerStatuses []EphemeralContainerStatusesInfo `json:"ephemeralContainerStatuses,omitempty"`
+}
+
+type EphemeralContainerInfo struct {
+	Name    string
+	Command []string
+}
+
+type EphemeralContainerStatusesInfo struct {
+	Name  string
+	State v1.ContainerState
 }
 
 type ClusterInfo struct {

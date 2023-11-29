@@ -5,6 +5,7 @@ import (
 	"fmt"
 	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
+	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/common-lib/utils/k8s/health"
 	"github.com/devtron-labs/kubelink/bean"
 	"github.com/devtron-labs/kubelink/pkg/util"
@@ -142,7 +143,7 @@ func getClusterCacheOptions(clusterCacheConfig *ClusterCacheConfig) []clustercac
 }
 
 func getResourceNodeFromManifest(un *unstructured.Unstructured, gvk schema.GroupVersionKind) *bean.ResourceNode {
-	return &bean.ResourceNode{
+	resourceNode := &bean.ResourceNode{
 		Port:            util.GetPorts(un, gvk),
 		ResourceVersion: un.GetResourceVersion(),
 		NetworkingInfo: &bean.ResourceNetworkingInfo{
@@ -156,9 +157,20 @@ func getResourceNodeFromManifest(un *unstructured.Unstructured, gvk schema.Group
 			Namespace: un.GetNamespace(),
 			Name:      un.GetName(),
 			UID:       string(un.GetUID()),
-			//Manifest:  *un,
 		},
 	}
+	if gvk.Kind == k8sCommonBean.StatefulSetKind {
+		resourceNode.UpdateRevision = GetUpdateRevisionForStatefulSet(un.UnstructuredContent())
+	}
+	return resourceNode
+}
+
+func GetUpdateRevisionForStatefulSet(obj map[string]interface{}) string {
+	updateRevisionFromManifest, found, _ := unstructured.NestedString(obj, "status", "updateRevision")
+	if found {
+		return updateRevisionFromManifest
+	}
+	return ""
 }
 
 func setHealthStatusForNode(res *bean.ResourceNode, un *unstructured.Unstructured, gvk schema.GroupVersionKind) {

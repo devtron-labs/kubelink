@@ -53,7 +53,7 @@ func NewClusterCacheImpl(logger *zap.SugaredLogger, clusterCacheConfig *ClusterC
 	}
 
 	if len(clusterCacheConfig.ClusterIdList) > 0 {
-		//k8sInformer.RegisterListener(clusterCacheImpl)
+		k8sInformer.RegisterListener(clusterCacheImpl)
 		err := clusterCacheImpl.SyncCache()
 		if err != nil {
 			return nil
