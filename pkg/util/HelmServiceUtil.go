@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
+	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/common-lib/utils/k8s/health"
 	"github.com/devtron-labs/kubelink/bean"
 	"hash"
@@ -11,7 +12,9 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
@@ -189,6 +192,35 @@ func GetRolloutPodHash(rollout map[string]interface{}) string {
 				}
 			}
 		}
+	}
+	return ""
+}
+
+func AddSelectiveInfoInResourceNode(resourceNode *bean.ResourceNode, gvk schema.GroupVersionKind, obj map[string]interface{}) {
+	if gvk.Kind == k8sCommonBean.StatefulSetKind {
+		resourceNode.UpdateRevision = GetUpdateRevisionForStatefulSet(obj)
+	}
+	if gvk.Kind == k8sCommonBean.DeploymentKind {
+		deployment, _ := ConvertToV1Deployment(obj)
+		resourceNode.PodTemplateSpec = deployment.Spec.Template
+		resourceNode.CollisionCount = deployment.Status.CollisionCount
+	}
+	if gvk.Kind == k8sCommonBean.ReplicaSetKind {
+		replicaSet, _ := ConvertToV1ReplicaSet(obj)
+		resourceNode.PodTemplateSpec = replicaSet.Spec.Template
+	}
+	if gvk.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
+		rolloutPodHash, found, _ := unstructured.NestedString(obj, "status", "currentPodHash")
+		if found {
+			resourceNode.RolloutCurrentPodHash = rolloutPodHash
+		}
+	}
+}
+
+func GetUpdateRevisionForStatefulSet(obj map[string]interface{}) string {
+	updateRevisionFromManifest, found, _ := unstructured.NestedString(obj, "status", "updateRevision")
+	if found {
+		return updateRevisionFromManifest
 	}
 	return ""
 }

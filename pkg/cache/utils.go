@@ -5,7 +5,6 @@ import (
 	"fmt"
 	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
-	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/common-lib/utils/k8s/health"
 	"github.com/devtron-labs/kubelink/bean"
 	"github.com/devtron-labs/kubelink/pkg/util"
@@ -159,38 +158,9 @@ func getResourceNodeFromManifest(un *unstructured.Unstructured, gvk schema.Group
 			UID:       string(un.GetUID()),
 		},
 	}
-	AddSelectiveInfoInResourceNode(resourceNode, gvk, un.UnstructuredContent())
+	util.AddSelectiveInfoInResourceNode(resourceNode, gvk, un.UnstructuredContent())
 
 	return resourceNode
-}
-
-func AddSelectiveInfoInResourceNode(resourceNode *bean.ResourceNode, gvk schema.GroupVersionKind, obj map[string]interface{}) {
-	if gvk.Kind == k8sCommonBean.StatefulSetKind {
-		resourceNode.UpdateRevision = GetUpdateRevisionForStatefulSet(obj)
-	}
-	if gvk.Kind == k8sCommonBean.DeploymentKind {
-		deployment, _ := util.ConvertToV1Deployment(obj)
-		resourceNode.PodTemplateSpec = deployment.Spec.Template
-		resourceNode.CollisionCount = deployment.Status.CollisionCount
-	}
-	if gvk.Kind == k8sCommonBean.ReplicaSetKind {
-		replicaSet, _ := util.ConvertToV1ReplicaSet(obj)
-		resourceNode.PodTemplateSpec = replicaSet.Spec.Template
-	}
-	if gvk.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
-		rolloutPodHash, found, _ := unstructured.NestedString(obj, "status", "currentPodHash")
-		if found {
-			resourceNode.RolloutCurrentPodHash = rolloutPodHash
-		}
-	}
-}
-
-func GetUpdateRevisionForStatefulSet(obj map[string]interface{}) string {
-	updateRevisionFromManifest, found, _ := unstructured.NestedString(obj, "status", "updateRevision")
-	if found {
-		return updateRevisionFromManifest
-	}
-	return ""
 }
 
 func setHealthStatusForNode(res *bean.ResourceNode, un *unstructured.Unstructured, gvk schema.GroupVersionKind) {

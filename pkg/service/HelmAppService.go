@@ -1585,7 +1585,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 			infoItems, _ := argo.PopulatePodInfo(manifest)
 			node.Info = infoItems
 		}
-		cache.AddSelectiveInfoInResourceNode(node, gvk, manifest.Object)
+		util.AddSelectiveInfoInResourceNode(node, gvk, manifest.Object)
 
 		nodes = append(nodes, node)
 		healthStatusArray = append(healthStatusArray, node.Health)
