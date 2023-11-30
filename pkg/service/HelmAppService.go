@@ -1660,7 +1660,7 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 			}
 
 			// if parent is StatefulSet - then pod label controller-revision-hash should match StatefulSet's update revision
-			if parentKind == k8sCommonBean.StatefulSetKind {
+			if parentKind == k8sCommonBean.StatefulSetKind && node.NetworkingInfo != nil {
 				isNew = extraNodeInfo.UpdateRevision == node.NetworkingInfo.Labels["controller-revision-hash"]
 			}
 
@@ -1705,7 +1705,8 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 				controllerRevisionNodes := getMatchingNodes(nodes, "ControllerRevision")
 				for _, controllerRevisionNode := range controllerRevisionNodes {
 					if len(controllerRevisionNode.ParentRefs) > 0 && controllerRevisionNode.ParentRefs[0].Kind == parentKind &&
-						controllerRevisionNode.ParentRefs[0].Name == parentRef.Name && extraNodeInfo.ResourceNetworkingInfo != nil {
+						controllerRevisionNode.ParentRefs[0].Name == parentRef.Name && extraNodeInfo.ResourceNetworkingInfo != nil &&
+						node.NetworkingInfo != nil {
 
 						isNew = extraNodeInfo.ResourceNetworkingInfo.Labels["controller-revision-hash"] == node.NetworkingInfo.Labels["controller-revision-hash"]
 					}

@@ -21,6 +21,7 @@ type ClusterCacheConfig struct {
 	ClusterIdList                 []int `env:"CLUSTER_ID_LIST" envSeparator:","`
 	ClusterCacheListSemaphoreSize int64 `env:"CLUSTER_CACHE_LIST_SEMAPHORE_SIZE" envDefault:"5"`
 	ClusterCacheListPageSize      int64 `env:"CLUSTER_CACHE_LIST_PAGE_SIZE" envDefault:"10"`
+	ClusterSyncBatchSize          int   `env:"CLUSTER_SYNC_BATCH_SIZE" envDefault:"2"`
 }
 
 func GetClusterCacheConfig() (*ClusterCacheConfig, error) {
@@ -97,14 +98,29 @@ func (impl *ClusterCacheImpl) OnStateChange(clusterId int, action string) {
 }
 
 func (impl *ClusterCacheImpl) SyncCache() error {
-	for _, clusterId := range impl.clusterCacheConfig.ClusterIdList {
-		clusterInfo, err := impl.getClusterInfoByClusterId(clusterId)
-		if err != nil {
-			impl.logger.Errorw("error in getting clusterInfo by cluster id", "clusterId", clusterId)
-			continue
+	requestsLength := len(impl.clusterCacheConfig.ClusterIdList)
+	batchSize := impl.clusterCacheConfig.ClusterSyncBatchSize
+	for i := 0; i < requestsLength; {
+		//requests left to process
+		remainingBatch := requestsLength - i
+		if remainingBatch < batchSize {
+			batchSize = remainingBatch
 		}
-
-		impl.SyncClusterCache(clusterInfo)
+		var wg sync.WaitGroup
+		for j := 0; j < batchSize; j++ {
+			wg.Add(1)
+			go func(j int) {
+				defer wg.Done()
+				clusterInfo, err := impl.getClusterInfoByClusterId(impl.clusterCacheConfig.ClusterIdList[i+j])
+				if err != nil {
+					impl.logger.Errorw("error in getting clusterInfo by cluster id", "clusterId", clusterInfo.ClusterId)
+					return
+				}
+				impl.SyncClusterCache(clusterInfo)
+			}(j)
+		}
+		wg.Wait()
+		i += batchSize
 	}
 	return nil
 }
