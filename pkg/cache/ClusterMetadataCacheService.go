@@ -113,7 +113,7 @@ func (impl *ClusterCacheImpl) SyncCache() error {
 				defer wg.Done()
 				clusterInfo, err := impl.getClusterInfoByClusterId(impl.clusterCacheConfig.ClusterIdList[i+j])
 				if err != nil {
-					impl.logger.Errorw("error in getting clusterInfo by cluster id", "clusterId", clusterInfo.ClusterId)
+					impl.logger.Errorw("error in getting clusterInfo by cluster id", "clusterId", impl.clusterCacheConfig.ClusterIdList[i+j])
 					return
 				}
 				impl.SyncClusterCache(clusterInfo)
