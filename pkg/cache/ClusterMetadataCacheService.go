@@ -85,7 +85,7 @@ func (impl *ClusterCacheImpl) OnStateChange(clusterId int, action string) {
 			return
 		}
 		impl.logger.Infow("syncing cluster cache on cluster config update", "clusterId", clusterId)
-		go impl.SyncClusterCache(clusterInfo)
+		impl.SyncClusterCache(clusterInfo)
 	case k8sInformer.DELETE:
 		impl.logger.Infow("invalidating cluster cache on cluster config delete", "clusterId", clusterId)
 		impl.rwMutex.Lock()
@@ -104,7 +104,7 @@ func (impl *ClusterCacheImpl) SyncCache() error {
 			continue
 		}
 
-		go impl.SyncClusterCache(clusterInfo)
+		impl.SyncClusterCache(clusterInfo)
 	}
 	return nil
 }
