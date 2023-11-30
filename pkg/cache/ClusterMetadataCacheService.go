@@ -73,11 +73,22 @@ func (impl *ClusterCacheImpl) getClusterInfoByClusterId(clusterId int) (*bean.Cl
 	return clusterInfo, nil
 }
 
+func (impl *ClusterCacheImpl) InvalidateCache(clusterId int) {
+	impl.logger.Infow("invalidating cluster cache on cluster secret update/delete", "clusterId", clusterId)
+	impl.rwMutex.Lock()
+	impl.clustersCache[clusterId].Invalidate()
+	impl.rwMutex.Unlock()
+
+	delete(impl.clustersCache, clusterId)
+}
+
 func (impl *ClusterCacheImpl) OnStateChange(clusterId int, action string) {
 	isValidClusterId := isInClusterIdList(clusterId, impl.clusterCacheConfig.ClusterIdList)
 	if !isValidClusterId {
 		return
 	}
+	//invalidate cache first on cluster secrets update
+	impl.InvalidateCache(clusterId)
 	switch action {
 	case k8sInformer.UPDATE:
 		clusterInfo, err := impl.getClusterInfoByClusterId(clusterId)
@@ -87,13 +98,6 @@ func (impl *ClusterCacheImpl) OnStateChange(clusterId int, action string) {
 		}
 		impl.logger.Infow("syncing cluster cache on cluster config update", "clusterId", clusterId)
 		impl.SyncClusterCache(clusterInfo)
-	case k8sInformer.DELETE:
-		impl.logger.Infow("invalidating cluster cache on cluster config delete", "clusterId", clusterId)
-		impl.rwMutex.Lock()
-		impl.clustersCache[clusterId].Invalidate()
-		impl.rwMutex.Unlock()
-
-		delete(impl.clustersCache, clusterId)
 	}
 }
 

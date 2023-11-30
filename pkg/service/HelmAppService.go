@@ -17,7 +17,6 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
-	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"path"
 	"time"
@@ -71,12 +70,6 @@ const (
 	HELM_CLIENT_ERROR                     = "Error in creating Helm client"
 	RELEASE_INSTALLED                     = "Release Installed"
 )
-
-type ExtraNodeInfo struct {
-	// UpdateRevision is only used for StatefulSets, if not empty, indicates the version of the StatefulSet used to generate Pods in the sequence
-	UpdateRevision         string
-	ResourceNetworkingInfo *bean.ResourceNetworkingInfo
-}
 
 type HelmAppService interface {
 	GetApplicationListForCluster(config *client.ClusterConfig) *client.DeployedAppList
@@ -1592,9 +1585,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 			infoItems, _ := argo.PopulatePodInfo(manifest)
 			node.Info = infoItems
 		}
-		if gvk.Kind == k8sCommonBean.StatefulSetKind {
-			node.UpdateRevision = cache.GetUpdateRevisionForStatefulSet(manifest.Object)
-		}
+		cache.AddSelectiveInfoInResourceNode(node, gvk, manifest.Object)
 
 		nodes = append(nodes, node)
 		healthStatusArray = append(healthStatusArray, node.Health)
@@ -1616,34 +1607,94 @@ func buildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstruc
 	return resourceRef
 }
 
-func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
-
+func getExtraNodeInfoMappings(nodes []*bean.ResourceNode) (map[string]string, map[string]*util.ExtraNodeInfo, map[string]*util.ExtraNodeInfo, map[string]*util.ExtraNodeInfo) {
 	deploymentPodHashMap := make(map[string]string)
-	deploymentMap := make(map[string]*v1beta1.Deployment)
-	rolloutMap := make(map[string]map[string]interface{})
-	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
+	deploymentNameVsExtraNodeInfoMapping := make(map[string]*util.ExtraNodeInfo)
+	rolloutNameVsExtraNodeInfoMapping := make(map[string]*util.ExtraNodeInfo)
+	uidVsExtraNodeInfoMapping := make(map[string]*util.ExtraNodeInfo)
 	for _, node := range nodes {
 		if node.Kind == k8sCommonBean.DeploymentKind {
-			deployment, err := util.ConvertToV1Deployment(node)
-			if err != nil {
-				return nil, err
+			deploymentNameVsExtraNodeInfoMapping[node.Name] = &util.ExtraNodeInfo{
+				PodTemplateSpec: node.PodTemplateSpec,
+				CollisionCount:  node.CollisionCount,
 			}
-			deploymentMap[node.Name] = deployment
-			deploymentPodHash := util.ComputePodHash(&deployment.Spec.Template, deployment.Status.CollisionCount)
+			deploymentPodHash := util.ComputePodHash(&node.PodTemplateSpec, node.CollisionCount)
 			deploymentPodHashMap[node.Name] = deploymentPodHash
 		} else if node.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
-			rolloutIf := node.Manifest.UnstructuredContent()
-			rolloutMap[node.Name] = rolloutIf
-		}
-	}
-	uidVsExtraNodeInfoMapping := make(map[string]*ExtraNodeInfo)
-	for _, node := range nodes {
-		if node.Kind == k8sCommonBean.StatefulSetKind || node.Kind == k8sCommonBean.DaemonSetKind {
+			rolloutNameVsExtraNodeInfoMapping[node.Name] = &util.ExtraNodeInfo{
+				RolloutCurrentPodHash: node.RolloutCurrentPodHash,
+			}
+		} else if node.Kind == k8sCommonBean.StatefulSetKind || node.Kind == k8sCommonBean.DaemonSetKind {
 			if _, ok := uidVsExtraNodeInfoMapping[node.UID]; !ok {
-				uidVsExtraNodeInfoMapping[node.UID] = &ExtraNodeInfo{UpdateRevision: node.UpdateRevision, ResourceNetworkingInfo: node.NetworkingInfo}
+				uidVsExtraNodeInfoMapping[node.UID] = &util.ExtraNodeInfo{UpdateRevision: node.UpdateRevision, ResourceNetworkingInfo: node.NetworkingInfo}
 			}
 		}
 	}
+	return deploymentPodHashMap, deploymentNameVsExtraNodeInfoMapping, rolloutNameVsExtraNodeInfoMapping, uidVsExtraNodeInfoMapping
+}
+
+func isPodNew(nodes []*bean.ResourceNode, node *bean.ResourceNode, deploymentPodHashMap map[string]string, deploymentMap map[string]*util.ExtraNodeInfo,
+	rolloutMap map[string]*util.ExtraNodeInfo, uidVsExtraNodeInfoMap map[string]*util.ExtraNodeInfo) bool {
+
+	isNew := false
+	parentRef := node.ParentRefs[0]
+	parentKind := parentRef.Kind
+	extraNodeInfo := &util.ExtraNodeInfo{}
+	if _, ok := uidVsExtraNodeInfoMap[parentRef.UID]; ok {
+		extraNodeInfo = uidVsExtraNodeInfoMap[parentRef.UID]
+	}
+
+	// if parent is StatefulSet - then pod label controller-revision-hash should match StatefulSet's update revision
+	if parentKind == k8sCommonBean.StatefulSetKind && node.NetworkingInfo != nil {
+		isNew = extraNodeInfo.UpdateRevision == node.NetworkingInfo.Labels["controller-revision-hash"]
+	}
+
+	// if parent is Job - then pod label controller-revision-hash should match StatefulSet's update revision
+	if parentKind == k8sCommonBean.JobKind {
+		//TODO - new or old logic not built in orchestrator for Job's pods. hence not implementing here. as don't know the logic :)
+		isNew = true
+	}
+
+	// if parent kind is replica set then
+	if parentKind == k8sCommonBean.ReplicaSetKind {
+		replicaSetNode := getMatchingNode(nodes, parentKind, parentRef.Name)
+
+		// if parent of replicaset is deployment, compare label pod-template-hash
+		if replicaSetParent := replicaSetNode.ParentRefs[0]; replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetParent.Kind == k8sCommonBean.DeploymentKind {
+			deploymentPodHash := deploymentPodHashMap[replicaSetParent.Name]
+			deploymentExtraInfo := deploymentMap[replicaSetParent.Name]
+			replicaSetPodHash := util.GetReplicaSetPodHash(&replicaSetNode.PodTemplateSpec, deploymentExtraInfo)
+			isNew = replicaSetPodHash == deploymentPodHash
+		} else if replicaSetParent.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
+
+			rolloutExtraInfo := rolloutMap[replicaSetParent.Name]
+			rolloutPodHash := rolloutExtraInfo.RolloutCurrentPodHash
+			replicasetPodHash := util.GetRolloutPodTemplateHash(replicaSetNode)
+
+			isNew = rolloutPodHash == replicasetPodHash
+
+		}
+	}
+
+	// if parent kind is DaemonSet then compare DaemonSet's Child ControllerRevision's label controller-revision-hash with pod label controller-revision-hash
+	if parentKind == k8sCommonBean.DaemonSetKind {
+		controllerRevisionNodes := getMatchingNodes(nodes, "ControllerRevision")
+		for _, controllerRevisionNode := range controllerRevisionNodes {
+			if len(controllerRevisionNode.ParentRefs) > 0 && controllerRevisionNode.ParentRefs[0].Kind == parentKind &&
+				controllerRevisionNode.ParentRefs[0].Name == parentRef.Name && extraNodeInfo.ResourceNetworkingInfo != nil &&
+				node.NetworkingInfo != nil {
+
+				isNew = extraNodeInfo.ResourceNetworkingInfo.Labels["controller-revision-hash"] == node.NetworkingInfo.Labels["controller-revision-hash"]
+			}
+		}
+	}
+	return isNew
+}
+
+func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
+
+	deploymentPodHashMap, deploymentMap, rolloutMap, uidVsExtraNodeInfoMap := getExtraNodeInfoMappings(nodes)
+	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
 	for _, node := range nodes {
 
 		if node.Kind != k8sCommonBean.PodKind {
@@ -1652,66 +1703,7 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 		// check if pod is new
 		isNew := true
 		if len(node.ParentRefs) > 0 {
-			parentRef := node.ParentRefs[0]
-			parentKind := parentRef.Kind
-			extraNodeInfo := &ExtraNodeInfo{}
-			if _, ok := uidVsExtraNodeInfoMapping[parentRef.UID]; ok {
-				extraNodeInfo = uidVsExtraNodeInfoMapping[parentRef.UID]
-			}
-
-			// if parent is StatefulSet - then pod label controller-revision-hash should match StatefulSet's update revision
-			if parentKind == k8sCommonBean.StatefulSetKind && node.NetworkingInfo != nil {
-				isNew = extraNodeInfo.UpdateRevision == node.NetworkingInfo.Labels["controller-revision-hash"]
-			}
-
-			// if parent is Job - then pod label controller-revision-hash should match StatefulSet's update revision
-			if parentKind == k8sCommonBean.JobKind {
-				//TODO - new or old logic not built in orchestrator for Job's pods. hence not implementing here. as don't know the logic :)
-				isNew = true
-			}
-
-			// if parent kind is replica set then
-			if parentKind == k8sCommonBean.ReplicaSetKind {
-				replicaSetNode := getMatchingNode(nodes, parentKind, parentRef.Name)
-
-				// if parent of replicaset is deployment, compare label pod-template-hash
-				if replicaSetParent := replicaSetNode.ParentRefs[0]; replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetParent.Kind == k8sCommonBean.DeploymentKind {
-					deploymentPodHash := deploymentPodHashMap[replicaSetParent.Name]
-					deployment := deploymentMap[replicaSetParent.Name]
-					replicasetObj, err := util.ConvertToV1ReplicaSet(replicaSetNode)
-					if err != nil {
-						return nil, err
-					}
-					replicaSetPodHash := util.GetReplicaSetPodHash(replicasetObj, deployment)
-					isNew = replicaSetPodHash == deploymentPodHash
-				} else if replicaSetParent.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
-
-					rolloutIf := rolloutMap[replicaSetParent.Name]
-					replicasetObj, err := util.ConvertToV1ReplicaSet(replicaSetNode)
-					if err != nil {
-						return nil, err
-					}
-
-					rolloutPodHash := util.GetRolloutPodHash(rolloutIf)
-					replicasetPodHash := util.GetRolloutPodTemplateHash(replicasetObj)
-
-					isNew = rolloutPodHash == replicasetPodHash
-
-				}
-			}
-
-			// if parent kind is DaemonSet then compare DaemonSet's Child ControllerRevision's label controller-revision-hash with pod label controller-revision-hash
-			if parentKind == k8sCommonBean.DaemonSetKind {
-				controllerRevisionNodes := getMatchingNodes(nodes, "ControllerRevision")
-				for _, controllerRevisionNode := range controllerRevisionNodes {
-					if len(controllerRevisionNode.ParentRefs) > 0 && controllerRevisionNode.ParentRefs[0].Kind == parentKind &&
-						controllerRevisionNode.ParentRefs[0].Name == parentRef.Name && extraNodeInfo.ResourceNetworkingInfo != nil &&
-						node.NetworkingInfo != nil {
-
-						isNew = extraNodeInfo.ResourceNetworkingInfo.Labels["controller-revision-hash"] == node.NetworkingInfo.Labels["controller-revision-hash"]
-					}
-				}
-			}
+			isNew = isPodNew(nodes, node, deploymentPodHashMap, deploymentMap, rolloutMap, uidVsExtraNodeInfoMap)
 		}
 
 		// set containers,initContainers and ephemeral container names

@@ -159,10 +159,30 @@ func getResourceNodeFromManifest(un *unstructured.Unstructured, gvk schema.Group
 			UID:       string(un.GetUID()),
 		},
 	}
-	if gvk.Kind == k8sCommonBean.StatefulSetKind {
-		resourceNode.UpdateRevision = GetUpdateRevisionForStatefulSet(un.UnstructuredContent())
-	}
+	AddSelectiveInfoInResourceNode(resourceNode, gvk, un.UnstructuredContent())
+
 	return resourceNode
+}
+
+func AddSelectiveInfoInResourceNode(resourceNode *bean.ResourceNode, gvk schema.GroupVersionKind, obj map[string]interface{}) {
+	if gvk.Kind == k8sCommonBean.StatefulSetKind {
+		resourceNode.UpdateRevision = GetUpdateRevisionForStatefulSet(obj)
+	}
+	if gvk.Kind == k8sCommonBean.DeploymentKind {
+		deployment, _ := util.ConvertToV1Deployment(obj)
+		resourceNode.PodTemplateSpec = deployment.Spec.Template
+		resourceNode.CollisionCount = deployment.Status.CollisionCount
+	}
+	if gvk.Kind == k8sCommonBean.ReplicaSetKind {
+		replicaSet, _ := util.ConvertToV1ReplicaSet(obj)
+		resourceNode.PodTemplateSpec = replicaSet.Spec.Template
+	}
+	if gvk.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
+		rolloutPodHash, found, _ := unstructured.NestedString(obj, "status", "currentPodHash")
+		if found {
+			resourceNode.RolloutCurrentPodHash = rolloutPodHash
+		}
+	}
 }
 
 func GetUpdateRevisionForStatefulSet(obj map[string]interface{}) string {
