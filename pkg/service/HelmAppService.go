@@ -1639,14 +1639,10 @@ func isPodNew(nodes []*bean.ResourceNode, node *bean.ResourceNode, deploymentPod
 	isNew := false
 	parentRef := node.ParentRefs[0]
 	parentKind := parentRef.Kind
-	extraNodeInfo := &util.ExtraNodeInfo{}
-	if _, ok := uidVsExtraNodeInfoMap[parentRef.UID]; ok {
-		extraNodeInfo = uidVsExtraNodeInfoMap[parentRef.UID]
-	}
 
 	// if parent is StatefulSet - then pod label controller-revision-hash should match StatefulSet's update revision
 	if parentKind == k8sCommonBean.StatefulSetKind && node.NetworkingInfo != nil {
-		isNew = extraNodeInfo.UpdateRevision == node.NetworkingInfo.Labels["controller-revision-hash"]
+		isNew = uidVsExtraNodeInfoMap[parentRef.UID].UpdateRevision == node.NetworkingInfo.Labels["controller-revision-hash"]
 	}
 
 	// if parent is Job - then pod label controller-revision-hash should match StatefulSet's update revision
@@ -1681,10 +1677,10 @@ func isPodNew(nodes []*bean.ResourceNode, node *bean.ResourceNode, deploymentPod
 		controllerRevisionNodes := getMatchingNodes(nodes, "ControllerRevision")
 		for _, controllerRevisionNode := range controllerRevisionNodes {
 			if len(controllerRevisionNode.ParentRefs) > 0 && controllerRevisionNode.ParentRefs[0].Kind == parentKind &&
-				controllerRevisionNode.ParentRefs[0].Name == parentRef.Name && extraNodeInfo.ResourceNetworkingInfo != nil &&
+				controllerRevisionNode.ParentRefs[0].Name == parentRef.Name && uidVsExtraNodeInfoMap[parentRef.UID].ResourceNetworkingInfo != nil &&
 				node.NetworkingInfo != nil {
 
-				isNew = extraNodeInfo.ResourceNetworkingInfo.Labels["controller-revision-hash"] == node.NetworkingInfo.Labels["controller-revision-hash"]
+				isNew = uidVsExtraNodeInfoMap[parentRef.UID].ResourceNetworkingInfo.Labels["controller-revision-hash"] == node.NetworkingInfo.Labels["controller-revision-hash"]
 			}
 		}
 	}
