@@ -240,12 +240,14 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 	if err != nil {
 		impl.logger.Errorw("error in getting resourceTree from cluster cache", "clusterName", req.ClusterConfig.ClusterName, "releaseName", helmRelease.Name, "err", err)
 	}
+	impl.logger.Infow("resource tree successfully built from cluster cache", "clusterName", req.ClusterConfig.ClusterName, "helmReleaseName", helmRelease.Name)
 	if resourceTreeResponse == nil {
 		resourceTreeResponse, err = impl.buildResourceTree(req, helmRelease)
 		if err != nil {
 			impl.logger.Errorw("error in building resource tree ", "err", err)
 			return nil, err
 		}
+		impl.logger.Infow("resource tree successfully built", "clusterName", req.ClusterConfig.ClusterName, "helmReleaseName", helmRelease.Name)
 	}
 
 	appDetail := &bean.AppDetail{
