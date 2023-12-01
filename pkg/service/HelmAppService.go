@@ -1695,7 +1695,7 @@ func (impl HelmAppServiceImpl) getDeploymentCollisionCount(restConfig *rest.Conf
 func (impl HelmAppServiceImpl) isPodNew(nodes []*bean.ResourceNode, node *bean.ResourceNode, deploymentPodHashMap map[string]string, rolloutMap map[string]*util.ExtraNodeInfo,
 	uidVsExtraNodeInfoMap map[string]*util.ExtraNodeInfo, restConfig *rest.Config) (bool, error) {
 
-	isNew := false
+	isNew := true
 	parentRef := node.ParentRefs[0]
 	parentKind := parentRef.Kind
 
