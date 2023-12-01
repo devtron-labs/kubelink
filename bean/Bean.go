@@ -103,8 +103,7 @@ type ResourceNode struct {
 	Port                  []int64                 `json:"port,omitempty"`
 	CreatedAt             string                  `json:"createdAt,omitempty"`
 	UpdateRevision        string                  `json:"updateRevision,omitempty"`
-	PodTemplateSpec       v1.PodTemplateSpec      `json:"podTemplateSpec,omitempty"`
-	CollisionCount        *int32                  `json:"collisionCount,omitempty"`
+	DeploymentPodHash     string                  `json:"deploymentPodHash,omitempty"`
 	RolloutCurrentPodHash string                  `json:"rolloutCurrentPodHash,omitempty"`
 }
 

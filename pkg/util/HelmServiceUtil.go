@@ -22,8 +22,6 @@ type ExtraNodeInfo struct {
 	// UpdateRevision is only used for StatefulSets, if not empty, indicates the version of the StatefulSet used to generate Pods in the sequence
 	UpdateRevision         string
 	ResourceNetworkingInfo *bean.ResourceNetworkingInfo
-	PodTemplateSpec        coreV1.PodTemplateSpec
-	CollisionCount         *int32
 	RolloutCurrentPodHash  string
 }
 
@@ -164,15 +162,15 @@ func ConvertToV1ReplicaSet(nodeObj map[string]interface{}) (*v1beta1.ReplicaSet,
 	return &replicaSetObj, nil
 }
 
-func GetReplicaSetPodHash(podTemplateSpec *coreV1.PodTemplateSpec, deploymentExtraInfo *ExtraNodeInfo) string {
+func GetReplicaSetPodHash(replicasetObj *v1beta1.ReplicaSet, collisionCount *int32) string {
 	labels := make(map[string]string)
-	for k, v := range podTemplateSpec.Labels {
+	for k, v := range replicasetObj.Spec.Template.Labels {
 		if k != "pod-template-hash" {
 			labels[k] = v
 		}
 	}
-	podTemplateSpec.Labels = labels
-	podHash := ComputePodHash(podTemplateSpec, deploymentExtraInfo.CollisionCount)
+	replicasetObj.Spec.Template.Labels = labels
+	podHash := ComputePodHash(&replicasetObj.Spec.Template, collisionCount)
 	return podHash
 }
 
@@ -202,12 +200,11 @@ func AddSelectiveInfoInResourceNode(resourceNode *bean.ResourceNode, gvk schema.
 	}
 	if gvk.Kind == k8sCommonBean.DeploymentKind {
 		deployment, _ := ConvertToV1Deployment(obj)
-		resourceNode.PodTemplateSpec = deployment.Spec.Template
-		resourceNode.CollisionCount = deployment.Status.CollisionCount
-	}
-	if gvk.Kind == k8sCommonBean.ReplicaSetKind {
-		replicaSet, _ := ConvertToV1ReplicaSet(obj)
-		resourceNode.PodTemplateSpec = replicaSet.Spec.Template
+		if deployment == nil {
+			return
+		}
+		deploymentPodHash := ComputePodHash(&deployment.Spec.Template, deployment.Status.CollisionCount)
+		resourceNode.DeploymentPodHash = deploymentPodHash
 	}
 	if gvk.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
 		rolloutPodHash, found, _ := unstructured.NestedString(obj, "status", "currentPodHash")
