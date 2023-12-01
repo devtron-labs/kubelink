@@ -301,6 +301,10 @@ func (impl *HelmAppServiceImpl) addHookResourcesInManifest(helmRelease *release.
 
 func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig *client.ClusterConfig, helmRelease *release.Release) (*bean.ResourceTreeResponse, error) {
 	impl.logger.Infow("building resource tree from cluster cache", "clusterName", clusterConfig.ClusterName, "helmReleaseName", helmRelease.Name)
+	conf, err := impl.getRestConfigForClusterConfig(clusterConfig)
+	if err != nil {
+		return nil, err
+	}
 	clusterCache, err := impl.clusterCache.GetClusterCacheByClusterId(int(clusterConfig.ClusterId))
 	if err != nil {
 		impl.logger.Errorw("error in getting cluster cache, or cluster cache not synced for this cluster", "clusterId", clusterConfig.ClusterId, "err", err)
