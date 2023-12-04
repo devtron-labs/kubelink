@@ -21,6 +21,7 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"path"
+	"slices"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -74,8 +75,6 @@ const (
 	JSON_KEY_USERNAME              string = "_json_key"
 	HELM_CLIENT_ERROR                     = "Error in creating Helm client"
 	RELEASE_INSTALLED                     = "Release Installed"
-	HOOK_SUCCEEDED                        = "hook-succeeded"
-	HOOK_FAILED                           = "hook-failed"
 )
 
 type HelmAppService interface {
@@ -292,15 +291,14 @@ func (k *Resource) action(resource *clustercache.Resource, _ map[kube.ResourceKe
 	return true
 }
 
+func shouldDeleteHook(deletePolicies []release.HookDeletePolicy) bool {
+	a := slices.Contains(deletePolicies, release.HookSucceeded) || slices.Contains(deletePolicies, release.HookFailed)
+	return a
+}
+
 func (impl *HelmAppServiceImpl) addHookResourcesInManifest(helmRelease *release.Release, manifests []unstructured.Unstructured) []unstructured.Unstructured {
 	for _, helmHook := range helmRelease.Hooks {
-		var shouldDeleteHook bool
-		for _, deletePolicy := range helmHook.DeletePolicies {
-			if deletePolicy == HOOK_SUCCEEDED || deletePolicy == HOOK_FAILED {
-				shouldDeleteHook = true
-			}
-		}
-		if shouldDeleteHook {
+		if shouldDeleteHook(helmHook.DeletePolicies) {
 			continue
 		}
 		var hook unstructured.Unstructured
