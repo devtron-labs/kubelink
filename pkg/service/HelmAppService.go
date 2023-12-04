@@ -74,6 +74,8 @@ const (
 	JSON_KEY_USERNAME              string = "_json_key"
 	HELM_CLIENT_ERROR                     = "Error in creating Helm client"
 	RELEASE_INSTALLED                     = "Release Installed"
+	HOOK_SUCCEEDED                        = "hook-succeeded"
+	HOOK_FAILED                           = "hook-failed"
 )
 
 type HelmAppService interface {
@@ -292,6 +294,15 @@ func (k *Resource) action(resource *clustercache.Resource, _ map[kube.ResourceKe
 
 func (impl *HelmAppServiceImpl) addHookResourcesInManifest(helmRelease *release.Release, manifests []unstructured.Unstructured) []unstructured.Unstructured {
 	for _, helmHook := range helmRelease.Hooks {
+		var shouldDeleteHook bool
+		for _, deletePolicy := range helmHook.DeletePolicies {
+			if deletePolicy == HOOK_SUCCEEDED || deletePolicy == HOOK_FAILED {
+				shouldDeleteHook = true
+			}
+		}
+		if shouldDeleteHook {
+			continue
+		}
 		var hook unstructured.Unstructured
 		err := yaml.Unmarshal([]byte(helmHook.Manifest), &hook)
 		if err != nil {
