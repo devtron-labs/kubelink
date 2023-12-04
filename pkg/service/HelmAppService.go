@@ -292,8 +292,7 @@ func (k *Resource) action(resource *clustercache.Resource, _ map[kube.ResourceKe
 }
 
 func shouldDeleteHook(deletePolicies []release.HookDeletePolicy) bool {
-	a := slices.Contains(deletePolicies, release.HookSucceeded) || slices.Contains(deletePolicies, release.HookFailed)
-	return a
+	return slices.Contains(deletePolicies, release.HookSucceeded) || slices.Contains(deletePolicies, release.HookFailed)
 }
 
 func (impl *HelmAppServiceImpl) addHookResourcesInManifest(helmRelease *release.Release, manifests []unstructured.Unstructured) []unstructured.Unstructured {
