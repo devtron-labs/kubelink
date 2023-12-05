@@ -81,11 +81,13 @@ func (impl *ClusterCacheImpl) getClusterInfoByClusterId(clusterId int) (*bean.Cl
 
 func (impl *ClusterCacheImpl) InvalidateCache(clusterId int) {
 	impl.rwMutex.Lock()
-	//check for nil pointer here.
-	impl.clustersCache[clusterId].ClusterCache.Invalidate()
-	impl.rwMutex.Unlock()
-	// check of this line should come inside lock
-	delete(impl.clustersCache, clusterId)
+	defer impl.rwMutex.Unlock()
+
+	// Check if the cache entry exists before invalidating and deleting
+	if cacheEntry, ok := impl.clustersCache[clusterId]; ok {
+		cacheEntry.ClusterCache.Invalidate()
+		delete(impl.clustersCache, clusterId)
+	}
 }
 
 func (impl *ClusterCacheImpl) OnStateChange(clusterId int, action string) {
