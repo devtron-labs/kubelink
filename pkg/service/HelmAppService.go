@@ -21,7 +21,6 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"path"
-	"slices"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -292,7 +291,12 @@ func (k *Resource) action(resource *clustercache.Resource, _ map[kube.ResourceKe
 }
 
 func shouldDeleteHook(deletePolicies []release.HookDeletePolicy) bool {
-	return slices.Contains(deletePolicies, release.HookSucceeded) || slices.Contains(deletePolicies, release.HookFailed)
+	for _, deletePolicy := range deletePolicies {
+		if deletePolicy == release.HookSucceeded || deletePolicy == release.HookFailed {
+			return true
+		}
+	}
+	return false
 }
 
 func (impl *HelmAppServiceImpl) addHookResourcesInManifest(helmRelease *release.Release, manifests []unstructured.Unstructured) []unstructured.Unstructured {
