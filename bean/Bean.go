@@ -92,19 +92,20 @@ type ApplicationTree struct {
 
 // ResourceNode contains information about live resource and its children
 type ResourceNode struct {
-	*ResourceRef          `json:",inline" protobuf:"bytes,1,opt,name=resourceRef"`
-	ParentRefs            []*ResourceRef          `json:"parentRefs,omitempty" protobuf:"bytes,2,opt,name=parentRefs"`
-	NetworkingInfo        *ResourceNetworkingInfo `json:"networkingInfo,omitempty" protobuf:"bytes,4,opt,name=networkingInfo"`
-	ResourceVersion       string                  `json:"resourceVersion,omitempty" protobuf:"bytes,5,opt,name=resourceVersion"`
-	Health                *HealthStatus           `json:"health,omitempty" protobuf:"bytes,7,opt,name=health"`
-	IsHibernated          bool                    `json:"isHibernated"`
-	CanBeHibernated       bool                    `json:"canBeHibernated"`
-	Info                  []InfoItem              `json:"info,omitempty"`
-	Port                  []int64                 `json:"port,omitempty"`
-	CreatedAt             string                  `json:"createdAt,omitempty"`
-	UpdateRevision        string                  `json:"updateRevision,omitempty"`
-	DeploymentPodHash     string                  `json:"deploymentPodHash,omitempty"`
-	RolloutCurrentPodHash string                  `json:"rolloutCurrentPodHash,omitempty"`
+	*ResourceRef    `json:",inline" protobuf:"bytes,1,opt,name=resourceRef"`
+	ParentRefs      []*ResourceRef          `json:"parentRefs,omitempty" protobuf:"bytes,2,opt,name=parentRefs"`
+	NetworkingInfo  *ResourceNetworkingInfo `json:"networkingInfo,omitempty" protobuf:"bytes,4,opt,name=networkingInfo"`
+	ResourceVersion string                  `json:"resourceVersion,omitempty" protobuf:"bytes,5,opt,name=resourceVersion"`
+	Health          *HealthStatus           `json:"health,omitempty" protobuf:"bytes,7,opt,name=health"`
+	IsHibernated    bool                    `json:"isHibernated"`
+	CanBeHibernated bool                    `json:"canBeHibernated"`
+	Info            []InfoItem              `json:"info,omitempty"`
+	Port            []int64                 `json:"port,omitempty"`
+	CreatedAt       string                  `json:"createdAt,omitempty"`
+	//add comments
+	UpdateRevision        string `json:"updateRevision,omitempty"`
+	DeploymentPodHash     string `json:"deploymentPodHash,omitempty"`
+	RolloutCurrentPodHash string `json:"rolloutCurrentPodHash,omitempty"`
 }
 
 // ResourceRef includes fields which unique identify resource
@@ -193,6 +194,7 @@ type DesiredOrLiveManifest struct {
 	LiveManifestFetchErrorCode int32                      `json:"liveManifestFetchErrorCode"`
 }
 
+// use value field as generic type
 // InfoItem contains arbitrary, human readable information about an application
 type InfoItem struct {
 	// Name is a human readable title for this piece of information.

@@ -1781,6 +1781,7 @@ func (impl HelmAppServiceImpl) buildPodMetadata(nodes []*bean.ResourceNode, rest
 
 		for _, nodeInfo := range node.Info {
 			switch nodeInfo.Name {
+			//check this
 			case bean.ContainersType:
 				containerNames = nodeInfo.ContainerNames
 			case bean.InitContainersType:
