@@ -103,7 +103,7 @@ func (impl *ClusterCacheImpl) OnStateChange(clusterId int, action string) {
 			return
 		}
 		if lastUpdatedOn.Before(impl.clustersCache[clusterId].ClusterCacheLastSyncTime) {
-			//put debug log here
+			impl.logger.Debugw("last update for cluster secrets was before cluster cache sync time hence not syncing cluster cache again")
 			return
 		}
 		//invalidate cache first before cache sync
