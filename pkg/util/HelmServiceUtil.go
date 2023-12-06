@@ -11,6 +11,7 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
@@ -197,4 +198,14 @@ func GetRolloutPodHash(rollout map[string]interface{}) string {
 		}
 	}
 	return ""
+}
+
+func IsNodeHook(manifest *unstructured.Unstructured) bool {
+	annotations, found, _ := unstructured.NestedStringMap(manifest.Object, "metadata", "annotations")
+	if found {
+		if _, ok := annotations[release.HookAnnotation]; ok {
+			return true
+		}
+	}
+	return false
 }

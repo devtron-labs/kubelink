@@ -159,12 +159,7 @@ func getResourceNodeFromManifest(un *unstructured.Unstructured, gvk schema.Group
 			Manifest:  *un,
 		},
 	}
-	annotations, found, _ := unstructured.NestedStringMap(un.Object, "metadata", "annotations")
-	if found {
-		if _, ok := annotations["helm.sh/hook"]; ok {
-			node.IsHook = true
-		}
-	}
+	node.IsHook = util.IsNodeHook(un)
 	return node
 }
 
