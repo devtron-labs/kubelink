@@ -46,6 +46,12 @@ func GetMessageFromReleaseStatus(releaseStatus release.Status) string {
 
 	return ""
 }
+func isHookOrParentHook(node *bean.ResourceNode, hookUidMap map[string]bool) bool {
+	if node.ParentRefs != nil {
+		return hookUidMap[node.ParentRefs[0].UID]
+	}
+	return node.IsHook
+}
 
 // app health is worst of the nodes health
 // or if app status is healthy then check for hibernation status
@@ -54,9 +60,16 @@ func BuildAppHealthStatus(nodes []*bean.ResourceNode) *bean.HealthStatusCode {
 	isAppFullyHibernated := true
 	var isAppPartiallyHibernated bool
 	var isAnyNodeCanByHibernated bool
-
+	hookUidMap := make(map[string]bool)
 	for _, node := range nodes {
 		if node.IsHook {
+			if _, ok := hookUidMap[node.UID]; !ok {
+				hookUidMap[node.UID] = true
+			}
+		}
+	}
+	for _, node := range nodes {
+		if isHookOrParentHook(node, hookUidMap) {
 			continue
 		}
 		nodeHealth := node.Health
