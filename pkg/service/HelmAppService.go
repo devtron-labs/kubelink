@@ -1521,7 +1521,12 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 			CreatedAt: creationTimeStamp,
 			Port:      ports,
 		}
-
+		annotations, found, _ := unstructured.NestedStringMap(manifest.Object, "metadata", "annotations")
+		if found {
+			if _, ok := annotations["helm.sh/hook"]; ok {
+				node.IsHook = true
+			}
+		}
 		if parentResourceRef != nil {
 			node.ParentRefs = append(make([]*bean.ResourceRef, 0), parentResourceRef)
 		}
