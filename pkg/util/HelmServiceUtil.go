@@ -56,7 +56,7 @@ func BuildAppHealthStatus(nodes []*bean.ResourceNode) *bean.HealthStatusCode {
 	var isAnyNodeCanByHibernated bool
 
 	for _, node := range nodes {
-		if node.IsHook && node.Health != nil && node.Health.Status == bean.HealthStatusMissing {
+		if node.IsHook {
 			continue
 		}
 		nodeHealth := node.Health
