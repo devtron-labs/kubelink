@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/argoproj/gitops-engine v0.7.1-0.20231013183858-f15cf615b814
+	github.com/arl/statsviz v0.6.0
 	github.com/aws/aws-sdk-go v1.44.285
 	github.com/caarlos0/env v3.5.0+incompatible
 	github.com/devtron-labs/common-lib v0.0.8-0.20231204083642-08f7f57000d9
@@ -81,6 +82,7 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.3.0 // indirect
+	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
 	github.com/huandu/xstrings v1.4.0 // indirect
