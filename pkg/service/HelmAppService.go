@@ -1917,8 +1917,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 	updateChartSpec.MaxHistory = int(request.HistoryMax)
 
 	impl.logger.Debug("Upgrading release")
-	res, err := helmClientObj.UpgradeReleaseWithChartInfo(ctx, updateChartSpec)
-	impl.logger.Debugw("response form UpgradeReleaseWithChartInfo", "res", res)
+	_, err = helmClientObj.UpgradeReleaseWithChartInfo(ctx, updateChartSpec)
 	if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
 		if UpgradeErr != nil {
 			if UpgradeErr.Err == driver.ErrNoDeployedReleases {
