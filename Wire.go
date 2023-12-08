@@ -51,6 +51,7 @@ func InitializeApp() (*App, error) {
 		router.NewRouter,
 		statsViz.NewStatsVizRouter,
 		wire.Bind(new(statsViz.StatsVizRouter), new(*statsViz.StatsVizRouterImpl)),
+		statsViz.GetStatsVizConfig,
 		pprof.NewPProfRestHandler,
 		wire.Bind(new(pprof.PProfRestHandler), new(*pprof.PProfRestHandlerImpl)),
 		pprof.NewPProfRouter,

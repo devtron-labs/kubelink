@@ -59,7 +59,11 @@ func InitializeApp() (*App, error) {
 	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(sugaredLogger, chartRepositoryLocker, helmAppServiceImpl)
 	pProfRestHandlerImpl := pprof.NewPProfRestHandler(sugaredLogger)
 	pProfRouterImpl := pprof.NewPProfRouter(sugaredLogger, pProfRestHandlerImpl)
-	statsVizRouterImpl := statsViz.NewStatsVizRouter(sugaredLogger)
+	statVizConfig, err := statsViz.GetStatsVizConfig()
+	if err != nil {
+		return nil, err
+	}
+	statsVizRouterImpl := statsViz.NewStatsVizRouter(sugaredLogger, statVizConfig)
 	routerImpl := router.NewRouter(sugaredLogger, pProfRouterImpl, statsVizRouterImpl)
 	app := NewApp(sugaredLogger, applicationServiceServerImpl, routerImpl, k8sInformerImpl)
 	return app, nil
