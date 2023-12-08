@@ -39,7 +39,7 @@ func (r *RouterImpl) InitRouter() {
 	pProfListenerRouter := r.Router.PathPrefix("/kubelink/debug/pprof/").Subrouter()
 	r.pprofRouter.InitPProfRouter(pProfListenerRouter)
 
-	r.Router.HandleFunc("/debug/statsviz/", r.statsVizServer.Index())
+	r.Router.HandleFunc("/debug/statsviz", r.statsVizServer.Index())
 	r.Router.HandleFunc("/debug/statsviz/ws", r.statsVizServer.Ws())
 
 	r.Router.PathPrefix("/kubelink/metrics").Handler(promhttp.Handler())
