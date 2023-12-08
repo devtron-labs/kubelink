@@ -2,8 +2,8 @@ package router
 
 import (
 	"encoding/json"
-	"github.com/arl/statsviz"
 	"github.com/devtron-labs/kubelink/pprof"
+	"github.com/devtron-labs/kubelink/statsViz"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
@@ -14,21 +14,18 @@ type RouterImpl struct {
 	logger         *zap.SugaredLogger
 	Router         *mux.Router
 	pprofRouter    pprof.PProfRouter
-	statsVizServer *statsviz.Server
-	//statsVizRouter *statsViz.StatsVizRouter
+	statsVizRouter statsViz.StatsVizRouter
 }
 
 func NewRouter(logger *zap.SugaredLogger,
 	pprofRouter pprof.PProfRouter,
-	// statsVizRouter *statsViz.StatsVizRouter,
+	statsVizRouter statsViz.StatsVizRouter,
 ) *RouterImpl {
-	stvServer, _ := statsviz.NewServer()
 	return &RouterImpl{
-		logger:      logger,
-		Router:      mux.NewRouter(),
-		pprofRouter: pprofRouter,
-		//statsVizRouter: statsVizRouter,
-		statsVizServer: stvServer,
+		logger:         logger,
+		Router:         mux.NewRouter(),
+		pprofRouter:    pprofRouter,
+		statsVizRouter: statsVizRouter,
 	}
 }
 
@@ -42,12 +39,8 @@ func (r *RouterImpl) InitRouter() {
 	pProfListenerRouter := r.Router.PathPrefix("/kubelink/debug/pprof/").Subrouter()
 	r.pprofRouter.InitPProfRouter(pProfListenerRouter)
 
-	//statsVizRouter := r.Router.PathPrefix("/debug/statsViz").Subrouter()
-	//r.statsVizRouter.Init
-	r.Router.Methods("GET").Path("/debug/statsviz/ws").Name("GET /debug/statsviz/ws").HandlerFunc(r.statsVizServer.Ws())
-	r.Router.Methods("GET").PathPrefix("/debug/statsviz/").Name("GET /debug/statsviz/").Handler(r.statsVizServer.Index())
-	//r.Router.Methods("GET").Path().HandleFunc("/debug/statsviz", r.statsVizServer.Index())
-	//r.Router.HandleFunc("/debug/statsviz/ws", r.statsVizServer.Ws())
+	statsVizRouter := r.Router.Methods("GET").Subrouter()
+	r.statsVizRouter.InitStatsVizRouter(statsVizRouter)
 
 	r.Router.PathPrefix("/kubelink/metrics").Handler(promhttp.Handler())
 	r.Router.Path("/health").HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {

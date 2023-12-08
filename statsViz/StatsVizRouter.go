@@ -24,5 +24,6 @@ func NewStatsVizRouter(logger *zap.SugaredLogger) *StatsVizRouterImpl {
 }
 
 func (r *StatsVizRouterImpl) InitStatsVizRouter(router *mux.Router) {
-	//router.HandleFunc("/", r.pProfRestHandler.Index)
+	router.Path("/debug/statsviz/ws").Name("GET /debug/statsviz/ws").HandlerFunc(r.statsVizServer.Ws())
+	router.PathPrefix("/debug/statsviz/").Name("GET /debug/statsviz/").Handler(r.statsVizServer.Index())
 }

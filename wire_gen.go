@@ -18,6 +18,7 @@ import (
 	"github.com/devtron-labs/kubelink/pkg/service"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 	"github.com/devtron-labs/kubelink/pprof"
+	"github.com/devtron-labs/kubelink/statsViz"
 )
 
 // Injectors from Wire.go:
@@ -58,7 +59,8 @@ func InitializeApp() (*App, error) {
 	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(sugaredLogger, chartRepositoryLocker, helmAppServiceImpl)
 	pProfRestHandlerImpl := pprof.NewPProfRestHandler(sugaredLogger)
 	pProfRouterImpl := pprof.NewPProfRouter(sugaredLogger, pProfRestHandlerImpl)
-	routerImpl := router.NewRouter(sugaredLogger, pProfRouterImpl)
+	statsVizRouterImpl := statsViz.NewStatsVizRouter(sugaredLogger)
+	routerImpl := router.NewRouter(sugaredLogger, pProfRouterImpl, statsVizRouterImpl)
 	app := NewApp(sugaredLogger, applicationServiceServerImpl, routerImpl, k8sInformerImpl)
 	return app, nil
 }
