@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/arl/statsviz"
 	"github.com/devtron-labs/kubelink/api/router"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
@@ -14,7 +13,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -36,7 +34,6 @@ func NewApp(Logger *zap.SugaredLogger, ServerImpl *service.ApplicationServiceSer
 }
 
 func (app *App) Start() {
-	app.checkAndSetupStatsViz()
 
 	port := 50051 //TODO: extract from environment variable
 
@@ -74,20 +71,4 @@ func (app *App) Start() {
 		app.Logger.Fatalw("failed to listen: %v", "err", err)
 	}
 
-}
-
-func (app *App) checkAndSetupStatsViz() {
-	statsvizPort, present := os.LookupEnv("STATSVIZ_PORT")
-	if present && len(statsvizPort) > 0 {
-		mux := http.NewServeMux()
-		statsviz.Register(mux)
-		go func() {
-			app.Logger.Infow("statsviz server starting", "port", statsvizPort)
-			err := http.ListenAndServe(fmt.Sprintf(":%s", statsvizPort), mux)
-			if err != nil {
-				app.Logger.Errorw("error occurred while starting statsviz server", "err", err)
-			}
-
-		}()
-	}
 }

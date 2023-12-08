@@ -2,6 +2,7 @@ package router
 
 import (
 	"encoding/json"
+	"github.com/arl/statsviz"
 	"github.com/devtron-labs/kubelink/pprof"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -33,6 +34,11 @@ type Response struct {
 func (r *RouterImpl) InitRouter() {
 	pProfListenerRouter := r.Router.PathPrefix("/kubelink/debug/pprof/").Subrouter()
 	r.pprofRouter.InitPProfRouter(pProfListenerRouter)
+
+	statsVizServer, _ := statsviz.NewServer()
+	r.Router.HandleFunc("/debug/statsviz/", statsVizServer.Index())
+	r.Router.HandleFunc("/debug/statsviz/ws", statsVizServer.Ws())
+
 	r.Router.PathPrefix("/kubelink/metrics").Handler(promhttp.Handler())
 	r.Router.Path("/health").HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("Content-Type", "application/json")
