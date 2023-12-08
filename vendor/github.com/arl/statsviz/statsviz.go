@@ -226,6 +226,7 @@ func assetsFS() http.FileSystem {
 // interface HTML page. By default, the handler is served at the path specified
 // by the root. Use [WithRoot] to change the path.
 func (s *Server) Index() http.HandlerFunc {
+	fmt.Println("handling index ")
 	prefix := strings.TrimSuffix(s.root, "/") + "/"
 	assets := http.FileServer(assetsFS())
 	handler := intercept(assets, s.plots.Config())

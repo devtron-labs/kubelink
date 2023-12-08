@@ -15,17 +15,20 @@ type RouterImpl struct {
 	Router         *mux.Router
 	pprofRouter    pprof.PProfRouter
 	statsVizServer *statsviz.Server
+	//statsVizRouter *statsViz.StatsVizRouter
 }
 
 func NewRouter(logger *zap.SugaredLogger,
-	pprofRouter pprof.PProfRouter) *RouterImpl {
-
-	statsVizServer, _ := statsviz.NewServer()
+	pprofRouter pprof.PProfRouter,
+	// statsVizRouter *statsViz.StatsVizRouter,
+) *RouterImpl {
+	stvServer, _ := statsviz.NewServer()
 	return &RouterImpl{
-		logger:         logger,
-		Router:         mux.NewRouter(),
-		pprofRouter:    pprofRouter,
-		statsVizServer: statsVizServer,
+		logger:      logger,
+		Router:      mux.NewRouter(),
+		pprofRouter: pprofRouter,
+		//statsVizRouter: statsVizRouter,
+		statsVizServer: stvServer,
 	}
 }
 
@@ -39,8 +42,12 @@ func (r *RouterImpl) InitRouter() {
 	pProfListenerRouter := r.Router.PathPrefix("/kubelink/debug/pprof/").Subrouter()
 	r.pprofRouter.InitPProfRouter(pProfListenerRouter)
 
-	r.Router.HandleFunc("/debug/statsviz", r.statsVizServer.Index())
-	r.Router.HandleFunc("/debug/statsviz/ws", r.statsVizServer.Ws())
+	//statsVizRouter := r.Router.PathPrefix("/debug/statsViz").Subrouter()
+	//r.statsVizRouter.Init
+	r.Router.Methods("GET").Path("/debug/statsviz/ws").Name("GET /debug/statsviz/ws").HandlerFunc(r.statsVizServer.Ws())
+	r.Router.Methods("GET").PathPrefix("/debug/statsviz/").Name("GET /debug/statsviz/").Handler(r.statsVizServer.Index())
+	//r.Router.Methods("GET").Path().HandleFunc("/debug/statsviz", r.statsVizServer.Index())
+	//r.Router.HandleFunc("/debug/statsviz/ws", r.statsVizServer.Ws())
 
 	r.Router.PathPrefix("/kubelink/metrics").Handler(promhttp.Handler())
 	r.Router.Path("/health").HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
