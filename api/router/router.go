@@ -11,17 +11,21 @@ import (
 )
 
 type RouterImpl struct {
-	logger      *zap.SugaredLogger
-	Router      *mux.Router
-	pprofRouter pprof.PProfRouter
+	logger         *zap.SugaredLogger
+	Router         *mux.Router
+	pprofRouter    pprof.PProfRouter
+	statsVizServer *statsviz.Server
 }
 
 func NewRouter(logger *zap.SugaredLogger,
 	pprofRouter pprof.PProfRouter) *RouterImpl {
+
+	statsVizServer, _ := statsviz.NewServer()
 	return &RouterImpl{
-		logger:      logger,
-		Router:      mux.NewRouter(),
-		pprofRouter: pprofRouter,
+		logger:         logger,
+		Router:         mux.NewRouter(),
+		pprofRouter:    pprofRouter,
+		statsVizServer: statsVizServer,
 	}
 }
 
@@ -35,9 +39,8 @@ func (r *RouterImpl) InitRouter() {
 	pProfListenerRouter := r.Router.PathPrefix("/kubelink/debug/pprof/").Subrouter()
 	r.pprofRouter.InitPProfRouter(pProfListenerRouter)
 
-	statsVizServer, _ := statsviz.NewServer()
-	r.Router.HandleFunc("/debug/statsviz/", statsVizServer.Index())
-	r.Router.HandleFunc("/debug/statsviz/ws", statsVizServer.Ws())
+	r.Router.HandleFunc("/debug/statsviz/", r.statsVizServer.Index())
+	r.Router.HandleFunc("/debug/statsviz/ws", r.statsVizServer.Ws())
 
 	r.Router.PathPrefix("/kubelink/metrics").Handler(promhttp.Handler())
 	r.Router.Path("/health").HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
