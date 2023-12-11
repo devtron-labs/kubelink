@@ -55,13 +55,13 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	}
 	appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
 	assert.Nil(t, err)
+	model, err := clusterRepository.FindById(int(installReleaseReq.ReleaseIdentifier.ClusterConfig.ClusterId))
+	assert.Nil(t, err)
+	clusterInfo := k8sInformer2.GetClusterInfo(model)
+	clusterCacheImpl.SyncClusterCache(clusterInfo)
+	clusterCacheAppDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
+	assert.Nil(t, err)
 	t.Run("Test1 FetchBuildAppDetail without cluster cache", func(t *testing.T) {
-		model, err := clusterRepository.FindById(int(installReleaseReq.ReleaseIdentifier.ClusterConfig.ClusterId))
-		assert.Nil(t, err)
-		clusterInfo := k8sInformer2.GetClusterInfo(model)
-		clusterCacheImpl.SyncClusterCache(clusterInfo)
-		clusterCacheAppDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
-		assert.Nil(t, err)
 		if appDetail.ReleaseStatus != nil && clusterCacheAppDetail.ReleaseStatus != nil {
 			if appDetail.ReleaseStatus.Status != clusterCacheAppDetail.ReleaseStatus.Status {
 				//some issue
