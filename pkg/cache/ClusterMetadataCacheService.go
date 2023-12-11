@@ -10,6 +10,7 @@ import (
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"go.uber.org/zap"
 	"sync"
+	"time"
 )
 
 type ClusterCache interface {
@@ -17,8 +18,16 @@ type ClusterCache interface {
 	GetClusterCacheByClusterId(clusterId int) (clustercache.ClusterCache, error)
 }
 
+type ClusterCacheInfo struct {
+	ClusterCache             clustercache.ClusterCache
+	ClusterCacheLastSyncTime time.Time
+}
+
 type ClusterCacheConfig struct {
-	ClusterIdList []int `env:"CLUSTER_ID_LIST" envSeparator:","`
+	ClusterIdList                 []int `env:"CLUSTER_ID_LIST" envSeparator:","`
+	ClusterCacheListSemaphoreSize int64 `env:"CLUSTER_CACHE_LIST_SEMAPHORE_SIZE" envDefault:"2"`
+	ClusterCacheListPageSize      int64 `env:"CLUSTER_CACHE_LIST_PAGE_SIZE" envDefault:"5"`
+	ClusterSyncBatchSize          int   `env:"CLUSTER_SYNC_BATCH_SIZE" envDefault:"1"`
 }
 
 func GetClusterCacheConfig() (*ClusterCacheConfig, error) {
@@ -32,7 +41,7 @@ type ClusterCacheImpl struct {
 	clusterCacheConfig *ClusterCacheConfig
 	clusterRepository  repository.ClusterRepository
 	k8sUtil            *k8sUtils.K8sUtil
-	clustersCache      map[int]clustercache.ClusterCache
+	clustersCache      map[int]ClusterCacheInfo
 	rwMutex            sync.RWMutex
 	k8sInformer        k8sInformer.K8sInformer
 }
@@ -40,7 +49,7 @@ type ClusterCacheImpl struct {
 func NewClusterCacheImpl(logger *zap.SugaredLogger, clusterCacheConfig *ClusterCacheConfig,
 	clusterRepository repository.ClusterRepository, k8sUtil *k8sUtils.K8sUtil, k8sInformer k8sInformer.K8sInformer) *ClusterCacheImpl {
 
-	clustersCache := make(map[int]clustercache.ClusterCache)
+	clustersCache := make(map[int]ClusterCacheInfo)
 	clusterCacheImpl := &ClusterCacheImpl{
 		logger:             logger,
 		clusterCacheConfig: clusterCacheConfig,
@@ -60,14 +69,25 @@ func NewClusterCacheImpl(logger *zap.SugaredLogger, clusterCacheConfig *ClusterC
 	return clusterCacheImpl
 }
 
-func (impl *ClusterCacheImpl) getClusterInfoByClusterId(clusterId int) (*bean.ClusterInfo, error) {
+func (impl *ClusterCacheImpl) getClusterInfoByClusterId(clusterId int) (*bean.ClusterInfo, time.Time, error) {
 	model, err := impl.clusterRepository.FindById(clusterId)
 	if err != nil {
 		impl.logger.Errorw("error in getting cluster from db by cluster id", "clusterId", clusterId)
-		return nil, err
+		return nil, time.Time{}, err
 	}
 	clusterInfo := k8sInformer.GetClusterInfo(model)
-	return clusterInfo, nil
+	return clusterInfo, model.UpdatedOn, nil
+}
+
+func (impl *ClusterCacheImpl) InvalidateCache(clusterId int) {
+	impl.rwMutex.Lock()
+	defer impl.rwMutex.Unlock()
+
+	// Check if the cache entry exists before invalidating and deleting
+	if cacheEntry, ok := impl.clustersCache[clusterId]; ok {
+		cacheEntry.ClusterCache.Invalidate()
+		delete(impl.clustersCache, clusterId)
+	}
 }
 
 func (impl *ClusterCacheImpl) OnStateChange(clusterId int, action string) {
@@ -77,32 +97,50 @@ func (impl *ClusterCacheImpl) OnStateChange(clusterId int, action string) {
 	}
 	switch action {
 	case k8sInformer.UPDATE:
-		clusterInfo, err := impl.getClusterInfoByClusterId(clusterId)
+		clusterInfo, lastUpdatedOn, err := impl.getClusterInfoByClusterId(clusterId)
 		if err != nil {
 			impl.logger.Errorw("error in getting clusterInfo by cluster id", "clusterId", clusterId)
 			return
 		}
+		if lastUpdatedOn.Before(impl.clustersCache[clusterId].ClusterCacheLastSyncTime) {
+			impl.logger.Debugw("last update for cluster secrets was before cluster cache sync time hence not syncing cluster cache again")
+			return
+		}
+		//invalidate cache first before cache sync
+		impl.logger.Infow("invalidating cache before syncing again on cluster config update event", "clusterId", clusterId)
+		impl.InvalidateCache(clusterId)
 		impl.logger.Infow("syncing cluster cache on cluster config update", "clusterId", clusterId)
-		go impl.SyncClusterCache(clusterInfo)
+		impl.SyncClusterCache(clusterInfo)
 	case k8sInformer.DELETE:
-		impl.logger.Infow("invalidating cluster cache on cluster config delete", "clusterId", clusterId)
-		impl.rwMutex.Lock()
-		impl.clustersCache[clusterId].Invalidate()
-		impl.rwMutex.Unlock()
-
-		delete(impl.clustersCache, clusterId)
+		impl.logger.Infow("invalidating cache before syncing again on cluster config delete event", "clusterId", clusterId)
+		impl.InvalidateCache(clusterId)
 	}
 }
 
 func (impl *ClusterCacheImpl) SyncCache() error {
-	for _, clusterId := range impl.clusterCacheConfig.ClusterIdList {
-		clusterInfo, err := impl.getClusterInfoByClusterId(clusterId)
-		if err != nil {
-			impl.logger.Errorw("error in getting clusterInfo by cluster id", "clusterId", clusterId)
-			continue
+	requestsLength := len(impl.clusterCacheConfig.ClusterIdList)
+	batchSize := impl.clusterCacheConfig.ClusterSyncBatchSize
+	for i := 0; i < requestsLength; {
+		//requests left to process
+		remainingBatch := requestsLength - i
+		if remainingBatch < batchSize {
+			batchSize = remainingBatch
 		}
-
-		go impl.SyncClusterCache(clusterInfo)
+		var wg sync.WaitGroup
+		for j := 0; j < batchSize; j++ {
+			wg.Add(1)
+			go func(j int) {
+				defer wg.Done()
+				clusterInfo, _, err := impl.getClusterInfoByClusterId(impl.clusterCacheConfig.ClusterIdList[i+j])
+				if err != nil {
+					impl.logger.Errorw("error in getting clusterInfo by cluster id", "clusterId", impl.clusterCacheConfig.ClusterIdList[i+j])
+					return
+				}
+				impl.SyncClusterCache(clusterInfo)
+			}(j)
+		}
+		wg.Wait()
+		i += batchSize
 	}
 	return nil
 }
@@ -120,7 +158,10 @@ func (impl *ClusterCacheImpl) SyncClusterCache(clusterInfo *bean.ClusterInfo) (c
 		return cache, err
 	}
 	impl.rwMutex.Lock()
-	impl.clustersCache[clusterInfo.ClusterId] = cache
+	impl.clustersCache[clusterInfo.ClusterId] = ClusterCacheInfo{
+		ClusterCache:             cache,
+		ClusterCacheLastSyncTime: time.Now(),
+	}
 	impl.rwMutex.Unlock()
 	return cache, nil
 }
@@ -136,15 +177,15 @@ func (impl *ClusterCacheImpl) getClusterCache(clusterInfo *bean.ClusterInfo) (cl
 		impl.logger.Errorw("error in getting rest config", "err", err, "clusterName", clusterConfig.ClusterName)
 		return cache, err
 	}
-	cache = clustercache.NewClusterCache(restConfig, getClusterCacheOptions()...)
+	cache = clustercache.NewClusterCache(restConfig, getClusterCacheOptions(impl.clusterCacheConfig)...)
 	return cache, nil
 }
 
 func (impl *ClusterCacheImpl) GetClusterCacheByClusterId(clusterId int) (clustercache.ClusterCache, error) {
 	impl.rwMutex.RLock()
 	defer impl.rwMutex.RUnlock()
-	if clusterCache, found := impl.clustersCache[clusterId]; found {
-		return clusterCache, nil
+	if clusterCacheInfo, found := impl.clustersCache[clusterId]; found {
+		return clusterCacheInfo.ClusterCache, nil
 	}
 	return nil, errors.New("cluster cache not yet synced for this cluster id")
 }
