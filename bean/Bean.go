@@ -63,6 +63,8 @@ const (
 	ContainersType          = "Container"
 	InitContainersType      = "InitContainer"
 	EphemeralContainersType = "EphemeralContainer"
+	StatusReason            = "Status Reason"
+	Node                    = "Node"
 )
 
 type ChartMetadata struct {
@@ -102,9 +104,11 @@ type ResourceNode struct {
 	Info            []InfoItem              `json:"info,omitempty"`
 	Port            []int64                 `json:"port,omitempty"`
 	CreatedAt       string                  `json:"createdAt,omitempty"`
-	//add comments
-	UpdateRevision        string `json:"updateRevision,omitempty"`
-	DeploymentPodHash     string `json:"deploymentPodHash,omitempty"`
+	// UpdateRevision is used when a pod's owner is a StatefulSet for identifying if the pod is new or old
+	UpdateRevision string `json:"updateRevision,omitempty"`
+	// DeploymentPodHash is the podHash in deployment manifest and is used to compare replicaSet's podHash for identifying new vs old pod
+	DeploymentPodHash string `json:"deploymentPodHash,omitempty"`
+	// RolloutCurrentPodHash is the podHash in rollout manifest and is used to compare replicaSet's podHash for identifying new vs old pod
 	RolloutCurrentPodHash string `json:"rolloutCurrentPodHash,omitempty"`
 }
 

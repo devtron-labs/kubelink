@@ -98,10 +98,10 @@ func PopulatePodInfo(un *unstructured.Unstructured) ([]bean.InfoItem, error) {
 
 func getAllInfoItems(infoItems []bean.InfoItem, reason string, restarts int, readyContainers int, totalContainers int, pod v1.Pod) []bean.InfoItem {
 	if reason != "" {
-		infoItems = append(infoItems, bean.InfoItem{Name: "Status Reason", Value: reason})
+		infoItems = append(infoItems, bean.InfoItem{Name: bean.StatusReason, Value: reason})
 	}
 	//make consts
-	infoItems = append(infoItems, bean.InfoItem{Name: "Node", Value: pod.Spec.NodeName})
+	infoItems = append(infoItems, bean.InfoItem{Name: bean.Node, Value: pod.Spec.NodeName})
 
 	containerNames, initContainerNames, ephemeralContainersInfo, ephemeralContainerStatus := getContainersInfo(pod)
 
