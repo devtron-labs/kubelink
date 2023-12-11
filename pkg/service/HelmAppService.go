@@ -1781,13 +1781,14 @@ func (impl HelmAppServiceImpl) buildPodMetadata(nodes []*bean.ResourceNode, rest
 
 		for _, nodeInfo := range node.Info {
 			switch nodeInfo.Name {
-			case bean.ContainersType:
-				containerNames = nodeInfo.ContainerNames
-			case bean.InitContainersType:
-				initContainerNames = nodeInfo.InitContainerNames
-			case bean.EphemeralContainersType:
-				ephemeralContainersInfo = nodeInfo.EphemeralContainersInfo
-				ephemeralContainerStatus = nodeInfo.EphemeralContainerStatuses
+			case bean.ContainersNamesType:
+				containerNames = nodeInfo.Value.([]string)
+			case bean.InitContainersNamesType:
+				initContainerNames = nodeInfo.Value.([]string)
+			case bean.EphemeralContainersInfoType:
+				ephemeralContainersInfo = nodeInfo.Value.([]bean.EphemeralContainerInfo)
+			case bean.EphemeralContainersStatusType:
+				ephemeralContainerStatus = nodeInfo.Value.([]bean.EphemeralContainerStatusesInfo)
 			default:
 				continue
 			}

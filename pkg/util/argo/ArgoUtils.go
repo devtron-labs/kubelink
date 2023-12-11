@@ -105,11 +105,14 @@ func getAllInfoItems(infoItems []bean.InfoItem, reason string, restarts int, rea
 
 	containerNames, initContainerNames, ephemeralContainersInfo, ephemeralContainerStatus := getContainersInfo(pod)
 
-	infoItems = append(infoItems, bean.InfoItem{Name: bean.ContainersType, Value: fmt.Sprintf("%d/%d", readyContainers, totalContainers), ContainerNames: containerNames})
-	infoItems = append(infoItems, bean.InfoItem{Name: bean.InitContainersType, InitContainerNames: initContainerNames})
-	infoItems = append(infoItems, bean.InfoItem{Name: bean.EphemeralContainersType, EphemeralContainersInfo: ephemeralContainersInfo, EphemeralContainerStatuses: ephemeralContainerStatus})
+	infoItems = append(infoItems, bean.InfoItem{Name: bean.ContainersType, Value: fmt.Sprintf("%d/%d", readyContainers, totalContainers)})
+	infoItems = append(infoItems, bean.InfoItem{Name: bean.ContainersNamesType, Value: containerNames})
+	infoItems = append(infoItems, bean.InfoItem{Name: bean.InitContainersNamesType, Value: initContainerNames})
+	infoItems = append(infoItems, bean.InfoItem{Name: bean.EphemeralContainersInfoType, Value: ephemeralContainersInfo})
+	infoItems = append(infoItems, bean.InfoItem{Name: bean.EphemeralContainersStatusType, Value: ephemeralContainerStatus})
+
 	if restarts > 0 {
-		infoItems = append(infoItems, bean.InfoItem{Name: "Restart Count", Value: fmt.Sprintf("%d", restarts)})
+		infoItems = append(infoItems, bean.InfoItem{Name: bean.RestartCount, Value: fmt.Sprintf("%d", restarts)})
 	}
 	return infoItems
 }

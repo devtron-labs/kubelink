@@ -391,7 +391,14 @@ func (impl *ApplicationServiceServerImpl) AppDetailAdaptor(req *bean.AppDetail) 
 func (impl *ApplicationServiceServerImpl) buildInfoItems(infoItemBeans []bean.InfoItem) []*client.InfoItem {
 	infoItems := make([]*client.InfoItem, 0, len(infoItemBeans))
 	for _, infoItemBean := range infoItemBeans {
-		infoItems = append(infoItems, &client.InfoItem{Name: infoItemBean.Name, Value: infoItemBean.Value})
+		switch infoItemBean.Value.(type) {
+		case string:
+			infoItems = append(infoItems, &client.InfoItem{Name: infoItemBean.Name, Value: infoItemBean.Value.(string)})
+		default:
+			// skip other types
+			impl.Logger.Debugw("ignoring other info item value types", "infoItem", infoItemBean.Value)
+		}
+
 	}
 	return infoItems
 }

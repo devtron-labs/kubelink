@@ -60,11 +60,14 @@ const (
 	StatusPendingRollback HelmReleaseStatus = "pending-rollback"
 )
 const (
-	ContainersType          = "Container"
-	InitContainersType      = "InitContainer"
-	EphemeralContainersType = "EphemeralContainer"
-	StatusReason            = "Status Reason"
-	Node                    = "Node"
+	ContainersType                = "Container"
+	ContainersNamesType           = "ContainerNames"
+	InitContainersNamesType       = "InitContainerNames"
+	EphemeralContainersInfoType   = "EphemeralContainerInfo"
+	EphemeralContainersStatusType = "EphemeralContainerStatuses"
+	StatusReason                  = "Status Reason"
+	Node                          = "Node"
+	RestartCount                  = "Restart Count"
 )
 
 type ChartMetadata struct {
@@ -204,15 +207,7 @@ type InfoItem struct {
 	// Name is a human readable title for this piece of information.
 	Name string `json:"name,omitempty"`
 	// Value is human readable content.
-	Value string `json:"value,omitempty"`
-	// InitContainers contains all info about init containers
-	InitContainerNames []string `json:"initContainerNames,omitempty"`
-	// Containers contains all info about containers inside a pod
-	ContainerNames []string `json:"containerNames,omitempty"`
-	// EphemeralContainers contains all info about ephemeral containers
-	EphemeralContainersInfo []EphemeralContainerInfo `json:"ephemeralContainersInfo,omitempty"`
-	// EphemeralContainerStatuses contains statuses about about ephemeral containers
-	EphemeralContainerStatuses []EphemeralContainerStatusesInfo `json:"ephemeralContainerStatuses,omitempty"`
+	Value interface{} `json:"value,omitempty"`
 }
 
 type EphemeralContainerInfo struct {
