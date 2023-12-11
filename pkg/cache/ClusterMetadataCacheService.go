@@ -25,9 +25,9 @@ type ClusterCacheInfo struct {
 
 type ClusterCacheConfig struct {
 	ClusterIdList                 []int `env:"CLUSTER_ID_LIST" envSeparator:","`
-	ClusterCacheListSemaphoreSize int64 `env:"CLUSTER_CACHE_LIST_SEMAPHORE_SIZE" envDefault:"5"`
-	ClusterCacheListPageSize      int64 `env:"CLUSTER_CACHE_LIST_PAGE_SIZE" envDefault:"10"`
-	ClusterSyncBatchSize          int   `env:"CLUSTER_SYNC_BATCH_SIZE" envDefault:"2"`
+	ClusterCacheListSemaphoreSize int64 `env:"CLUSTER_CACHE_LIST_SEMAPHORE_SIZE" envDefault:"2"`
+	ClusterCacheListPageSize      int64 `env:"CLUSTER_CACHE_LIST_PAGE_SIZE" envDefault:"5"`
+	ClusterSyncBatchSize          int   `env:"CLUSTER_SYNC_BATCH_SIZE" envDefault:"1"`
 }
 
 func GetClusterCacheConfig() (*ClusterCacheConfig, error) {
