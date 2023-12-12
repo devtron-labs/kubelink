@@ -17,18 +17,20 @@ import (
 	"testing"
 )
 
+var clusterConfig = &client.ClusterConfig{
+	ApiServerUrl:          "https://4.246.166.113:16443",
+	Token:                 "d2JMZUwzOHZZOUlaMzdRb2tqT2liK3RNSVVManYyTXpvU0YvRXZoRHRGRT0K",
+	ClusterId:             1,
+	ClusterName:           "default_cluster",
+	InsecureSkipTLSVerify: true,
+	KeyData:               "",
+	CertData:              "",
+	CaData:                "",
+}
+
 var installReleaseReq = &client.InstallReleaseRequest{
 	ReleaseIdentifier: &client.ReleaseIdentifier{
-		ClusterConfig: &client.ClusterConfig{
-			ApiServerUrl:          "https://4.246.166.113:16443",
-			Token:                 "d2JMZUwzOHZZOUlaMzdRb2tqT2liK3RNSVVManYyTXpvU0YvRXZoRHRGRT0K",
-			ClusterId:             1,
-			ClusterName:           "default_cluster",
-			InsecureSkipTLSVerify: true,
-			KeyData:               "",
-			CertData:              "",
-			CaData:                "",
-		},
+		ClusterConfig:    clusterConfig,
 		ReleaseName:      "mongo-operator",
 		ReleaseNamespace: "ns1",
 	},
@@ -41,6 +43,45 @@ var installReleaseReq = &client.InstallReleaseRequest{
 		Username: "",
 		Password: "",
 	},
+}
+
+var installReleaseReqDeployment = &client.HelmInstallCustomRequest{
+	ReleaseIdentifier: &client.ReleaseIdentifier{
+		ClusterConfig:    clusterConfig,
+		ReleaseName:      "cache-test-01-default-cluster--devtroncd",
+		ReleaseNamespace: "devtroncd",
+	},
+	ValuesYaml:   "",
+	ChartContent: &client.ChartContent{
+		//Content: [],
+	},
+	RunInCtx: true,
+}
+
+var installReleaseReqJobAndCronJob = &client.HelmInstallCustomRequest{
+	ReleaseIdentifier: &client.ReleaseIdentifier{
+		ClusterConfig:    clusterConfig,
+		ReleaseName:      "cache-test-01-default-cluster--devtroncd",
+		ReleaseNamespace: "devtroncd",
+	},
+	ValuesYaml:   "",
+	ChartContent: &client.ChartContent{
+		//Content: [],
+	},
+	RunInCtx: true,
+}
+
+var installReleaseReqRollout = &client.HelmInstallCustomRequest{
+	ReleaseIdentifier: &client.ReleaseIdentifier{
+		ClusterConfig:    clusterConfig,
+		ReleaseName:      "cache-test-01-default-cluster--devtroncd",
+		ReleaseNamespace: "devtroncd",
+	},
+	ValuesYaml:   "",
+	ChartContent: &client.ChartContent{
+		//Content: [],
+	},
+	RunInCtx: true,
 }
 
 func TestHelmAppService_BuildAppDetail(t *testing.T) {
@@ -61,13 +102,25 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	clusterCacheImpl.SyncClusterCache(clusterInfo)
 	clusterCacheAppDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
 	assert.Nil(t, err)
+
+	// Deployment kind test cases
 	t.Run("Test1 FetchBuildAppDetail without cluster cache", func(t *testing.T) {
 		if appDetail.ReleaseStatus != nil && clusterCacheAppDetail.ReleaseStatus != nil {
 			if appDetail.ReleaseStatus.Status != clusterCacheAppDetail.ReleaseStatus.Status {
-				//some issue
+
 			}
 		}
 	})
+	t.Run("Test for Deployment Type ", func(t *testing.T) {
+
+	})
+	// RollOut kind test cases
+
+	// Sts kind test cases
+
+	// Job-Cronjob kind test cases
+
+	// Common test cases for all kind
 
 }
 
