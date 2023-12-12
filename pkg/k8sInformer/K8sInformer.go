@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"reflect"
 	"strconv"
 	"sync"
 	"time"
@@ -35,6 +36,7 @@ const (
 	INFORMER_ALREADY_EXIST_MESSAGE   = "INFORMER_ALREADY_EXIST"
 	ADD                              = "add"
 	UPDATE                           = "update"
+	DELETE                           = "delete"
 )
 
 type K8sInformer interface {
@@ -44,6 +46,12 @@ type K8sInformer interface {
 	startInformerAndPopulateCache(clusterId int) error
 	GetAllReleaseByClusterId(clusterId int) []*client.DeployedAppDetail
 	CheckReleaseExists(clusterId int32, releaseName string) bool
+	GetClusterClientSet(clusterInfo bean.ClusterInfo) (*kubernetes.Clientset, error)
+	RegisterListener(listener ClusterSecretUpdateListener)
+}
+
+type ClusterSecretUpdateListener interface {
+	OnStateChange(clusterId int, action string)
 }
 
 type HelmReleaseConfig struct {
@@ -64,6 +72,7 @@ type K8sInformerImpl struct {
 	clusterRepository  repository.ClusterRepository
 	helmReleaseConfig  *HelmReleaseConfig
 	k8sUtil            *k8sUtils.K8sUtil
+	listeners          []ClusterSecretUpdateListener
 }
 
 func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.ClusterRepository,
@@ -80,6 +89,34 @@ func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.
 		go informerFactory.BuildInformerForAllClusters()
 	}
 	return informerFactory
+}
+
+func (impl *K8sInformerImpl) OnStateChange(clusterId int, action string) {
+	impl.logger.Infow("syncing informer on cluster config update/delete", "action", action, "clusterId", clusterId)
+	switch action {
+	case UPDATE:
+		err := impl.syncInformer(clusterId)
+		if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
+			impl.logger.Error("error in updating informer for cluster", "id", clusterId, "err", err)
+			return
+		}
+	case DELETE:
+		deleteClusterInfo, err := impl.clusterRepository.FindByIdWithActiveFalse(clusterId)
+		if err != nil {
+			impl.logger.Error("Error in fetching cluster by id", "cluster-id ", clusterId)
+			return
+		}
+		impl.stopInformer(deleteClusterInfo.ClusterName, deleteClusterInfo.Id)
+		if err != nil {
+			impl.logger.Error("error in updating informer for cluster", "id", clusterId, "err", err)
+			return
+		}
+	}
+}
+
+func (impl *K8sInformerImpl) RegisterListener(listener ClusterSecretUpdateListener) {
+	impl.logger.Infof("registering listener %s", reflect.TypeOf(listener))
+	impl.listeners = append(impl.listeners, listener)
 }
 
 func decodeRelease(data string) (*release.Release, error) {
@@ -171,21 +208,30 @@ func GetClusterInfo(c *repository.Cluster) *bean.ClusterInfo {
 	return clusterInfo
 }
 
-func (impl *K8sInformerImpl) startInformer(clusterInfo bean.ClusterInfo) error {
+func (impl *K8sInformerImpl) GetClusterClientSet(clusterInfo bean.ClusterInfo) (*kubernetes.Clientset, error) {
 	clusterConfig := clusterInfo.GetClusterConfig()
 	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(clusterConfig)
 	if err != nil {
 		impl.logger.Error("error in getting rest config", "err", err, "clusterName", clusterConfig.ClusterName)
-		return err
+		return nil, err
 	}
 	httpClientFor, err := rest.HTTPClientFor(restConfig)
 	if err != nil {
 		impl.logger.Error("error occurred while overriding k8s client", "reason", err)
-		return err
+		return nil, err
 	}
 	clusterClient, err := kubernetes.NewForConfigAndClient(restConfig, httpClientFor)
 	if err != nil {
 		impl.logger.Error("error in create k8s config", "err", err)
+		return nil, err
+	}
+	return clusterClient, nil
+}
+
+func (impl *K8sInformerImpl) startInformer(clusterInfo bean.ClusterInfo) error {
+	clusterClient, err := impl.GetClusterClientSet(clusterInfo)
+	if err != nil {
+		impl.logger.Error("error in GetClusterClientSet", "clusterName", clusterInfo.ClusterName, "err", err)
 		return err
 	}
 
@@ -246,11 +292,8 @@ func (impl *K8sInformerImpl) startInformer(clusterInfo bean.ClusterInfo) error {
 						}
 					}
 					if string(action) == UPDATE {
-						err := impl.syncInformer(id_int)
-						if err != nil && err != errors.New(INFORMER_ALREADY_EXIST_MESSAGE) {
-							impl.logger.Error("error in updating informer for cluster", "id", clusterInfo.ClusterId, "name", clusterInfo.ClusterName, "err", err)
-							return
-						}
+						impl.OnStateChange(id_int, string(action))
+						impl.informOtherListeners(id_int, string(action))
 					}
 				}
 			},
@@ -265,17 +308,9 @@ func (impl *K8sInformerImpl) startInformer(clusterInfo bean.ClusterInfo) error {
 					id := string(data["cluster_id"])
 					id_int, _ := strconv.Atoi(id)
 
-					if string(action) == "delete" {
-						deleteClusterInfo, err := impl.clusterRepository.FindByIdWithActiveFalse(id_int)
-						if err != nil {
-							impl.logger.Error("Error in fetching cluster by id", "cluster-id ", id_int)
-							return
-						}
-						impl.stopInformer(deleteClusterInfo.ClusterName, deleteClusterInfo.Id)
-						if err != nil {
-							impl.logger.Error("error in updating informer for cluster", "id", clusterInfo.ClusterId, "name", clusterInfo.ClusterName, "err", err)
-							return
-						}
+					if string(action) == DELETE {
+						impl.OnStateChange(id_int, string(action))
+						impl.informOtherListeners(id_int, string(action))
 					}
 				}
 			},
@@ -293,6 +328,12 @@ func (impl *K8sInformerImpl) startInformer(clusterInfo bean.ClusterInfo) error {
 	}
 
 	return nil
+}
+
+func (impl *K8sInformerImpl) informOtherListeners(clusterId int, action string) {
+	for _, listener := range impl.listeners {
+		listener.OnStateChange(clusterId, action)
+	}
 }
 
 func (impl *K8sInformerImpl) syncInformer(clusterId int) error {

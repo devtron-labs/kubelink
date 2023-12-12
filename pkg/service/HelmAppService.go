@@ -8,12 +8,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
+	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/common-lib/utils/k8s/health"
+	k8sObjectUtils "github.com/devtron-labs/common-lib/utils/k8sObjectsUtil"
+	"github.com/devtron-labs/kubelink/pkg/cache"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
+	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"path"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -73,7 +79,7 @@ const (
 type HelmAppService interface {
 	GetApplicationListForCluster(config *client.ClusterConfig) *client.DeployedAppList
 	BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error)
-	FetchApplicationStatus(req *client.AppDetailRequest) (*bean.HealthStatusCode, error)
+	FetchApplicationStatus(req *client.AppDetailRequest) (*client.AppStatus, error)
 	GetHelmAppValues(req *client.AppDetailRequest) (*client.ReleaseInfo, error)
 	ScaleObjects(ctx context.Context, clusterConfig *client.ClusterConfig, requests []*client.ObjectIdentifier, scaleDown bool) (*client.HibernateResponse, error)
 	GetDeploymentHistory(req *client.AppDetailRequest) (*client.HelmAppDeploymentHistory, error)
@@ -86,7 +92,7 @@ type HelmAppService interface {
 	IsReleaseInstalled(ctx context.Context, releaseIdentifier *client.ReleaseIdentifier) (bool, error)
 	RollbackRelease(request *client.RollbackReleaseRequest) (bool, error)
 	TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error)
-	InstallReleaseWithCustomChart(req *client.HelmInstallCustomRequest) (bool, error)
+	InstallReleaseWithCustomChart(ctx context.Context, req *client.HelmInstallCustomRequest) (bool, error)
 	GetNotes(ctx context.Context, installReleaseRequest *client.InstallReleaseRequest) (string, error)
 	UpgradeReleaseWithCustomChart(ctx context.Context, request *client.UpgradeReleaseRequest) (bool, error)
 	// ValidateOCIRegistryLogin Validates the OCI registry credentials by login
@@ -122,12 +128,14 @@ type HelmAppServiceImpl struct {
 	k8sUtil           *k8sUtils.K8sUtil
 	pubsubClient      *pubsub_lib.PubSubClientServiceImpl
 	clusterRepository repository.ClusterRepository
+	clusterCache      cache.ClusterCache
 }
 
 func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 	k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig,
 	k8sUtil *k8sUtils.K8sUtil,
-	clusterRepository repository.ClusterRepository) *HelmAppServiceImpl {
+	clusterRepository repository.ClusterRepository,
+	clusterCache cache.ClusterCache) *HelmAppServiceImpl {
 
 	var pubsubClient *pubsub_lib.PubSubClientServiceImpl
 	if helmReleaseConfig.RunHelmInstallInAsyncMode {
@@ -142,6 +150,7 @@ func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 		pubsubClient:      pubsubClient,
 		k8sUtil:           k8sUtil,
 		clusterRepository: clusterRepository,
+		clusterCache:      clusterCache,
 	}
 	err := os.MkdirAll(chartWorkingDirectory, os.ModePerm)
 	if err != nil {
@@ -277,11 +286,16 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 		impl.logger.Errorw("Error in getting helm release ", "err", err)
 		return nil, err
 	}
-
-	resourceTreeResponse, err := impl.buildResourceTree(req, helmRelease)
+	resourceTreeResponse, err := impl.buildResourceTreeFromClusterCache(req.ClusterConfig, helmRelease)
 	if err != nil {
-		impl.logger.Errorw("Error in building resource tree ", "err", err)
-		return nil, err
+		impl.logger.Errorw("error in getting resourceTree from cluster cache, or cluster cache not synced for this cluster", "clusterName", req.ClusterConfig.ClusterName, "releaseName", helmRelease.Name, "err", err)
+	}
+	if resourceTreeResponse == nil {
+		resourceTreeResponse, err = impl.buildResourceTree(req, helmRelease)
+		if err != nil {
+			impl.logger.Errorw("error in building resource tree ", "err", err)
+			return nil, err
+		}
 	}
 
 	appDetail := &bean.AppDetail{
@@ -309,22 +323,178 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 	return appDetail, nil
 }
 
-func (impl *HelmAppServiceImpl) FetchApplicationStatus(req *client.AppDetailRequest) (*bean.HealthStatusCode, error) {
-	var appStatus *bean.HealthStatusCode
+type Resource struct {
+	CacheResources          []*clustercache.Resource
+	UidToResourceRefMapping map[string]*bean.ResourceRef
+}
+
+func (k *Resource) action(resource *clustercache.Resource, _ map[kube.ResourceKey]*clustercache.Resource) bool {
+	if resourceNode, ok := resource.Info.(*bean.ResourceNode); ok {
+		k.UidToResourceRefMapping[resourceNode.UID] = resourceNode.ResourceRef
+	}
+	k.CacheResources = append(k.CacheResources, resource)
+	return true
+}
+
+func (impl *HelmAppServiceImpl) addHookResourcesInManifest(helmRelease *release.Release, manifests []unstructured.Unstructured) []unstructured.Unstructured {
+	for _, helmHook := range helmRelease.Hooks {
+		var hook unstructured.Unstructured
+		err := yaml.Unmarshal([]byte(helmHook.Manifest), &hook)
+		if err != nil {
+			impl.logger.Errorw("error in converting string manifest into unstructured obj", "hookName", helmHook.Name, "releaseName", helmRelease.Name, "err", err)
+			continue
+		}
+		manifests = append(manifests, hook)
+	}
+	return manifests
+}
+
+func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig *client.ClusterConfig, helmRelease *release.Release) (*bean.ResourceTreeResponse, error) {
+	impl.logger.Infow("building resource tree from cluster cache", "clusterName", clusterConfig.ClusterName, "helmReleaseName", helmRelease.Name)
+	clusterCache, err := impl.clusterCache.GetClusterCacheByClusterId(int(clusterConfig.ClusterId))
+	if err != nil {
+		impl.logger.Infow("cluster cache not synced for this cluster", "clusterName", clusterConfig.ClusterName, "clusterId", clusterConfig.ClusterId, "err", err)
+		return nil, err
+	}
+	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
+
+	manifests = impl.addHookResourcesInManifest(helmRelease, manifests)
+
+	resourceHierarchy := &Resource{
+		CacheResources:          make([]*clustercache.Resource, 0),
+		UidToResourceRefMapping: make(map[string]*bean.ResourceRef),
+	}
+
+	for _, manifest := range manifests {
+		gvk := manifest.GroupVersionKind()
+		resourceKey := kube.NewResourceKey(gvk.Group, gvk.Kind, helmRelease.Namespace, manifest.GetName())
+		clusterCache.IterateHierarchy(resourceKey, resourceHierarchy.action)
+	}
+	//special handling for CRDs
+	addCRDsInResourceHierarchy(resourceHierarchy, manifests)
+
+	nodes := make([]*bean.ResourceNode, 0, len(resourceHierarchy.CacheResources))
+	//convert cache.Resource type into bean.ResourceNode type
+	for _, node := range resourceHierarchy.CacheResources {
+		if node.Info != nil {
+			nodes = append(nodes, getNodeInfoFromHierarchy(node, resourceHierarchy.UidToResourceRefMapping))
+		}
+	}
+
+	podsMetadata, err := buildPodMetadata(nodes)
+	if err != nil {
+		return nil, err
+	}
+	resourceTreeResponse := &bean.ResourceTreeResponse{
+		ApplicationTree: &bean.ApplicationTree{
+			Nodes: nodes,
+		},
+		PodMetadata: podsMetadata,
+	}
+	return resourceTreeResponse, nil
+}
+
+func addCRDsInResourceHierarchy(resourceHierarchy *Resource, manifests []unstructured.Unstructured) {
+	kindMapping := make(map[string]bool)
+	for _, resource := range resourceHierarchy.CacheResources {
+		if _, ok := kindMapping[resource.Ref.Kind]; !ok {
+			kindMapping[resource.Ref.Kind] = true
+		}
+	}
+
+	for _, manifest := range manifests {
+		if _, ok := kindMapping[manifest.GetKind()]; !ok {
+			createCRDsCacheResourceObject(resourceHierarchy, manifest)
+		}
+	}
+}
+
+func createCRDsCacheResourceObject(resourceHierarchy *Resource, manifest unstructured.Unstructured) {
+	createdAt := manifest.GetCreationTimestamp()
+	gvk := manifest.GroupVersionKind()
+	crdNode := &clustercache.Resource{
+		ResourceVersion:   manifest.GetResourceVersion(),
+		Ref:               kube.GetObjectRef(&manifest),
+		CreationTimestamp: &createdAt,
+		Info: &bean.ResourceNode{
+			NetworkingInfo: &bean.ResourceNetworkingInfo{
+				Labels: manifest.GetLabels(),
+			},
+			ResourceVersion: manifest.GetResourceVersion(),
+			Port:            util.GetPorts(&manifest, gvk),
+			CreatedAt:       createdAt.String(),
+			ResourceRef: &bean.ResourceRef{
+				Group:     gvk.Group,
+				Version:   gvk.Version,
+				Kind:      gvk.Kind,
+				Namespace: manifest.GetNamespace(),
+				Name:      manifest.GetName(),
+				UID:       string(manifest.GetUID()),
+				Manifest:  manifest,
+			},
+		},
+	}
+	resourceHierarchy.CacheResources = append(resourceHierarchy.CacheResources, crdNode)
+}
+
+func (impl *HelmAppServiceImpl) getLiveManifests(config *rest.Config, helmRelease *release.Release) ([]*bean.DesiredOrLiveManifest, error) {
+	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
+	manifests = impl.addHookResourcesInManifest(helmRelease, manifests)
+	// get live manifests from kubernetes
+	desiredOrLiveManifests, err := impl.getDesiredOrLiveManifests(config, manifests, helmRelease.Namespace)
+	if err != nil {
+		impl.logger.Errorw("error in getting desired or live manifest", "host", config.Host, "helmReleaseName", helmRelease.Name, "err", err)
+		return nil, err
+	}
+	return desiredOrLiveManifests, nil
+}
+
+func (impl *HelmAppServiceImpl) getRestConfigForClusterConfig(clusterConfig *client.ClusterConfig) (*rest.Config, error) {
+	k8sClusterConfig := GetClusterConfigFromClientBean(clusterConfig)
+	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
+	if err != nil {
+		impl.logger.Errorw("error in getting rest config by cluster", "clusterName", k8sClusterConfig.ClusterName)
+		return nil, err
+	}
+	return conf, nil
+}
+
+func getNodeInfoFromHierarchy(node *clustercache.Resource, uidToResourceRefMapping map[string]*bean.ResourceRef) *bean.ResourceNode {
+	resourceNode := &bean.ResourceNode{}
+	var ok bool
+	if resourceNode, ok = node.Info.(*bean.ResourceNode); ok {
+		if node.OwnerRefs != nil {
+			parentRefs := make([]*bean.ResourceRef, 0)
+			for _, ownerRef := range node.OwnerRefs {
+				parentRefs = append(parentRefs, uidToResourceRefMapping[string(ownerRef.UID)])
+			}
+			resourceNode.ParentRefs = parentRefs
+		}
+	}
+	return resourceNode
+}
+
+func (impl *HelmAppServiceImpl) FetchApplicationStatus(req *client.AppDetailRequest) (*client.AppStatus, error) {
+	helmAppStatus := &client.AppStatus{}
 	helmRelease, err := impl.getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
 		impl.logger.Errorw("Error in getting helm release ", "err", err)
-		return appStatus, err
+		return helmAppStatus, err
+	}
+	if helmRelease.Info != nil {
+		helmAppStatus.Description = helmRelease.Info.Description
+		helmAppStatus.ReleaseStatus = string(helmRelease.Info.Status)
+		helmAppStatus.LastDeployed = timestamppb.New(helmRelease.Info.LastDeployed.Time)
 	}
 	_, healthStatusArray, err := impl.getNodes(req, helmRelease)
 	if err != nil {
 		impl.logger.Errorw("Error in getting nodes", "err", err, "req", req)
-		return appStatus, err
+		return helmAppStatus, err
 	}
 	//getting app status on basis of healthy/non-healthy as this api is used for deployment status
 	//in orchestrator and not for app status
-	appStatus = util.GetAppStatusOnBasisOfHealthyNonHealthy(healthStatusArray)
-	return appStatus, nil
+	helmAppStatus.ApplicationStatus = *util.GetAppStatusOnBasisOfHealthyNonHealthy(healthStatusArray)
+	return helmAppStatus, nil
 }
 
 func (impl HelmAppServiceImpl) GetHelmAppValues(req *client.AppDetailRequest) (*client.ReleaseInfo, error) {
@@ -547,6 +717,7 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 		Success: true,
 	}
 	if request.ChartContent == nil {
+		// external helm app upgrade flow
 		releaseIdentifier := request.ReleaseIdentifier
 		helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 		if err != nil {
@@ -556,12 +727,6 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 		if err != nil {
 			impl.logger.Errorw(HELM_CLIENT_ERROR, "err", err)
 			return nil, err
-		}
-		if request.IsOCIRepo && request.RegistryCredential != nil && request.RegistryCredential.IsPublic {
-			err = impl.OCIRegistryLogin(registryClient, request.RegistryCredential)
-			if err != nil {
-				return nil, err
-			}
 		}
 
 		helmRelease, err := impl.getHelmRelease(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName)
@@ -587,12 +752,23 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 
 		return upgradeReleaseResponse, nil
 	}
-	res, err := impl.UpgradeReleaseWithCustomChart(context.Background(), request)
-	if err != nil {
-		impl.logger.Errorw("Error in upgrade release ", "err", err)
-		return nil, err
+	// handling for running helm Upgrade operation with context in Devtron app; used in Async Install mode
+	switch request.RunInCtx {
+	case true:
+		res, err := impl.UpgradeReleaseWithCustomChart(ctx, request)
+		if err != nil {
+			impl.logger.Errorw("Error in upgrade release ", "err", err)
+			return nil, err
+		}
+		upgradeReleaseResponse.Success = res
+	case false:
+		res, err := impl.UpgradeReleaseWithCustomChart(ctx, request)
+		if err != nil {
+			impl.logger.Errorw("Error in upgrade release ", "err", err)
+			return nil, err
+		}
+		upgradeReleaseResponse.Success = res
 	}
-	upgradeReleaseResponse.Success = res
 	return upgradeReleaseResponse, nil
 }
 
@@ -1156,17 +1332,11 @@ func (impl *HelmAppServiceImpl) getNodes(appDetailRequest *client.AppDetailReque
 }
 
 func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDetailRequest, release *release.Release) (*bean.ResourceTreeResponse, error) {
-	k8sClusterConfig := GetClusterConfigFromClientBean(appDetailRequest.ClusterConfig)
-	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
+	conf, err := impl.getRestConfigForClusterConfig(appDetailRequest.ClusterConfig)
 	if err != nil {
 		return nil, err
 	}
-	manifests, err := yamlUtil.SplitYAMLs([]byte(release.Manifest))
-	if err != nil {
-		return nil, err
-	}
-	// get live manifests from kubernetes
-	desiredOrLiveManifests, err := impl.getDesiredOrLiveManifests(conf, manifests, appDetailRequest.Namespace)
+	desiredOrLiveManifests, err := impl.getLiveManifests(conf, release)
 	if err != nil {
 		return nil, err
 	}
@@ -1488,8 +1658,28 @@ func buildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstruc
 }
 
 func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
+
+	deploymentPodHashMap := make(map[string]string)
+	deploymentMap := make(map[string]*v1beta1.Deployment)
+	rolloutMap := make(map[string]map[string]interface{})
 	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
 	for _, node := range nodes {
+		if node.Kind == k8sCommonBean.DeploymentKind {
+			deployment, err := util.ConvertToV1Deployment(node)
+			if err != nil {
+				return nil, err
+			}
+			deploymentMap[node.Name] = deployment
+			deploymentPodHash := util.ComputePodHash(&deployment.Spec.Template, deployment.Status.CollisionCount)
+			deploymentPodHashMap[node.Name] = deploymentPodHash
+		} else if node.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
+			rolloutIf := node.Manifest.UnstructuredContent()
+			rolloutMap[node.Name] = rolloutIf
+		}
+	}
+
+	for _, node := range nodes {
+
 		if node.Kind != k8sCommonBean.PodKind {
 			continue
 		}
@@ -1532,8 +1722,28 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 				replicaSetNode := getMatchingNode(nodes, parentKind, replicaSet.Name)
 
 				// if parent of replicaset is deployment, compare label pod-template-hash
-				if replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetNode.ParentRefs[0].Kind == k8sCommonBean.DeploymentKind {
-					isNew = replicaSet.GetLabels()["pod-template-hash"] == pod.GetLabels()["pod-template-hash"]
+				if replicaSetParent := replicaSetNode.ParentRefs[0]; replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetParent.Kind == k8sCommonBean.DeploymentKind {
+					deploymentPodHash := deploymentPodHashMap[replicaSetParent.Name]
+					deployment := deploymentMap[replicaSetParent.Name]
+					replicasetObj, err := util.ConvertToV1ReplicaSet(replicaSetNode)
+					if err != nil {
+						return nil, err
+					}
+					replicaSetPodHash := util.GetReplicaSetPodHash(replicasetObj, deployment)
+					isNew = replicaSetPodHash == deploymentPodHash
+				} else if replicaSetParent.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
+
+					rolloutIf := rolloutMap[replicaSetParent.Name]
+					replicasetObj, err := util.ConvertToV1ReplicaSet(replicaSetNode)
+					if err != nil {
+						return nil, err
+					}
+
+					rolloutPodHash := util.GetRolloutPodHash(rolloutIf)
+					replicasetPodHash := util.GetRolloutPodTemplateHash(replicasetObj)
+
+					isNew = rolloutPodHash == replicasetPodHash
+
 				}
 			}
 
@@ -1586,7 +1796,7 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 			if _, ok := ephemeralContainerStatusMap[ec.Name]; ok {
 				containerData := &bean.EphemeralContainerData{
 					Name:       ec.Name,
-					IsExternal: isExternalEphemeralContainer(ec.Command, ec.Name),
+					IsExternal: k8sObjectUtils.IsExternalEphemeralContainer(ec.Command, ec.Name),
 				}
 				ephemeralContainers = append(ephemeralContainers, containerData)
 			}
@@ -1605,18 +1815,6 @@ func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
 
 	}
 	return podsMetadata, nil
-}
-
-func isExternalEphemeralContainer(cmds []string, name string) bool {
-	isExternal := true
-	matchingCmd := fmt.Sprintf("sh %s-devtron.sh", name)
-	for _, cmd := range cmds {
-		if strings.Contains(cmd, matchingCmd) {
-			isExternal = false
-			break
-		}
-	}
-	return isExternal
 }
 
 func getMatchingNode(nodes []*bean.ResourceNode, kind string, name string) *bean.ResourceNode {
@@ -1659,7 +1857,7 @@ func (impl HelmAppServiceImpl) getHelmClient(clusterConfig *client.ClusterConfig
 	return helmClientObj, nil
 }
 
-func (impl HelmAppServiceImpl) InstallReleaseWithCustomChart(request *client.HelmInstallCustomRequest) (bool, error) {
+func (impl HelmAppServiceImpl) InstallReleaseWithCustomChart(ctx context.Context, request *client.HelmInstallCustomRequest) (bool, error) {
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	if err != nil {
@@ -1696,7 +1894,7 @@ func (impl HelmAppServiceImpl) InstallReleaseWithCustomChart(request *client.Hel
 		return false, err
 	}
 	impl.logger.Debugw("tar file write at", "referenceChartDir", referenceChartDir)
-	// Update release starts
+	// Install release starts
 	chartSpec := &helmClient.ChartSpec{
 		ReleaseName: releaseIdentifier.ReleaseName,
 		Namespace:   releaseIdentifier.ReleaseNamespace,
@@ -1704,13 +1902,13 @@ func (impl HelmAppServiceImpl) InstallReleaseWithCustomChart(request *client.Hel
 		ChartName:   referenceChartDir,
 	}
 
-	//	impl.logger.Debug("Upgrading release with chart info")
-	_, err = helmClientObj.InstallChart(context.Background(), chartSpec)
+	impl.logger.Debug("Installing release with chart info")
+	_, err = helmClientObj.InstallChart(ctx, chartSpec)
 	if err != nil {
 		impl.logger.Errorw("Error in install chart", "err", err)
 		return false, err
 	}
-	// Update release ends
+	// Install release ends
 
 	return true, nil
 }
@@ -1722,6 +1920,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 		impl.logger.Errorw("error on helm install custom while writing chartContent", "err", err)
 		return false, err
 	}
+
 	var b bytes.Buffer
 	writer := gzip.NewWriter(&b)
 	_, err = writer.Write(request.ChartContent.Content)
@@ -1752,21 +1951,24 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 		return false, err
 	}
 	impl.logger.Debugw("tar file write at", "referenceChartDir", referenceChartDir)
-	// Update release starts
-	updateChartSpec := &helmClient.ChartSpec{
+	// Install release spec
+	installChartSpec := &helmClient.ChartSpec{
 		ReleaseName: releaseIdentifier.ReleaseName,
 		Namespace:   releaseIdentifier.ReleaseNamespace,
 		ValuesYaml:  request.ValuesYaml,
 		ChartName:   referenceChartDir,
-		MaxHistory:  int(request.HistoryMax),
 	}
+	// Update release spec
+	updateChartSpec := installChartSpec
+	updateChartSpec.MaxHistory = int(request.HistoryMax)
 
 	impl.logger.Debug("Upgrading release")
-	_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), updateChartSpec)
+	_, err = helmClientObj.UpgradeReleaseWithChartInfo(ctx, updateChartSpec)
+	impl.logger.Debugw("response form UpgradeReleaseWithChartInfo", "err", err)
 	if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
 		if UpgradeErr != nil {
 			if UpgradeErr.Err == driver.ErrNoDeployedReleases {
-				_, err := helmClientObj.InstallChart(context.Background(), updateChartSpec)
+				_, err := helmClientObj.InstallChart(ctx, installChartSpec)
 				if err != nil {
 					impl.logger.Errorw("Error in install release ", "err", err)
 					return false, err
@@ -1778,6 +1980,11 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 
 			}
 		}
+	} else if err != nil {
+
+		impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
+		return false, err
+
 	}
 	return true, nil
 }

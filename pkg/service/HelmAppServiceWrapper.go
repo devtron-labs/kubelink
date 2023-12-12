@@ -32,13 +32,25 @@ func NewApplicationServiceServerImpl(logger *zap.SugaredLogger, chartRepositoryL
 }
 
 func (impl *ApplicationServiceServerImpl) InstallReleaseWithCustomChart(ctx context.Context, req *client.HelmInstallCustomRequest) (*client.HelmInstallCustomResponse, error) {
+	res := &client.HelmInstallCustomResponse{}
 	impl.Logger.Infow("helm install request", "releaseIdentifier", req.ReleaseIdentifier, "values", req.ValuesYaml)
-	flag, err := impl.HelmAppService.InstallReleaseWithCustomChart(req)
-	if err != nil {
-		impl.Logger.Errorw("Error in HelmInstallCustom  request", "err", err)
-		return nil, err
+	// handling for running helm Install operation with context in Devtron app
+	switch req.RunInCtx {
+	case true:
+		flag, err := impl.HelmAppService.InstallReleaseWithCustomChart(ctx, req)
+		if err != nil {
+			impl.Logger.Errorw("Error in HelmInstallCustom  request", "err", err)
+			return nil, err
+		}
+		res.Success = flag
+	case false:
+		flag, err := impl.HelmAppService.InstallReleaseWithCustomChart(context.Background(), req)
+		if err != nil {
+			impl.Logger.Errorw("Error in HelmInstallCustom  request", "err", err)
+			return nil, err
+		}
+		res.Success = flag
 	}
-	res := &client.HelmInstallCustomResponse{Success: flag}
 	return res, nil
 }
 
@@ -101,10 +113,7 @@ func (impl *ApplicationServiceServerImpl) GetAppStatus(ctx context.Context, req 
 			"namespace", req.Namespace, "err", err)
 		return nil, err
 	}
-	appStatus := &client.AppStatus{
-		ApplicationStatus: *helmAppStatus,
-	}
-	return appStatus, nil
+	return helmAppStatus, nil
 }
 
 func (impl *ApplicationServiceServerImpl) Hibernate(ctx context.Context, in *client.HibernateRequest) (*client.HibernateResponse, error) {
@@ -465,12 +474,24 @@ func (impl *ApplicationServiceServerImpl) GetNotes(ctx context.Context, installR
 }
 
 func (impl *ApplicationServiceServerImpl) UpgradeReleaseWithCustomChart(ctx context.Context, request *client.UpgradeReleaseRequest) (*client.UpgradeReleaseResponse, error) {
-	response, err := impl.HelmAppService.UpgradeReleaseWithCustomChart(ctx, request)
-	if err != nil {
-		impl.Logger.Errorw("Error in fetching Notes ", "err", err)
-		return nil, err
+	resp := &client.UpgradeReleaseResponse{}
+	// handling for running helm Upgrade operation with context in Devtron app
+	switch request.RunInCtx {
+	case true:
+		response, err := impl.HelmAppService.UpgradeReleaseWithCustomChart(ctx, request)
+		if err != nil {
+			impl.Logger.Errorw("Error in upgrade release with custom chart", "err", err)
+			return nil, err
+		}
+		resp.Success = response
+	case false:
+		response, err := impl.HelmAppService.UpgradeReleaseWithCustomChart(context.Background(), request)
+		if err != nil {
+			impl.Logger.Errorw("Error in upgrade release with custom chart", "err", err)
+			return nil, err
+		}
+		resp.Success = response
 	}
-	resp := &client.UpgradeReleaseResponse{Success: response}
 	return resp, nil
 }
 

@@ -25,11 +25,13 @@ import (
 	"github.com/devtron-labs/kubelink/api/router"
 	"github.com/devtron-labs/kubelink/internal/lock"
 	"github.com/devtron-labs/kubelink/internal/logger"
+	"github.com/devtron-labs/kubelink/pkg/cache"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 	"github.com/devtron-labs/kubelink/pprof"
+	"github.com/devtron-labs/kubelink/statsViz"
 	"github.com/google/wire"
 )
 
@@ -47,6 +49,9 @@ func InitializeApp() (*App, error) {
 		wire.Bind(new(service.HelmAppService), new(*service.HelmAppServiceImpl)),
 		service.NewApplicationServiceServerImpl,
 		router.NewRouter,
+		statsViz.NewStatsVizRouter,
+		wire.Bind(new(statsViz.StatsVizRouter), new(*statsViz.StatsVizRouterImpl)),
+		statsViz.GetStatsVizConfig,
 		pprof.NewPProfRestHandler,
 		wire.Bind(new(pprof.PProfRestHandler), new(*pprof.PProfRestHandlerImpl)),
 		pprof.NewPProfRouter,
@@ -58,6 +63,9 @@ func InitializeApp() (*App, error) {
 		service.GetHelmReleaseConfig,
 		k8sInformer.GetHelmReleaseConfig,
 		//pubsub_lib.NewPubSubClientServiceImpl,
+		cache.NewClusterCacheImpl,
+		wire.Bind(new(cache.ClusterCache), new(*cache.ClusterCacheImpl)),
+		cache.GetClusterCacheConfig,
 	)
 	return &App{}, nil
 }
