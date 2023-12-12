@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	client2 "github.com/devtron-labs/authenticator/client"
 	"github.com/devtron-labs/common-lib/utils"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
@@ -36,7 +37,7 @@ var installReleaseReq = &client.InstallReleaseRequest{
 	},
 	ChartName:    "community-operator",
 	ChartVersion: "0.8.3",
-	ValuesYaml:   "## Reference to one or more secrets to be used when pulling images\n## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/\nimagePullSecrets: []\n# - name: \"image-pull-secret\"\n## Operator\noperator:\n  # Name that will be assigned to most of internal Kubernetes objects like\n  # Deployment, ServiceAccount, Role etc.\n  name: mongodb-kubernetes-operator\n\n  # Name of the operator image\n  operatorImageName: mongodb-kubernetes-operator\n\n  # Name of the deployment of the operator pod\n  deploymentName: mongodb-kubernetes-operator\n\n  # Version of mongodb-kubernetes-operator\n  version: 0.8.3\n\n  # Uncomment this line to watch all namespaces\n  # watchNamespace: \"*\"\n\n  # Resources allocated to Operator Pod\n  resources:\n    limits:\n      cpu: 1100m\n      memory: 1Gi\n    requests:\n      cpu: 500m\n      memory: 200Mi\n\n  # replicas deployed for the operator pod. Running 1 is optimal and suggested.\n  replicas: 1\n\n  # Additional environment variables\n  extraEnvs: []\n  # environment:\n  # - name: CLUSTER_DOMAIN\n  #   value: my-cluster.domain\n\n  podSecurityContext:\n    runAsNonRoot: true\n    runAsUser: 2000\n\n  securityContext: {}\n\n## Operator's database\ndatabase:\n  name: mongodb-database\n  # set this to the namespace where you would like\n  # to deploy the MongoDB database,\n  # Note if the database namespace is not same\n  # as the operator namespace,\n  # make sure to set \"watchNamespace\" to \"*\"\n  # to ensure that the operator has the\n  # permission to reconcile resources in other namespaces\n  # namespace: mongodb-database\n\nagent:\n  name: mongodb-agent\n  version: 12.0.25.7724-1\nversionUpgradeHook:\n  name: mongodb-kubernetes-operator-version-upgrade-post-start-hook\n  version: 1.0.8\nreadinessProbe:\n  name: mongodb-kubernetes-readinessprobe\n  version: 1.0.17\nmongodb:\n  name: mongo\n  repo: docker.io\n\nregistry:\n  agent: quay.io/mongodb\n  versionUpgradeHook: quay.io/mongodb\n  readinessProbe: quay.io/mongodb\n  operator: quay.io/mongodb\n  pullPolicy: Always\n\n# Set to false if CRDs have been installed already. The CRDs can be installed\n# manually from the code repo: github.com/mongodb/mongodb-kubernetes-operator or\n# using the `community-operator-crds` Helm chart.\ncommunity-operator-crds:\n  enabled: true\n\n# Deploys MongoDB with `resource` attributes.\ncreateResource: false\nresource:\n  name: mongodb-replica-set\n  version: 4.4.0\n  members: 3\n  tls:\n    enabled: false\n\n    # Installs Cert-Manager in this cluster.\n    useX509: false\n    sampleX509User: false\n    useCertManager: true\n    certificateKeySecretRef: tls-certificate\n    caCertificateSecretRef: tls-ca-key-pair\n    certManager:\n      certDuration: 8760h   # 365 days\n      renewCertBefore: 720h   # 30 days\n\n  users: []\n  # if using the MongoDBCommunity Resource, list any users to be added to the resource\n  # users:\n  # - name: my-user\n  #   db: admin\n  #   passwordSecretRef: # a reference to the secret that will be used to generate the user's password\n  #     name: <secretName>\n  #   roles:\n  #     - name: clusterAdmin\n  #       db: admin\n  #     - name: userAdminAnyDatabase\n  #       db: admin\n  #     - name: readWriteAnyDatabase\n  #       db: admin\n  #     - name: dbAdminAnyDatabase\n  #       db: admin\n  #   scramCredentialsSecretName: my-scram\n",
+	ValuesYaml:   installReleaseReqYamlValue,
 	ChartRepository: &client.ChartRepository{
 		Name:     "mongodb",
 		Url:      "https://mongodb.github.io/helm-charts",
@@ -45,30 +46,30 @@ var installReleaseReq = &client.InstallReleaseRequest{
 	},
 }
 
-var installReleaseReqDeployment = &client.HelmInstallCustomRequest{
-	ReleaseIdentifier: &client.ReleaseIdentifier{
-		ClusterConfig:    clusterConfig,
-		ReleaseName:      "cache-test-01-default-cluster--devtroncd",
-		ReleaseNamespace: "devtroncd",
-	},
-	ValuesYaml:   "",
-	ChartContent: &client.ChartContent{
-		//Content: [],
-	},
-	RunInCtx: true,
-}
-
 var installReleaseReqJobAndCronJob = &client.HelmInstallCustomRequest{
 	ReleaseIdentifier: &client.ReleaseIdentifier{
 		ClusterConfig:    clusterConfig,
-		ReleaseName:      "cache-test-01-default-cluster--devtroncd",
+		ReleaseName:      "cache-test-cronjob-devtron-demo",
 		ReleaseNamespace: "devtroncd",
 	},
-	ValuesYaml:   "",
+	ValuesYaml: cronJobYamlValue,
 	ChartContent: &client.ChartContent{
-		//Content: [],
+		Content: cronJobRefChart,
 	},
-	RunInCtx: true,
+	RunInCtx: false,
+}
+
+var installReleaseReqDeployment = &client.HelmInstallCustomRequest{
+	ReleaseIdentifier: &client.ReleaseIdentifier{
+		ClusterConfig:    clusterConfig,
+		ReleaseName:      "testing-deployment-devtron-demo",
+		ReleaseNamespace: "devtron-demo",
+	},
+	ValuesYaml: deploymentYamlvalue,
+	ChartContent: &client.ChartContent{
+		Content: deploymentRefChart,
+	},
+	RunInCtx: false,
 }
 
 var installReleaseReqRollout = &client.HelmInstallCustomRequest{
@@ -77,11 +78,24 @@ var installReleaseReqRollout = &client.HelmInstallCustomRequest{
 		ReleaseName:      "cache-test-01-default-cluster--devtroncd",
 		ReleaseNamespace: "devtroncd",
 	},
-	ValuesYaml:   "",
+	ValuesYaml: rollOutYamlValue,
 	ChartContent: &client.ChartContent{
-		//Content: [],
+		Content: rolloutDeploymentCharContent,
 	},
 	RunInCtx: true,
+}
+
+var installReleaseReqStatefullset = &client.HelmInstallCustomRequest{
+	ReleaseIdentifier: &client.ReleaseIdentifier{
+		ClusterConfig:    clusterConfig,
+		ReleaseName:      "cache-test-stateful-devtron-demo",
+		ReleaseNamespace: "",
+	},
+	ValuesYaml: statefullSetYamlValue,
+	ChartContent: &client.ChartContent{
+		Content: statefullsetsChartContent,
+	},
+	RunInCtx: false,
 }
 
 func TestHelmAppService_BuildAppDetail(t *testing.T) {
@@ -94,7 +108,9 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		Namespace:     installReleaseReq.ReleaseIdentifier.ReleaseNamespace,
 		ReleaseName:   installReleaseReq.ReleaseIdentifier.ReleaseName,
 	}
+
 	appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
+	fmt.Println("App Details ", appDetail)
 	assert.Nil(t, err)
 	model, err := clusterRepository.FindById(int(installReleaseReq.ReleaseIdentifier.ClusterConfig.ClusterId))
 	assert.Nil(t, err)
@@ -102,23 +118,54 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	clusterCacheImpl.SyncClusterCache(clusterInfo)
 	clusterCacheAppDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
 	assert.Nil(t, err)
-
+	fmt.Println("Cluster cache App Details ", clusterCacheAppDetail)
 	// Deployment kind test cases
-	t.Run("Test1 FetchBuildAppDetail without cluster cache", func(t *testing.T) {
-		if appDetail.ReleaseStatus != nil && clusterCacheAppDetail.ReleaseStatus != nil {
-			if appDetail.ReleaseStatus.Status != clusterCacheAppDetail.ReleaseStatus.Status {
-
-			}
-		}
-	})
 	t.Run("Test for Deployment Type ", func(t *testing.T) {
-
+		appDetailReq := &client.AppDetailRequest{
+			ClusterConfig: installReleaseReqDeployment.ReleaseIdentifier.ClusterConfig,
+			Namespace:     installReleaseReqDeployment.ReleaseIdentifier.ReleaseNamespace,
+			ReleaseName:   installReleaseReqDeployment.ReleaseIdentifier.ReleaseName,
+		}
+		appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
+		assert.Nil(t, err)
+		fmt.Println("App details for Deployment ", appDetail)
 	})
+
 	// RollOut kind test cases
+	t.Run("Test for RollOut type", func(t *testing.T) {
+		appDetailReq := &client.AppDetailRequest{
+			ClusterConfig: installReleaseReqRollout.ReleaseIdentifier.ClusterConfig,
+			Namespace:     installReleaseReqRollout.ReleaseIdentifier.ReleaseNamespace,
+			ReleaseName:   installReleaseReqRollout.ReleaseIdentifier.ReleaseName,
+		}
+		appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
+		assert.Nil(t, err)
+		fmt.Println("App details for Deployment ", appDetail)
+	})
 
 	// Sts kind test cases
+	t.Run("Test for RollOut type", func(t *testing.T) {
+		appDetailReq := &client.AppDetailRequest{
+			ClusterConfig: installReleaseReqStatefullset.ReleaseIdentifier.ClusterConfig,
+			Namespace:     installReleaseReqStatefullset.ReleaseIdentifier.ReleaseNamespace,
+			ReleaseName:   installReleaseReqStatefullset.ReleaseIdentifier.ReleaseName,
+		}
+		appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
+		assert.Nil(t, err)
+		fmt.Println("App details for Deployment ", appDetail)
+	})
 
 	// Job-Cronjob kind test cases
+	t.Run("Test for RollOut type", func(t *testing.T) {
+		appDetailReq := &client.AppDetailRequest{
+			ClusterConfig: installReleaseReqJobAndCronJob.ReleaseIdentifier.ClusterConfig,
+			Namespace:     installReleaseReqJobAndCronJob.ReleaseIdentifier.ReleaseNamespace,
+			ReleaseName:   installReleaseReqJobAndCronJob.ReleaseIdentifier.ReleaseName,
+		}
+		appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
+		assert.Nil(t, err)
+		fmt.Println("App details for Deployment ", appDetail)
+	})
 
 	// Common test cases for all kind
 
@@ -158,13 +205,18 @@ func setupSuite(t *testing.T) func(t *testing.T) {
 	clusterCacheImpl := cache.NewClusterCacheImpl(logger, clusterCacheConfig, clusterRepository, k8sUtil, k8sInformer)
 
 	helmAppServiceImpl := NewHelmAppServiceImpl(logger, k8sServiceImpl, k8sInformer, helmReleaseConfig, k8sUtil, clusterRepository, clusterCacheImpl)
-	installedReleaseResp, err := helmAppServiceImpl.InstallRelease(context.Background(), installReleaseReq)
+	//installedReleaseResp, err := helmAppServiceImpl.InstallRelease(context.Background(), installReleaseReq)
+	//if err != nil {
+	//	logger.Errorw("chart not installed successfully")
+	//}
+	installedReleaseResp, err := helmAppServiceImpl.InstallReleaseWithCustomChart(context.Background(), installReleaseReqJobAndCronJob)
 	if err != nil {
 		logger.Errorw("chart not installed successfully")
 	}
-	if installedReleaseResp != nil && installedReleaseResp.Success == true {
-		logger.Infow("chart installed successfully")
-	}
+	fmt.Println(installedReleaseResp)
+	//if installedReleaseResp != nil && installedReleaseResp.Success == true {
+	//	logger.Infow("chart installed successfully")
+	//}
 	// Return a function to teardown the test
 	return func(t *testing.T) {
 		releaseIdentfier := &client.ReleaseIdentifier{
