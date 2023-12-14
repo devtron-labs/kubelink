@@ -6,6 +6,7 @@ import (
 	client2 "github.com/devtron-labs/authenticator/client"
 	"github.com/devtron-labs/common-lib/utils"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
+	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/pkg/cache"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
@@ -15,12 +16,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"os"
+	"reflect"
 	"testing"
 )
 
 var clusterConfig = &client.ClusterConfig{
-	ApiServerUrl:          "https://4.246.166.113:16443",
-	Token:                 "d2JMZUwzOHZZOUlaMzdRb2tqT2liK3RNSVVManYyTXpvU0YvRXZoRHRGRT0K",
+	ApiServerUrl:          "https://shared-aks-shared-rg-d1e22f-9a9cb33h.hcp.eastus.azmk8s.io:443",
+	Token:                 "eyJhbGciOiJSUzI1NiIsImtpZCI6ImREdU1manJQa1pQeGY3Rk9UQl8tZGNsQkFlLWR4c0JoRUcxc1pnaTgyZEEifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZXZ0cm9uY2QiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlY3JldC5uYW1lIjoiY2QtdXNlciIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJjZC11c2VyIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQudWlkIjoiYTRmZGExNDYtNjI2MC00N2ZiLWI5MzgtNGU3ZDRmYTgxYjY2Iiwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OmRldnRyb25jZDpjZC11c2VyIn0.TejaX9a8L_4-nerPmaBuItQq9QGYEdO8w4iYIWZifiaRPpwlkNyfRI1yvUwAAbcNETKRVPN9dQsSOG6uxknlE_6thQaPSHIJDzQaRBT0tCYWHzEakUy_4KDngpF6kFex_JtxnmCZzFiOHU2KnOCLzEbkRevB3VI1HB0e-XSJqq89BDkC_Wnci1e10-Y_IJCe7YOcLDvI0g8Q0LWwo7jNnhsstLfqghGIapOdzgLKhw3A7ZRT9pCYCiVErn-CMw2kpg93y8w2m5KAwv-QPBB1SpmOorEc2m2Zst182ZRB4DUflUR7y0cKBLcdeQn_Aj_NzGL9NQ_okZFiRbDfI-jh8aqV0qMHRlTRAHkK7JEFcpqPYMYajQqqA8XSTPZ6NKaRxjSDPG9FXiKeHTOLhT5a3N4wHp14hb-oNLxfJE5bGN4nC2Xl0vocT9lNQ54_137Tl9gmOF035fvbQwe-TA0hmIxCpwLMoJSMv9PeIZb-2uyvJcp1fMRBdr_PARU5b4Sjf5ceegeQ3jMaNgI9MKSNvsksl0NGU_5JPv-wgFWHacw9I7i1K_3ng5Gm7dYYVogYT9C25De5c8DsF6i9YmfRoUZrdCn44mWAS4mLJ7Zn28fv1ezaIz0w1S2N5_2JuEmUayu0-iiJNVCTYnnACF1HgwyQoBQaOtmQqj5H1wXlXm0",
 	ClusterId:             1,
 	ClusterName:           "default_cluster",
 	InsecureSkipTLSVerify: true,
@@ -63,7 +65,7 @@ var installReleaseReqDeployment = &client.HelmInstallCustomRequest{
 	ReleaseIdentifier: &client.ReleaseIdentifier{
 		ClusterConfig:    clusterConfig,
 		ReleaseName:      "testing-deployment-devtron-demo",
-		ReleaseNamespace: "devtron-demo",
+		ReleaseNamespace: "devtroncd",
 	},
 	ValuesYaml: deploymentYamlvalue,
 	ChartContent: &client.ChartContent{
@@ -89,7 +91,7 @@ var installReleaseReqStatefullset = &client.HelmInstallCustomRequest{
 	ReleaseIdentifier: &client.ReleaseIdentifier{
 		ClusterConfig:    clusterConfig,
 		ReleaseName:      "cache-test-stateful-devtron-demo",
-		ReleaseNamespace: "",
+		ReleaseNamespace: "devtron-demo",
 	},
 	ValuesYaml: statefullSetYamlValue,
 	ChartContent: &client.ChartContent{
@@ -97,6 +99,10 @@ var installReleaseReqStatefullset = &client.HelmInstallCustomRequest{
 	},
 	RunInCtx: false,
 }
+
+var devtronPayloadArray = [4]*client.HelmInstallCustomRequest{installReleaseReqRollout, installReleaseReqStatefullset, installReleaseReqDeployment, installReleaseReqJobAndCronJob}
+
+var helmPayloadArray = [1]*client.InstallReleaseRequest{installReleaseReq}
 
 func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	logger, k8sInformer, helmReleaseConfig, k8sUtil, clusterRepository, k8sServiceImpl := getHelmAppServiceDependencies(t)
@@ -108,8 +114,41 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		Namespace:     installReleaseReq.ReleaseIdentifier.ReleaseNamespace,
 		ReleaseName:   installReleaseReq.ReleaseIdentifier.ReleaseName,
 	}
+	var resourceTreeMap = map[string]*bean.AppDetail{}
+	var cacheResourceTreeMap = map[string]*bean.AppDetail{}
+	for _, payload := range devtronPayloadArray {
+		appDetailReqDev := &client.AppDetailRequest{
+			ClusterConfig: payload.ReleaseIdentifier.ClusterConfig,
+			Namespace:     payload.ReleaseIdentifier.ReleaseNamespace,
+			ReleaseName:   payload.ReleaseIdentifier.ReleaseName,
+		}
+		appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReqDev)
+		if err != nil {
+			logger.Errorw("App Details not build successfully", err)
+		}
+
+		//store appDetail in the map for corres. key eg "deployment":appDetail for deployment kind
+		if payload == installReleaseReqJobAndCronJob {
+			resourceTreeMap["JobAndCronJob"] = appDetail
+		} else if payload == installReleaseReqStatefullset {
+			resourceTreeMap["StatefulSets"] = appDetail
+		} else if payload == installReleaseReqDeployment {
+			resourceTreeMap["RollOut"] = appDetail
+		} else {
+			resourceTreeMap["Deployment"] = appDetail
+		}
+
+		// deploy, rollout, sts, cron
+
+	}
+
+	helmAppDetailMongo, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
+	cacheResourceTreeMap["cacheResource"] = helmAppDetailMongo
 
 	appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
+	if err != nil {
+		logger.Errorw("App details not fetched successfully", err)
+	}
 	fmt.Println("App Details ", appDetail)
 	assert.Nil(t, err)
 	model, err := clusterRepository.FindById(int(installReleaseReq.ReleaseIdentifier.ClusterConfig.ClusterId))
@@ -119,29 +158,8 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	clusterCacheAppDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
 	assert.Nil(t, err)
 	fmt.Println("Cluster cache App Details ", clusterCacheAppDetail)
+	resourceTreeSize := len(clusterCacheAppDetail.ResourceTreeResponse.Nodes)
 	// Deployment kind test cases
-	t.Run("Test for Deployment Type ", func(t *testing.T) {
-		appDetailReq := &client.AppDetailRequest{
-			ClusterConfig: installReleaseReqDeployment.ReleaseIdentifier.ClusterConfig,
-			Namespace:     installReleaseReqDeployment.ReleaseIdentifier.ReleaseNamespace,
-			ReleaseName:   installReleaseReqDeployment.ReleaseIdentifier.ReleaseName,
-		}
-		appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
-		assert.Nil(t, err)
-		fmt.Println("App details for Deployment ", appDetail)
-	})
-
-	// RollOut kind test cases
-	t.Run("Test for RollOut type", func(t *testing.T) {
-		appDetailReq := &client.AppDetailRequest{
-			ClusterConfig: installReleaseReqRollout.ReleaseIdentifier.ClusterConfig,
-			Namespace:     installReleaseReqRollout.ReleaseIdentifier.ReleaseNamespace,
-			ReleaseName:   installReleaseReqRollout.ReleaseIdentifier.ReleaseName,
-		}
-		appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
-		assert.Nil(t, err)
-		fmt.Println("App details for Deployment ", appDetail)
-	})
 
 	// Sts kind test cases
 	t.Run("Test for RollOut type", func(t *testing.T) {
@@ -153,6 +171,10 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
 		assert.Nil(t, err)
 		fmt.Println("App details for Deployment ", appDetail)
+		RollOutResourceVals := resourceTreeMap["RollOut"].ResourceTreeResponse.Nodes
+		CacheResourceVals := cacheResourceTreeMap["cacheResource"].ResourceTreeResponse.Nodes
+		fmt.Println("RollOut Resource Value ", RollOutResourceVals)
+		fmt.Println("Cache Resource Value", CacheResourceVals)
 	})
 
 	// Job-Cronjob kind test cases
@@ -167,7 +189,116 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		fmt.Println("App details for Deployment ", appDetail)
 	})
 
-	// Common test cases for all kind
+	// Health Status for Pod and other resources
+	t.Run("Status of pod and other resources", func(t *testing.T) {
+		for i := 0; i < resourceTreeSize; i++ {
+			healthStatus := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Health
+			cacheHealthStatus := clusterCacheAppDetail.ResourceTreeResponse.Nodes[i].Health
+			if healthStatus != cacheHealthStatus {
+				t.Errorf("Health status for pod and resources are not valid")
+			}
+		}
+	})
+
+	//Port number comparision for Service, Endpoints and Endpointslice
+	t.Run("Service, Endpoints and EndpointSlice with port numbers", func(t *testing.T) {
+		for i := 0; i < resourceTreeSize; i++ {
+			kindTypeDeployment := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
+			kindTypeCache := clusterCacheAppDetail.ResourceTreeResponse.Nodes[i].Kind
+			if (kindTypeDeployment == "Service" || kindTypeDeployment == "EndpointSlice" || kindTypeDeployment == "Endpoints") && kindTypeDeployment == kindTypeCache {
+				portDeployment := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Port
+				portCache := clusterCacheAppDetail.ResourceTreeResponse.Nodes[i].Port
+				if !reflect.DeepEqual(portDeployment, portCache) {
+					t.Errorf("Response body does not contain the respective ports")
+				}
+			}
+		}
+	})
+
+	// Validation for NetworkingInfo
+	t.Run("labels for NetworkingInfo", func(t *testing.T) {
+		for i := 0; i < resourceTreeSize; i++ {
+			deploymentNetworkingInfo := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].NetworkingInfo
+			cacheNetworkingInfo := clusterCacheAppDetail.ResourceTreeResponse.Nodes[i].NetworkingInfo
+			if !reflect.DeepEqual(deploymentNetworkingInfo, cacheNetworkingInfo) {
+				t.Errorf("Networking Info for deployment and cluster cache are different")
+			}
+		}
+	})
+
+	// Pod age
+	t.Run("Check age of pod after changes", func(t *testing.T) {
+		for i := 0; i < resourceTreeSize; i++ {
+			deploymentPodAge := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].CreatedAt
+			cachePodAge := clusterCacheAppDetail.ResourceTreeResponse.Nodes[i].CreatedAt
+			if deploymentPodAge != cachePodAge {
+				t.Errorf("Pod age are different")
+			}
+		}
+	})
+
+	//Age of Pod
+	t.Run("Check age of pod after changes", func(t *testing.T) {
+		for i := 0; i < resourceTreeSize; i++ {
+			deploymentHibernated := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].CanBeHibernated
+			cacheHibernated := clusterCacheAppDetail.ResourceTreeResponse.Nodes[i].CanBeHibernated
+			if deploymentHibernated != cacheHibernated {
+				t.Errorf("Not Hibernated")
+			}
+		}
+	})
+
+	//Pod Meta Data
+	t.Run("PodMeta data", func(t *testing.T) {
+		for i := 0; i < resourceTreeSize; i++ {
+			deploymentPodMetaData := resourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata
+			cachePodMetaData := clusterCacheAppDetail.ResourceTreeResponse.PodMetadata
+			if !reflect.DeepEqual(deploymentPodMetaData, cachePodMetaData) {
+				t.Errorf("Pod Meta data are different")
+			}
+		}
+	})
+
+	// Release status
+	t.Run("Release status", func(t *testing.T) {
+		for i := 0; i < resourceTreeSize; i++ {
+			deploymentReleaseStatus := resourceTreeMap["Deployment"].ReleaseStatus
+			cacheReleaseStatus := clusterCacheAppDetail.ReleaseStatus
+			if !reflect.DeepEqual(deploymentReleaseStatus, cacheReleaseStatus) {
+				t.Errorf("Release status is different for ")
+			}
+		}
+	})
+
+	//Application Status
+	t.Run("Application status", func(t *testing.T) {
+		for i := 0; i < resourceTreeSize; i++ {
+			deploymentAppStatus := resourceTreeMap["Deployment"].ApplicationStatus
+			cacheAppStatus := clusterCacheAppDetail.ApplicationStatus
+			if deploymentAppStatus != cacheAppStatus {
+				t.Errorf("Application status are not same as in cache")
+			}
+		}
+	})
+
+	// Count ReplicaSets
+	t.Run("ReplicaSet count", func(t *testing.T) {
+		deploymentReplicaCount := 0
+		cacheReplicaCount := 0
+		for i := 0; i < resourceTreeSize; i++ {
+			deploymentKind := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
+			cacheReplicaKind := clusterCacheAppDetail.ResourceTreeResponse.Nodes[i].Kind
+			if deploymentKind == "ReplicaSet" {
+				deploymentReplicaCount++
+			}
+			if cacheReplicaKind == "ReplicaSet" {
+				cacheReplicaCount++
+			}
+		}
+		if deploymentReplicaCount != cacheReplicaCount {
+			t.Errorf("Different Replica count")
+		}
+	})
 
 }
 
@@ -205,18 +336,25 @@ func setupSuite(t *testing.T) func(t *testing.T) {
 	clusterCacheImpl := cache.NewClusterCacheImpl(logger, clusterCacheConfig, clusterRepository, k8sUtil, k8sInformer)
 
 	helmAppServiceImpl := NewHelmAppServiceImpl(logger, k8sServiceImpl, k8sInformer, helmReleaseConfig, k8sUtil, clusterRepository, clusterCacheImpl)
-	//installedReleaseResp, err := helmAppServiceImpl.InstallRelease(context.Background(), installReleaseReq)
-	//if err != nil {
-	//	logger.Errorw("chart not installed successfully")
-	//}
-	installedReleaseResp, err := helmAppServiceImpl.InstallReleaseWithCustomChart(context.Background(), installReleaseReqJobAndCronJob)
-	if err != nil {
-		logger.Errorw("chart not installed successfully")
+
+	// App creation with different payload for helm app chart
+	for _, payload := range helmPayloadArray {
+		installReleaseReq, err := helmAppServiceImpl.InstallRelease(context.Background(), payload)
+		if err != nil {
+			logger.Errorw("Char not installed successfully", err)
+		}
+		fmt.Println(installReleaseReq)
 	}
-	fmt.Println(installedReleaseResp)
-	//if installedReleaseResp != nil && installedReleaseResp.Success == true {
-	//	logger.Infow("chart installed successfully")
-	//}
+
+	// App Creation with different payload for devtron apps
+	for _, payload := range devtronPayloadArray {
+		installReleaseReq, err := helmAppServiceImpl.InstallReleaseWithCustomChart(context.Background(), payload)
+		if err != nil {
+			logger.Errorw("Chart not installed successfully", err)
+		}
+		fmt.Println(installReleaseReq)
+	}
+
 	// Return a function to teardown the test
 	return func(t *testing.T) {
 		releaseIdentfier := &client.ReleaseIdentifier{

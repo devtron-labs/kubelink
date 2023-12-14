@@ -28,8 +28,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
-	"sync"
-
 	"github.com/caarlos0/env"
 	"github.com/devtron-labs/common-lib/pubsub-lib"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
@@ -1373,25 +1371,26 @@ func (impl HelmAppServiceImpl) getDesiredOrLiveManifests(restConfig *rest.Config
 
 	totalManifestCount := len(desiredManifests)
 	desiredOrLiveManifestArray := make([]*bean.DesiredOrLiveManifest, totalManifestCount)
-	batchSize := impl.helmReleaseConfig.ManifestFetchBatchSize
+	//batchSize := impl.helmReleaseConfig.ManifestFetchBatchSize
 
 	for i := 0; i < totalManifestCount; {
 		//requests left to process
-		remainingBatch := totalManifestCount - i
-		if remainingBatch < batchSize {
-			batchSize = remainingBatch
-		}
-		var wg sync.WaitGroup
-		for j := 0; j < batchSize; j++ {
-			wg.Add(1)
-			go func(j int) {
-				defer wg.Done()
-				desiredOrLiveManifest := impl.getManifestData(restConfig, releaseNamespace, desiredManifests[i+j])
-				desiredOrLiveManifestArray[i+j] = desiredOrLiveManifest
-			}(j)
-		}
-		wg.Wait()
-		i += batchSize
+		//remainingBatch := totalManifestCount - i
+		//if remainingBatch < batchSize {
+		//	batchSize = remainingBatch
+		//}
+		//var wg sync.WaitGroup
+		//for j := 0; j < batchSize; j++ {
+		//	wg.Add(1)
+		//	go func(j int) {
+		//		defer wg.Done()
+		desiredOrLiveManifest := impl.getManifestData(restConfig, releaseNamespace, desiredManifests[i])
+		desiredOrLiveManifestArray[i] = desiredOrLiveManifest
+		//	}(j)
+		//}
+		//wg.Wait()
+		//i += batchSize
+		i += 1
 	}
 
 	return desiredOrLiveManifestArray, nil
