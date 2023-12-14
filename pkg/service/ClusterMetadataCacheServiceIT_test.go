@@ -22,7 +22,7 @@ import (
 
 var clusterConfig = &client.ClusterConfig{
 	ApiServerUrl:          "https://shared-aks-shared-rg-d1e22f-9a9cb33h.hcp.eastus.azmk8s.io:443",
-	Token:                 "eyJhbGciOiJSUzI1NiIsImtpZCI6ImREdU1manJQa1pQeGY3Rk9UQl8tZGNsQkFlLWR4c0JoRUcxc1pnaTgyZEEifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZXZ0cm9uY2QiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlY3JldC5uYW1lIjoiY2QtdXNlciIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJjZC11c2VyIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQudWlkIjoiYTRmZGExNDYtNjI2MC00N2ZiLWI5MzgtNGU3ZDRmYTgxYjY2Iiwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OmRldnRyb25jZDpjZC11c2VyIn0.TejaX9a8L_4-nerPmaBuItQq9QGYEdO8w4iYIWZifiaRPpwlkNyfRI1yvUwAAbcNETKRVPN9dQsSOG6uxknlE_6thQaPSHIJDzQaRBT0tCYWHzEakUy_4KDngpF6kFex_JtxnmCZzFiOHU2KnOCLzEbkRevB3VI1HB0e-XSJqq89BDkC_Wnci1e10-Y_IJCe7YOcLDvI0g8Q0LWwo7jNnhsstLfqghGIapOdzgLKhw3A7ZRT9pCYCiVErn-CMw2kpg93y8w2m5KAwv-QPBB1SpmOorEc2m2Zst182ZRB4DUflUR7y0cKBLcdeQn_Aj_NzGL9NQ_okZFiRbDfI-jh8aqV0qMHRlTRAHkK7JEFcpqPYMYajQqqA8XSTPZ6NKaRxjSDPG9FXiKeHTOLhT5a3N4wHp14hb-oNLxfJE5bGN4nC2Xl0vocT9lNQ54_137Tl9gmOF035fvbQwe-TA0hmIxCpwLMoJSMv9PeIZb-2uyvJcp1fMRBdr_PARU5b4Sjf5ceegeQ3jMaNgI9MKSNvsksl0NGU_5JPv-wgFWHacw9I7i1K_3ng5Gm7dYYVogYT9C25De5c8DsF6i9YmfRoUZrdCn44mWAS4mLJ7Zn28fv1ezaIz0w1S2N5_2JuEmUayu0-iiJNVCTYnnACF1HgwyQoBQaOtmQqj5H1wXlXm0",
+	Token:                 "",
 	ClusterId:             1,
 	ClusterName:           "default_cluster",
 	InsecureSkipTLSVerify: true,
@@ -137,9 +137,6 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		} else {
 			resourceTreeMap["Deployment"] = appDetail
 		}
-
-		// deploy, rollout, sts, cron
-
 	}
 
 	helmAppDetailMongo, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
@@ -226,7 +223,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		}
 	})
 
-	// Pod age
+	// Pod age validation
 	t.Run("Check age of pod after changes", func(t *testing.T) {
 		for i := 0; i < resourceTreeSize; i++ {
 			deploymentPodAge := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].CreatedAt
@@ -237,13 +234,13 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		}
 	})
 
-	//Age of Pod
-	t.Run("Check age of pod after changes", func(t *testing.T) {
+	// CanBeHibernated
+	t.Run("Check hibernation ", func(t *testing.T) {
 		for i := 0; i < resourceTreeSize; i++ {
 			deploymentHibernated := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].CanBeHibernated
 			cacheHibernated := clusterCacheAppDetail.ResourceTreeResponse.Nodes[i].CanBeHibernated
 			if deploymentHibernated != cacheHibernated {
-				t.Errorf("Not Hibernated")
+				t.Errorf("")
 			}
 		}
 	})
