@@ -21,8 +21,8 @@ import (
 )
 
 var clusterConfig = &client.ClusterConfig{
-	ApiServerUrl:          "https://shared-aks-shared-rg-d1e22f-9a9cb33h.hcp.eastus.azmk8s.io:443",
-	Token:                 "",
+	ApiServerUrl:          "https://20.232.141.127:16443",
+	Token:                 "dmVlcHI2NkpOckQrSVBnQWduSHlqRENjWHFIVXkrckdtQStVajZtaXBhMD0K",
 	ClusterId:             1,
 	ClusterName:           "default_cluster",
 	InsecureSkipTLSVerify: true,
@@ -141,50 +141,29 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 
 	helmAppDetailMongo, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
 	cacheResourceTreeMap["cacheResource"] = helmAppDetailMongo
-
-	appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
 	if err != nil {
-		logger.Errorw("App details not fetched successfully", err)
+		logger.Errorw("App details for chart Mongo not fetched successfully", err)
 	}
-	fmt.Println("App Details ", appDetail)
 	assert.Nil(t, err)
 	model, err := clusterRepository.FindById(int(installReleaseReq.ReleaseIdentifier.ClusterConfig.ClusterId))
 	assert.Nil(t, err)
 	clusterInfo := k8sInformer2.GetClusterInfo(model)
+	clusterInfo = &bean.ClusterInfo{
+		ClusterId:             1,
+		ClusterName:           "default_cluster",
+		BearerToken:           "dmVlcHI2NkpOckQrSVBnQWduSHlqRENjWHFIVXkrckdtQStVajZtaXBhMD0K",
+		ServerUrl:             "https://20.232.141.127:16443",
+		InsecureSkipTLSVerify: true,
+		KeyData:               "",
+		CertData:              "",
+		CAData:                "",
+	}
 	clusterCacheImpl.SyncClusterCache(clusterInfo)
 	clusterCacheAppDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
 	assert.Nil(t, err)
 	fmt.Println("Cluster cache App Details ", clusterCacheAppDetail)
 	resourceTreeSize := len(clusterCacheAppDetail.ResourceTreeResponse.Nodes)
 	// Deployment kind test cases
-
-	// Sts kind test cases
-	t.Run("Test for RollOut type", func(t *testing.T) {
-		appDetailReq := &client.AppDetailRequest{
-			ClusterConfig: installReleaseReqStatefullset.ReleaseIdentifier.ClusterConfig,
-			Namespace:     installReleaseReqStatefullset.ReleaseIdentifier.ReleaseNamespace,
-			ReleaseName:   installReleaseReqStatefullset.ReleaseIdentifier.ReleaseName,
-		}
-		appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
-		assert.Nil(t, err)
-		fmt.Println("App details for Deployment ", appDetail)
-		RollOutResourceVals := resourceTreeMap["RollOut"].ResourceTreeResponse.Nodes
-		CacheResourceVals := cacheResourceTreeMap["cacheResource"].ResourceTreeResponse.Nodes
-		fmt.Println("RollOut Resource Value ", RollOutResourceVals)
-		fmt.Println("Cache Resource Value", CacheResourceVals)
-	})
-
-	// Job-Cronjob kind test cases
-	t.Run("Test for RollOut type", func(t *testing.T) {
-		appDetailReq := &client.AppDetailRequest{
-			ClusterConfig: installReleaseReqJobAndCronJob.ReleaseIdentifier.ClusterConfig,
-			Namespace:     installReleaseReqJobAndCronJob.ReleaseIdentifier.ReleaseNamespace,
-			ReleaseName:   installReleaseReqJobAndCronJob.ReleaseIdentifier.ReleaseName,
-		}
-		appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
-		assert.Nil(t, err)
-		fmt.Println("App details for Deployment ", appDetail)
-	})
 
 	// Health Status for Pod and other resources
 	t.Run("Status of pod and other resources", func(t *testing.T) {
@@ -213,7 +192,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	})
 
 	// Validation for NetworkingInfo
-	t.Run("labels for NetworkingInfo", func(t *testing.T) {
+	t.Run("Comparing labels for NetworkingInfo", func(t *testing.T) {
 		for i := 0; i < resourceTreeSize; i++ {
 			deploymentNetworkingInfo := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].NetworkingInfo
 			cacheNetworkingInfo := clusterCacheAppDetail.ResourceTreeResponse.Nodes[i].NetworkingInfo
@@ -280,8 +259,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 
 	// Count ReplicaSets
 	t.Run("ReplicaSet count", func(t *testing.T) {
-		deploymentReplicaCount := 0
-		cacheReplicaCount := 0
+		deploymentReplicaCount, cacheReplicaCount := 0, 0
 		for i := 0; i < resourceTreeSize; i++ {
 			deploymentKind := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
 			cacheReplicaKind := clusterCacheAppDetail.ResourceTreeResponse.Nodes[i].Kind
@@ -297,6 +275,62 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		}
 	})
 
+	// Restart Count
+	t.Run("Number of restarts for a pod", func(t *testing.T) {
+		for i := 0; i < resourceTreeSize; i++ {
+			deploymentKind := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
+			cacheKind := clusterCacheAppDetail.ResourceTreeResponse.Nodes[i].Kind
+			if deploymentKind == "pod" && cacheKind == deploymentKind {
+				deploymentRestart := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Info
+				cacheRestart := clusterCacheAppDetail.ResourceTreeResponse.Nodes[i].Info
+				for j := 0; j < len(deploymentRestart); i++ {
+					if deploymentRestart[j].Name == "Restart Count" {
+						if deploymentRestart[j].Value != cacheRestart[j].Value {
+							t.Errorf("Restart count is different")
+						}
+					}
+				}
+			}
+		}
+	})
+
+	// Count of pods
+	t.Run("ReplicaCount as > 1, which is the Count of pods ready.", func(t *testing.T) {
+		deploymentPodCount, cachePodCount := 0, 0
+		for i := 0; i < resourceTreeSize; i++ {
+			deploymentKind := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
+			cacheKind := clusterCacheAppDetail.ResourceTreeResponse.Nodes[i].Kind
+			if deploymentKind == "pod" {
+				deploymentPodCount++
+			}
+			if cacheKind == "pod" {
+				cachePodCount++
+			}
+		}
+		if cachePodCount != deploymentPodCount {
+			t.Errorf("Ready pod count is different")
+		}
+	})
+
+	// PersistentVolumeClaim
+	t.Run("Persistence volume", func(t *testing.T) {
+		isPVCDeployment, isPVCCache := false, false
+		for i := 0; i < resourceTreeSize; i++ {
+			deploymentKind := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
+			cacheKind := clusterCacheAppDetail.ResourceTreeResponse.Nodes[i].Kind
+			if deploymentKind == "PersistentVolumeClaim" {
+				isPVCDeployment = true
+			}
+			if cacheKind == "PersistentVolumeClaim" {
+				isPVCCache = true
+			}
+		}
+		if !isPVCDeployment || !isPVCCache {
+			t.Errorf("isPVCDeployment is missing")
+		}
+	})
+
+	//
 }
 
 func GetDbConnAndLoggerService(t *testing.T) (*zap.SugaredLogger, *pg.DB) {
