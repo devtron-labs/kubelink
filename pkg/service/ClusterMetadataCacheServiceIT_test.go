@@ -26,9 +26,6 @@ var clusterConfig = &client.ClusterConfig{
 	ClusterId:             1,
 	ClusterName:           "default_cluster",
 	InsecureSkipTLSVerify: true,
-	KeyData:               "",
-	CertData:              "",
-	CaData:                "",
 }
 
 var installReleaseReq = &client.InstallReleaseRequest{
@@ -106,8 +103,16 @@ var helmPayloadArray = [1]*client.InstallReleaseRequest{installReleaseReq}
 
 func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	logger, k8sInformer, helmReleaseConfig, k8sUtil, clusterRepository, k8sServiceImpl := getHelmAppServiceDependencies(t)
-	clusterCacheConfig := &cache.ClusterCacheConfig{}
-	clusterCacheImpl := cache.NewClusterCacheImpl(logger, clusterCacheConfig, clusterRepository, k8sUtil, k8sInformer)
+	clusterCacheConfig := &cache.ClusterCacheConfig{
+		ClusterIdList:                 nil,
+		ClusterCacheListSemaphoreSize: 20,
+		ClusterCacheListPageSize:      50,
+		ClusterSyncBatchSize:          3,
+	}
+	runTimeConfig := &client2.RuntimeConfig{LocalDevMode: true}
+	k8sUtilLocal := k8sUtils.NewK8sUtil(logger, runTimeConfig)
+
+	clusterCacheImpl := cache.NewClusterCacheImpl(logger, clusterCacheConfig, clusterRepository, k8sUtilLocal, k8sInformer)
 	helmAppServiceImpl := NewHelmAppServiceImpl(logger, k8sServiceImpl, k8sInformer, helmReleaseConfig, k8sUtil, clusterRepository, clusterCacheImpl)
 	appDetailReq := &client.AppDetailRequest{
 		ClusterConfig: installReleaseReq.ReleaseIdentifier.ClusterConfig,
@@ -148,20 +153,10 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	model, err := clusterRepository.FindById(int(installReleaseReq.ReleaseIdentifier.ClusterConfig.ClusterId))
 	assert.Nil(t, err)
 	clusterInfo := k8sInformer2.GetClusterInfo(model)
-	clusterInfo = &bean.ClusterInfo{
-		ClusterId:             1,
-		ClusterName:           "default_cluster",
-		BearerToken:           "dmVlcHI2NkpOckQrSVBnQWduSHlqRENjWHFIVXkrckdtQStVajZtaXBhMD0K",
-		ServerUrl:             "https://20.232.141.127:16443",
-		InsecureSkipTLSVerify: true,
-		KeyData:               "",
-		CertData:              "",
-		CAData:                "",
-	}
+
 	clusterCacheImpl.SyncClusterCache(clusterInfo)
 	clusterCacheAppDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
 	assert.Nil(t, err)
-	fmt.Println("Cluster cache App Details ", clusterCacheAppDetail)
 	resourceTreeSize := len(clusterCacheAppDetail.ResourceTreeResponse.Nodes)
 	// Deployment kind test cases
 
