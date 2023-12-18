@@ -115,11 +115,6 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 
 	clusterCacheImpl := cache.NewClusterCacheImpl(logger, clusterCacheConfig, clusterRepository, k8sUtilLocal, k8sInformer)
 	helmAppServiceImpl := NewHelmAppServiceImpl(logger, k8sServiceImpl, k8sInformer, helmReleaseConfig, k8sUtil, clusterRepository, clusterCacheImpl)
-	appDetailReq := &client.AppDetailRequest{
-		ClusterConfig: installReleaseReq.ReleaseIdentifier.ClusterConfig,
-		Namespace:     installReleaseReq.ReleaseIdentifier.ReleaseNamespace,
-		ReleaseName:   installReleaseReq.ReleaseIdentifier.ReleaseName,
-	}
 	var resourceTreeMap = map[string]*bean.AppDetail{}
 	var helmAppResourceTreeMap = map[string]*bean.AppDetail{}
 	var cacheResourceTreeMap = map[string]*bean.AppDetail{}
@@ -160,21 +155,15 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		}
 
 		//Store App details for particular chart
-		helmAppResourceTreeMap["mongodb"] = appDetail
+		helmAppResourceTreeMap[payload.ReleaseIdentifier.ReleaseName] = appDetail
 	}
 
-	helmAppDetailMongo, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
-	helmAppResourceTreeMap["helmChartResource"] = helmAppDetailMongo
-	if err != nil {
-		logger.Errorw("App details for chart Mongo not fetched successfully", err)
-	}
-	assert.Nil(t, err)
 	model, err := clusterRepository.FindById(int(installReleaseReq.ReleaseIdentifier.ClusterConfig.ClusterId))
 	assert.Nil(t, err)
 	clusterInfo := k8sInformer2.GetClusterInfo(model)
 
 	clusterCacheImpl.SyncClusterCache(clusterInfo)
-	clusterCacheAppDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
+
 	for _, payload := range devtronPayloadArray {
 		appDetailReqDev := &client.AppDetailRequest{
 			ClusterConfig: payload.ReleaseIdentifier.ClusterConfig,
@@ -182,9 +171,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			ReleaseName:   payload.ReleaseIdentifier.ReleaseName,
 		}
 		cacheAppDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReqDev)
-		if err != nil {
-			logger.Errorw("App Details not build successfully", err)
-		}
+		assert.Nil(t, err)
 		// Storing cache App Details
 		if payload == installReleaseReqJobAndCronJob {
 			cacheResourceTreeMap["JobAndCronJob"] = cacheAppDetail
@@ -196,8 +183,6 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			cacheResourceTreeMap["Deployment"] = cacheAppDetail
 		}
 	}
-	assert.Nil(t, err)
-	fmt.Println("Cluster cache App Details ", clusterCacheAppDetail)
 	for _, payload := range helmPayloadArray {
 		appDetailHelmReq := &client.AppDetailRequest{
 			ClusterConfig: payload.ReleaseIdentifier.ClusterConfig,
@@ -247,15 +232,15 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	})
 
 	// Validation for NetworkingInfo
-	//t.Run("Comparing labels for NetworkingInfo", func(t *testing.T) {
-	//	for i := 0; i < resourceTreeSize; i++ {
-	//		deploymentNetworkingInfo := *resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].NetworkingInfo
-	//		cacheNetworkingInfo := *cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].NetworkingInfo
-	//		if !reflect.DeepEqual(deploymentNetworkingInfo.Labels, cacheNetworkingInfo.Labels) {
-	//			t.Errorf("Networking Info are different")
-	//		}
-	//	}
-	//})
+	t.Run("Comparing labels for NetworkingInfo", func(t *testing.T) {
+		for i := 0; i < resourceTreeSize; i++ {
+			deploymentNetworkingInfo := *resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].NetworkingInfo
+			cacheNetworkingInfo := *cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].NetworkingInfo
+			if !reflect.DeepEqual(deploymentNetworkingInfo.Labels, cacheNetworkingInfo.Labels) {
+				t.Errorf("Networking Info are different")
+			}
+		}
+	})
 
 	// Pod age validation
 	t.Run("Check age of pod after changes", func(t *testing.T) {
@@ -294,7 +279,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		cachePodMetaData := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata
 		podMetaDatSize := len(deploymentPodMetaData)
 		for j := 0; j < podMetaDatSize; j++ {
-			if cachePodMetaData[j].Name != deploymentPodMetaData[j].Name || cachePodMetaData[j].UID != deploymentPodMetaData[j].UID {
+			if !reflect.DeepEqual(deploymentPodMetaData, cachePodMetaData) || cachePodMetaData[j].Name != deploymentPodMetaData[j].Name || cachePodMetaData[j].UID != deploymentPodMetaData[j].UID {
 				t.Errorf("PodMeta data is different")
 			}
 		}
@@ -321,21 +306,72 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	})
 
 	// Count ReplicaSets
-	t.Run("ReplicaSet count", func(t *testing.T) {
+	t.Run("Replica count for pod", func(t *testing.T) {
 		deploymentReplicaCount, cacheReplicaCount := 0, 0
+
+		// For deployment type chart
 		for i := 0; i < resourceTreeSize; i++ {
 			deploymentKind := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
 			cacheReplicaKind := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
-			if deploymentKind == "ReplicaSet" {
+			if deploymentKind == "pod" {
 				deploymentReplicaCount++
 			}
-			if cacheReplicaKind == "ReplicaSet" {
+			if cacheReplicaKind == "pod" {
 				cacheReplicaCount++
 			}
 		}
 		if deploymentReplicaCount != cacheReplicaCount {
-			t.Errorf("Different Replica count")
+			t.Errorf("Different Replica count pod")
 		}
+
+		// For StatefulSet deployment chart
+		statefulSetReplicaCount, cacheStatefulSetReplicaCount := 0, 0
+		for i := 0; i < len(resourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes); i++ {
+			deploymentKind := resourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].Kind
+			cacheReplicaKind := cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].Kind
+			if deploymentKind == "pod" {
+				statefulSetReplicaCount++
+			}
+			if cacheReplicaKind == "pod" {
+				cacheStatefulSetReplicaCount++
+			}
+		}
+		if statefulSetReplicaCount != cacheStatefulSetReplicaCount {
+			t.Errorf("Different Replica count pod")
+		}
+
+		// For RollOut type chart
+		rollOutReplicaCount, cacheRollOutCount := 0, 0
+		for i := 0; i < len(resourceTreeMap["RollOut"].ResourceTreeResponse.Nodes); i++ {
+			deploymentKind := resourceTreeMap["RollOut"].ResourceTreeResponse.Nodes[i].Kind
+			cacheReplicaKind := cacheResourceTreeMap["RollOut"].ResourceTreeResponse.Nodes[i].Kind
+			if deploymentKind == "pod" {
+				rollOutReplicaCount++
+			}
+			if cacheReplicaKind == "pod" {
+				cacheRollOutCount++
+			}
+		}
+		if rollOutReplicaCount != cacheRollOutCount {
+			t.Errorf("Different Replica count pod")
+		}
+
+		// For Job and Cronjob
+		cronJobReplicaCount, cacheCronJobCount := 0, 0
+		for i := 0; i < len(resourceTreeMap["JobAndCronJob"].ResourceTreeResponse.Nodes); i++ {
+			deploymentKind := resourceTreeMap["JobAndCronJob"].ResourceTreeResponse.Nodes[i].Kind
+			cacheReplicaKind := cacheResourceTreeMap["JobAndCronJob"].ResourceTreeResponse.Nodes[i].Kind
+			if deploymentKind == "pod" {
+				cronJobReplicaCount++
+			}
+			if cacheReplicaKind == "pod" {
+				cacheCronJobCount++
+			}
+		}
+		if cronJobReplicaCount != cacheCronJobCount {
+			t.Errorf("Different Replica count pod")
+		}
+
 	})
 
 	// Restart Count
@@ -408,10 +444,40 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	})
 
 	// newPod vs oldPod
-	t.Run("", func(t *testing.T) {
+	t.Run("NewPod Vs OldPod", func(t *testing.T) {
+		var newPodData []string
+		var cacheNewPodData []string
 
+		model, err := clusterRepository.FindById(int(installReleaseReq.ReleaseIdentifier.ClusterConfig.ClusterId))
+		assert.Nil(t, err)
+		clusterInfo := k8sInformer2.GetClusterInfo(model)
+		clusterCacheImpl.SyncClusterCache(clusterInfo)
+
+		appDetailReqDev := &client.AppDetailRequest{
+			ClusterConfig: installReleaseReqDeployment.ReleaseIdentifier.ClusterConfig,
+			Namespace:     installReleaseReqDeployment.ReleaseIdentifier.ReleaseNamespace,
+			ReleaseName:   installReleaseReqDeployment.ReleaseIdentifier.ReleaseName,
+		}
+		cacheAppDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReqDev)
+		assert.Nil(t, err)
+
+		deploymentNewPod := resourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata
+		cacheNewPod := cacheAppDetail.ResourceTreeResponse.PodMetadata
+		for j := 0; j < len(deploymentNewPod); j++ {
+			if deploymentNewPod[j].IsNew {
+				newPodData = append(newPodData, deploymentNewPod[j].Name)
+			}
+		}
+
+		for k := 0; k < len(cacheNewPod); k++ {
+			if cacheNewPod[k].IsNew {
+				cacheNewPodData = append(cacheNewPodData, cacheNewPod[k].Name)
+			}
+		}
+		if !reflect.DeepEqual(newPodData, cacheNewPodData) {
+			t.Errorf("Pod data is different for new and old pod")
+		}
 	})
-
 }
 
 func GetDbConnAndLoggerService(t *testing.T) (*zap.SugaredLogger, *pg.DB) {
