@@ -8,6 +8,8 @@ import (
 	"github.com/devtron-labs/kubelink/internal/lock"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -166,10 +168,19 @@ func (impl *ApplicationServiceServerImpl) GetDesiredManifest(ctx context.Context
 func (impl *ApplicationServiceServerImpl) UninstallRelease(ctx context.Context, in *client.ReleaseIdentifier) (*client.UninstallReleaseResponse, error) {
 	impl.Logger.Infow("Uninstall release request", "clusterName", in.ClusterConfig.ClusterName, "releaseName", in.ReleaseName,
 		"namespace", in.ReleaseNamespace)
-
 	res, err := impl.HelmAppService.UninstallRelease(in)
 	if err != nil {
+		isReleaseInstalled, releaseErr := impl.HelmAppService.IsReleaseInstalled(context.Background(), in)
+		if releaseErr != nil {
+			impl.Logger.Errorw("error in checking if release is installed or not")
+			return nil, status.Error(codes.Internal, releaseErr.Error())
+		}
+		if !isReleaseInstalled {
+			impl.Logger.Errorw("error, no release found", "ReleaseIdentifier", in)
+			return nil, status.Error(codes.NotFound, fmt.Sprintf(" release not found for '%s'", in.ReleaseName))
+		}
 		impl.Logger.Errorw("Error in Uninstall release request", "err", err)
+		return nil, err
 	}
 	impl.Logger.Info("Uninstall release request served")
 
