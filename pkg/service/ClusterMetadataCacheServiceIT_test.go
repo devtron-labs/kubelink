@@ -115,11 +115,6 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 
 	clusterCacheImpl := cache.NewClusterCacheImpl(logger, clusterCacheConfig, clusterRepository, k8sUtilLocal, k8sInformer)
 	helmAppServiceImpl := NewHelmAppServiceImpl(logger, k8sServiceImpl, k8sInformer, helmReleaseConfig, k8sUtil, clusterRepository, clusterCacheImpl)
-	appDetailReq := &client.AppDetailRequest{
-		ClusterConfig: installReleaseReq.ReleaseIdentifier.ClusterConfig,
-		Namespace:     installReleaseReq.ReleaseIdentifier.ReleaseNamespace,
-		ReleaseName:   installReleaseReq.ReleaseIdentifier.ReleaseName,
-	}
 	var resourceTreeMap = map[string]*bean.AppDetail{}
 	var helmAppResourceTreeMap = map[string]*bean.AppDetail{}
 	var cacheResourceTreeMap = map[string]*bean.AppDetail{}
@@ -160,21 +155,15 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		}
 
 		//Store App details for particular chart
-		helmAppResourceTreeMap["mongodb"] = appDetail
+		helmAppResourceTreeMap[payload.ReleaseIdentifier.ReleaseName] = appDetail
 	}
 
-	helmAppDetailMongo, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
-	helmAppResourceTreeMap["helmChartResource"] = helmAppDetailMongo
-	if err != nil {
-		logger.Errorw("App details for chart Mongo not fetched successfully", err)
-	}
-	assert.Nil(t, err)
 	model, err := clusterRepository.FindById(int(installReleaseReq.ReleaseIdentifier.ClusterConfig.ClusterId))
 	assert.Nil(t, err)
 	clusterInfo := k8sInformer2.GetClusterInfo(model)
 
 	clusterCacheImpl.SyncClusterCache(clusterInfo)
-	clusterCacheAppDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReq)
+
 	for _, payload := range devtronPayloadArray {
 		appDetailReqDev := &client.AppDetailRequest{
 			ClusterConfig: payload.ReleaseIdentifier.ClusterConfig,
@@ -182,9 +171,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			ReleaseName:   payload.ReleaseIdentifier.ReleaseName,
 		}
 		cacheAppDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReqDev)
-		if err != nil {
-			logger.Errorw("App Details not build successfully", err)
-		}
+		assert.Nil(t, err)
 		// Storing cache App Details
 		if payload == installReleaseReqJobAndCronJob {
 			cacheResourceTreeMap["JobAndCronJob"] = cacheAppDetail
@@ -196,8 +183,6 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			cacheResourceTreeMap["Deployment"] = cacheAppDetail
 		}
 	}
-	assert.Nil(t, err)
-	fmt.Println("Cluster cache App Details ", clusterCacheAppDetail)
 	for _, payload := range helmPayloadArray {
 		appDetailHelmReq := &client.AppDetailRequest{
 			ClusterConfig: payload.ReleaseIdentifier.ClusterConfig,
