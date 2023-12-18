@@ -18,6 +18,7 @@ import (
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"path"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -241,7 +242,7 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 	}
 	resourceTreeResponse, err := impl.buildResourceTreeFromClusterCache(req.ClusterConfig, helmRelease)
 	if err != nil {
-		impl.logger.Errorw("error in getting resourceTree from cluster cache", "clusterName", req.ClusterConfig.ClusterName, "releaseName", helmRelease.Name, "err", err)
+		impl.logger.Errorw("error in getting resourceTree from cluster cache, or cluster cache not synced for this cluster", "clusterName", req.ClusterConfig.ClusterName, "releaseName", helmRelease.Name, "err", err)
 	}
 	if resourceTreeResponse == nil {
 		resourceTreeResponse, err = impl.buildResourceTree(req, helmRelease)
@@ -289,14 +290,29 @@ func (k *Resource) action(resource *clustercache.Resource, _ map[kube.ResourceKe
 	return true
 }
 
+func (impl *HelmAppServiceImpl) addHookResourcesInManifest(helmRelease *release.Release, manifests []unstructured.Unstructured) []unstructured.Unstructured {
+	for _, helmHook := range helmRelease.Hooks {
+		var hook unstructured.Unstructured
+		err := yaml.Unmarshal([]byte(helmHook.Manifest), &hook)
+		if err != nil {
+			impl.logger.Errorw("error in converting string manifest into unstructured obj", "hookName", helmHook.Name, "releaseName", helmRelease.Name, "err", err)
+			continue
+		}
+		manifests = append(manifests, hook)
+	}
+	return manifests
+}
+
 func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig *client.ClusterConfig, helmRelease *release.Release) (*bean.ResourceTreeResponse, error) {
 	impl.logger.Infow("building resource tree from cluster cache", "clusterName", clusterConfig.ClusterName, "helmReleaseName", helmRelease.Name)
 	clusterCache, err := impl.clusterCache.GetClusterCacheByClusterId(int(clusterConfig.ClusterId))
 	if err != nil {
-		impl.logger.Errorw("error in getting cluster cache, or cluster cache not synced for this cluster", "clusterId", clusterConfig.ClusterId, "err", err)
+		impl.logger.Infow("cluster cache not synced for this cluster", "clusterName", clusterConfig.ClusterName, "clusterId", clusterConfig.ClusterId, "err", err)
 		return nil, err
 	}
 	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
+
+	manifests = impl.addHookResourcesInManifest(helmRelease, manifests)
 
 	resourceHierarchy := &Resource{
 		CacheResources:          make([]*clustercache.Resource, 0),
@@ -377,6 +393,7 @@ func createCRDsCacheResourceObject(resourceHierarchy *Resource, manifest unstruc
 
 func (impl *HelmAppServiceImpl) getLiveManifests(config *rest.Config, helmRelease *release.Release) ([]*bean.DesiredOrLiveManifest, error) {
 	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
+	manifests = impl.addHookResourcesInManifest(helmRelease, manifests)
 	// get live manifests from kubernetes
 	desiredOrLiveManifests, err := impl.getDesiredOrLiveManifests(config, manifests, helmRelease.Namespace)
 	if err != nil {
@@ -581,7 +598,6 @@ func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest
 			return nil, err
 		}
 		deploymentDetail := &client.HelmAppDeploymentDetail{
-			DeployedAt: timestamppb.New(helmRelease.Info.LastDeployed.Time),
 			ChartMetadata: &client.ChartMetadata{
 				ChartName:    chartMetadata.Name,
 				ChartVersion: chartMetadata.Version,
@@ -591,6 +607,10 @@ func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest
 			},
 			DockerImages: dockerImages,
 			Version:      int32(helmRelease.Version),
+		}
+		if helmRelease.Info != nil {
+			deploymentDetail.DeployedAt = timestamppb.New(helmRelease.Info.LastDeployed.Time)
+			deploymentDetail.Status = string(helmRelease.Info.Status)
 		}
 		helmAppDeployments = append(helmAppDeployments, deploymentDetail)
 	}
@@ -1107,7 +1127,6 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 	}
 
 	var chartName, repoURL string
-
 	switch request.IsOCIRepo {
 	case true:
 		if request.RegistryCredential != nil && !request.RegistryCredential.IsPublic {
@@ -1912,8 +1931,8 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 	updateChartSpec.MaxHistory = int(request.HistoryMax)
 
 	impl.logger.Debug("Upgrading release")
-	res, err := helmClientObj.UpgradeReleaseWithChartInfo(ctx, updateChartSpec)
-	impl.logger.Debugw("response form UpgradeReleaseWithChartInfo", "res", res)
+	_, err = helmClientObj.UpgradeReleaseWithChartInfo(ctx, updateChartSpec)
+	impl.logger.Debugw("response form UpgradeReleaseWithChartInfo", "err", err)
 	if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
 		if UpgradeErr != nil {
 			if UpgradeErr.Err == driver.ErrNoDeployedReleases {
