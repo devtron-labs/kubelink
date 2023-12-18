@@ -338,6 +338,7 @@ func (impl *ApplicationServiceServerImpl) ResourceTreeAdapter(req *bean.Resource
 			Namespace:  node.Namespace,
 			Name:       node.Name,
 			Uid:        node.UID,
+			Port:       node.Port,
 			ParentRefs: resourceRefResult(node.ParentRefs),
 			NetworkingInfo: &client.ResourceNetworkingInfo{
 				Labels: node.NetworkingInfo.Labels,
