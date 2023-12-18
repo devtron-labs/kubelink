@@ -146,6 +146,7 @@ func (r *ChartRepository) DownloadIndexFile() (string, error) {
 	for name := range indexFile.Entries {
 		fmt.Fprintln(&charts, name)
 	}
+	r.CachePath = "/tmp"+r.CachePath
 	chartsFile := filepath.Join(r.CachePath, helmpath.CacheChartsFile(r.Config.Name))
 	os.MkdirAll(filepath.Dir(chartsFile), 0755)
 	ioutil.WriteFile(chartsFile, []byte(charts.String()), 0644)

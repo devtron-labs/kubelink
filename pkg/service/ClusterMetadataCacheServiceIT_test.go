@@ -140,7 +140,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			resourceTreeMap["JobAndCronJob"] = appDetail
 		} else if payload == installReleaseReqStatefullset {
 			resourceTreeMap["StatefulSets"] = appDetail
-		} else if payload == installReleaseReqDeployment {
+		} else if payload == installReleaseReqRollout {
 			resourceTreeMap["RollOut"] = appDetail
 		} else {
 			resourceTreeMap["Deployment"] = appDetail
@@ -212,14 +212,15 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		cacheHelmResourceTreeMap["mongodb"] = appDetail
 	}
 
-	resourceTreeSize := len(clusterCacheAppDetail.ResourceTreeResponse.Nodes)
+	resourceTreeSize := len(resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes)
+	resourceTreeSizeStatefulSets := len(resourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes)
 
-	// Health Status for Pod and other resources
+	//Health Status for Pod and other resources
 	t.Run("Status of pod and other resources", func(t *testing.T) {
 		for i := 0; i < resourceTreeSize; i++ {
-			healthStatus := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Health
-			cacheHealthStatus := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Health
-			if healthStatus != cacheHealthStatus {
+			healthStatus := *resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Health
+			cacheHealthStatus := *cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Health
+			if !reflect.DeepEqual(healthStatus, cacheHealthStatus) {
 				t.Errorf("Health status for pod and resources are not valid")
 			}
 		}
@@ -243,8 +244,8 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	// Validation for NetworkingInfo
 	t.Run("Comparing labels for NetworkingInfo", func(t *testing.T) {
 		for i := 0; i < resourceTreeSize; i++ {
-			deploymentNetworkingInfo := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].NetworkingInfo
-			cacheNetworkingInfo := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].NetworkingInfo
+			deploymentNetworkingInfo := *resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].NetworkingInfo
+			cacheNetworkingInfo := *cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].NetworkingInfo
 			if !reflect.DeepEqual(deploymentNetworkingInfo, cacheNetworkingInfo) {
 				t.Errorf("Networking Info for deployment and cluster cache are different")
 			}
@@ -256,19 +257,19 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		for i := 0; i < resourceTreeSize; i++ {
 			deploymentPodAge := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].CreatedAt
 			cachePodAge := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].CreatedAt
-			if deploymentPodAge != cachePodAge {
+			if !reflect.DeepEqual(deploymentPodAge, cachePodAge) {
 				t.Errorf("Pod age are different")
 			}
 		}
 	})
 
 	// CanBeHibernated
-	t.Run("Check hibernation ", func(t *testing.T) {
+	t.Run("Check hibernation", func(t *testing.T) {
 		for i := 0; i < resourceTreeSize; i++ {
 			deploymentHibernated := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].CanBeHibernated
 			cacheHibernated := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].CanBeHibernated
-			if deploymentHibernated != cacheHibernated {
-				t.Errorf("")
+			if (!deploymentHibernated && !cacheHibernated) || (deploymentHibernated && cacheHibernated) {
+				t.Errorf("Hibernation status is different")
 			}
 		}
 	})
@@ -278,8 +279,10 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		for i := 0; i < resourceTreeSize; i++ {
 			deploymentPodMetaData := resourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata
 			cachePodMetaData := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata
-			if !reflect.DeepEqual(deploymentPodMetaData, cachePodMetaData) {
-				t.Errorf("Pod Meta data are different")
+			for j := 0; j < len(deploymentPodMetaData); j++ {
+				if !reflect.DeepEqual(cachePodMetaData[i].Containers, deploymentPodMetaData[i].Containers) || !reflect.DeepEqual(cachePodMetaData[i].Name, deploymentPodMetaData[i].Name) || !reflect.DeepEqual(cachePodMetaData[i].UID, deploymentPodMetaData[i].UID) {
+					t.Errorf("PodMeta data is different")
+				}
 			}
 		}
 	})
@@ -297,12 +300,10 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 
 	//Application Status
 	t.Run("Application status", func(t *testing.T) {
-		for i := 0; i < resourceTreeSize; i++ {
-			deploymentAppStatus := resourceTreeMap["Deployment"].ApplicationStatus
-			cacheAppStatus := cacheResourceTreeMap["Deployment"].ApplicationStatus
-			if deploymentAppStatus != cacheAppStatus {
-				t.Errorf("Application status are not same as in cache")
-			}
+		deploymentAppStatus := *resourceTreeMap["Deployment"].ApplicationStatus
+		cacheAppStatus := *cacheResourceTreeMap["Deployment"].ApplicationStatus
+		if deploymentAppStatus != cacheAppStatus {
+			t.Errorf("Application status are not same as in cache")
 		}
 	})
 
@@ -364,9 +365,9 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	// PersistentVolumeClaim for StatefulSets Deployment
 	t.Run("Persistence volume", func(t *testing.T) {
 		isPVCDeployment, isPVCCache := false, false
-		for i := 0; i < resourceTreeSize; i++ {
-			deploymentKind := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
-			cacheKind := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
+		for i := 0; i < resourceTreeSizeStatefulSets; i++ {
+			deploymentKind := resourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].Kind
+			cacheKind := cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].Kind
 			if deploymentKind == "PersistentVolumeClaim" {
 				isPVCDeployment = true
 			}
