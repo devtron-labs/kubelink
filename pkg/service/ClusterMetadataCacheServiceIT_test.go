@@ -22,8 +22,8 @@ import (
 )
 
 var clusterConfig = &client.ClusterConfig{
-	ApiServerUrl:          "https://20.232.141.127:16443",
-	Token:                 "dmVlcHI2NkpOckQrSVBnQWduSHlqRENjWHFIVXkrckdtQStVajZtaXBhMD0K",
+	ApiServerUrl:          "",
+	Token:                 "",
 	ClusterId:             1,
 	ClusterName:           "default_cluster",
 	InsecureSkipTLSVerify: true,
