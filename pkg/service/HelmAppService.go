@@ -21,6 +21,7 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -61,7 +62,7 @@ import (
 const (
 	hibernateReplicaAnnotation            = "hibernator.devtron.ai/replicas"
 	hibernatePatch                        = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
-	chartWorkingDirectory                 = "/tmp/home/devtron/devtroncd/charts/"
+	chartWorkingDirectory                 = "/home/devtron/devtroncd/charts/"
 	ReadmeFileName                        = "README.md"
 	REGISTRY_TYPE_ECR                     = "ecr"
 	REGISTRYTYPE_GCR                      = "gcr"
@@ -1371,26 +1372,25 @@ func (impl HelmAppServiceImpl) getDesiredOrLiveManifests(restConfig *rest.Config
 
 	totalManifestCount := len(desiredManifests)
 	desiredOrLiveManifestArray := make([]*bean.DesiredOrLiveManifest, totalManifestCount)
-	//batchSize := impl.helmReleaseConfig.ManifestFetchBatchSize
+	batchSize := impl.helmReleaseConfig.ManifestFetchBatchSize
 
 	for i := 0; i < totalManifestCount; {
 		//requests left to process
-		//remainingBatch := totalManifestCount - i
-		//if remainingBatch < batchSize {
-		//	batchSize = remainingBatch
-		//}
-		//var wg sync.WaitGroup
-		//for j := 0; j < batchSize; j++ {
-		//	wg.Add(1)
-		//	go func(j int) {
-		//		defer wg.Done()
-		desiredOrLiveManifest := impl.getManifestData(restConfig, releaseNamespace, desiredManifests[i])
-		desiredOrLiveManifestArray[i] = desiredOrLiveManifest
-		//	}(j)
-		//}
-		//wg.Wait()
-		//i += batchSize
-		i += 1
+		remainingBatch := totalManifestCount - i
+		if remainingBatch < batchSize {
+			batchSize = remainingBatch
+		}
+		var wg sync.WaitGroup
+		for j := 0; j < batchSize; j++ {
+			wg.Add(1)
+			go func(j int) {
+				defer wg.Done()
+				desiredOrLiveManifest := impl.getManifestData(restConfig, releaseNamespace, desiredManifests[i+j])
+				desiredOrLiveManifestArray[i+j] = desiredOrLiveManifest
+			}(j)
+		}
+		wg.Wait()
+		i += batchSize
 	}
 
 	return desiredOrLiveManifestArray, nil

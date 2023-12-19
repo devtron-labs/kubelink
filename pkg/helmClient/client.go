@@ -166,8 +166,7 @@ func (c *HelmClient) AddOrUpdateChartRepo(entry repo.Entry) error {
 		// repository name already exists
 		return nil
 	}*/
-	c.Settings.RepositoryConfig = "/tmp" + c.Settings.RepositoryConfig
-	c.Settings.RepositoryCache = "/tmp" + c.Settings.RepositoryCache
+
 	c.storage.Update(&entry)
 	err = c.storage.WriteFile(c.Settings.RepositoryConfig, 0o644)
 	if err != nil {
