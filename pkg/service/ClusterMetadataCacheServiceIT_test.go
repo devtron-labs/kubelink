@@ -22,8 +22,8 @@ import (
 )
 
 var clusterConfig = &client.ClusterConfig{
-	ApiServerUrl:          "",
-	Token:                 "",
+	ApiServerUrl:          "https://20.232.141.127:16443",
+	Token:                 "dmVlcHI2NkpOckQrSVBnQWduSHlqRENjWHFIVXkrckdtQStVajZtaXBhMD0K",
 	ClusterId:             1,
 	ClusterName:           "default_cluster",
 	InsecureSkipTLSVerify: true,
@@ -102,6 +102,19 @@ var devtronPayloadArray = [4]*client.HelmInstallCustomRequest{installReleaseReqR
 
 var helmPayloadArray = [1]*client.InstallReleaseRequest{installReleaseReq}
 
+type NodeInfo struct {
+	kind              string
+	health            *bean.HealthStatus
+	port              []int64
+	CreatedAt         string
+	IsHibernated      bool
+	PodMetaData       []*bean.PodMetadata
+	ReleaseStatus     *bean.ReleaseStatus
+	ApplicationStatus *bean.HealthStatusCode
+	info              []bean.InfoItem
+	NetworkingInfo    *bean.ResourceNetworkingInfo
+}
+
 func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	logger, k8sInformer, helmReleaseConfig, k8sUtil, clusterRepository, k8sServiceImpl := getHelmAppServiceDependencies(t)
 	clusterCacheConfig := &cache.ClusterCacheConfig{
@@ -158,6 +171,30 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		helmAppResourceTreeMap[payload.ReleaseIdentifier.ReleaseName] = appDetail
 	}
 
+	helmAppResourceTreeSize := len(helmAppResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes)
+
+	resourceTreeSize := len(resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes)
+	resourceTreeSizeStatefulSets := len(resourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes)
+
+	// Storing Resource data before Cluster sync
+	resourceDataBeforeSync := map[string]NodeInfo{}
+	for i := 0; i < resourceTreeSize; i++ {
+		uid := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].UID
+		nodeInfo := NodeInfo{
+			kind:              resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind,
+			health:            resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Health,
+			port:              resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Port,
+			CreatedAt:         resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].CreatedAt,
+			IsHibernated:      resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].IsHibernated,
+			PodMetaData:       resourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata,
+			ReleaseStatus:     resourceTreeMap["Deployment"].ReleaseStatus,
+			ApplicationStatus: resourceTreeMap["Deployment"].ApplicationStatus,
+			info:              resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Info,
+			NetworkingInfo:    resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].NetworkingInfo,
+		}
+		resourceDataBeforeSync[uid] = nodeInfo
+	}
+
 	model, err := clusterRepository.FindById(int(installReleaseReq.ReleaseIdentifier.ClusterConfig.ClusterId))
 	assert.Nil(t, err)
 	clusterInfo := k8sInformer2.GetClusterInfo(model)
@@ -194,38 +231,77 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			logrus.Error("Error in fetching app details")
 		}
 		//Store Cache App details for particular chart
-		cacheHelmResourceTreeMap["mongodb"] = appDetail
+		cacheHelmResourceTreeMap[payload.ReleaseIdentifier.ReleaseName] = appDetail
 	}
 
-	resourceTreeSize := len(resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes)
-	resourceTreeSizeStatefulSets := len(resourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes)
+	resourceCacheTreeSize := len(cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes)
+	resourceCacheTreeSizeStatefulSets := len(cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes)
+
+	// Storing Resource data After Cluster Sync
+	resourceDataAfterSync := map[string]NodeInfo{}
+	for i := 0; i < resourceCacheTreeSize; i++ {
+		uid := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].UID
+		nodeInfo := NodeInfo{
+			kind:              cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind,
+			health:            cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Health,
+			port:              cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Port,
+			CreatedAt:         cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].CreatedAt,
+			IsHibernated:      cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].IsHibernated,
+			PodMetaData:       cacheResourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata,
+			ReleaseStatus:     cacheResourceTreeMap["Deployment"].ReleaseStatus,
+			ApplicationStatus: cacheResourceTreeMap["Deployment"].ApplicationStatus,
+			info:              cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Info,
+			NetworkingInfo:    cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].NetworkingInfo,
+		}
+		resourceDataAfterSync[uid] = nodeInfo
+	}
+
+	for i := 0; i < resourceCacheTreeSizeStatefulSets; i++ {
+		uid := cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].UID
+		nodeInfo := NodeInfo{
+			kind:              cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].Kind,
+			health:            cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].Health,
+			port:              cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].Port,
+			CreatedAt:         cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].CreatedAt,
+			IsHibernated:      cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].IsHibernated,
+			PodMetaData:       cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.PodMetadata,
+			ReleaseStatus:     cacheResourceTreeMap["StatefulSets"].ReleaseStatus,
+			ApplicationStatus: cacheResourceTreeMap["StatefulSets"].ApplicationStatus,
+			info:              cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].Info,
+			NetworkingInfo:    cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].NetworkingInfo,
+		}
+		resourceDataAfterSync[uid] = nodeInfo
+	}
 
 	//Health Status for Pod and other resources
-	t.Run("Status of pod and other resources", func(t *testing.T) {
-		for i := 0; i < resourceTreeSize; i++ {
-			deploymentKind := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
-			cacheKind := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
-			if deploymentKind == cacheKind {
-				healthStatus := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Health
-				cacheHealthStatus := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Health
-				if !reflect.DeepEqual(healthStatus, cacheHealthStatus) {
-					t.Errorf("Health status for pod and resources are not valid")
+	t.Run("Status_of_pod and other resources", func(t *testing.T) {
+		if resourceTreeSize != len(resourceDataBeforeSync) {
+			t.Errorf("Different Node length")
+			return
+		}
+		for uid, _ := range resourceDataBeforeSync {
+			if nodeInfoAfterSync, ok := resourceDataAfterSync[uid]; ok {
+				if !reflect.DeepEqual(resourceDataBeforeSync[uid].health, nodeInfoAfterSync.health) {
+					t.Errorf("Status of pod health before cluster sync = %v , Status of pod health After cluster sync = %v ", resourceDataBeforeSync[uid].health, nodeInfoAfterSync.health)
+					break
 				}
 			}
-
 		}
 	})
 
 	//Port number comparison for Service, Endpoints and EndpointSlice
 	t.Run("Service, Endpoints and EndpointSlice with port numbers", func(t *testing.T) {
-		for i := 0; i < resourceTreeSize; i++ {
-			kindTypeDeployment := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
-			kindTypeCache := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
-			if (kindTypeDeployment == "Service" || kindTypeDeployment == "EndpointSlice" || kindTypeDeployment == "Endpoints") && kindTypeDeployment == kindTypeCache {
-				portDeployment := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Port
-				portCache := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Port
-				if !reflect.DeepEqual(portDeployment, portCache) {
-					t.Errorf("Response body does not contain the respective ports")
+		if resourceTreeSize != len(resourceDataBeforeSync) {
+			t.Errorf("Different Node length")
+			return
+		}
+		for uid, _ := range resourceDataBeforeSync {
+			if nodeInfoAfterSync, ok := resourceDataAfterSync[uid]; ok {
+				if (resourceDataBeforeSync[uid].kind == "Service" || resourceDataBeforeSync[uid].kind == "EndpointSlice" || resourceDataBeforeSync[uid].kind == "Endpoints") && resourceDataBeforeSync[uid].kind == nodeInfoAfterSync.kind {
+					if !reflect.DeepEqual(resourceDataBeforeSync[uid].port, nodeInfoAfterSync.port) {
+						t.Errorf("Port number bfore cluster cache = %v, Port Number after cluster cache = %v", resourceDataBeforeSync[uid].port, nodeInfoAfterSync.port)
+						break
+					}
 				}
 			}
 		}
@@ -233,80 +309,109 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 
 	// Validation for NetworkingInfo
 	t.Run("Comparing labels for NetworkingInfo", func(t *testing.T) {
-		for i := 0; i < resourceTreeSize; i++ {
-			deploymentNetworkingInfo := *resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].NetworkingInfo
-			cacheNetworkingInfo := *cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].NetworkingInfo
-			if !reflect.DeepEqual(deploymentNetworkingInfo.Labels, cacheNetworkingInfo.Labels) {
-				t.Errorf("Networking Info are different")
+		if resourceTreeSize != len(resourceDataBeforeSync) {
+			t.Errorf("Different Node length")
+			return
+		}
+		for uid := range resourceDataBeforeSync {
+			if nodeInfoAfterSync, ok := resourceDataAfterSync[uid]; ok {
+				deploymentNetworkingInfo := nodeInfoAfterSync.NetworkingInfo
+				cacheNetworkingInfo := resourceDataBeforeSync[uid].NetworkingInfo
+				if !reflect.DeepEqual(deploymentNetworkingInfo.Labels, cacheNetworkingInfo.Labels) {
+					t.Errorf("Networking Info Before cluster sync = %v, Networking Info After cluster sync = %v", deploymentNetworkingInfo.Labels, cacheNetworkingInfo.Labels)
+					break
+				}
 			}
 		}
 	})
 
 	// Pod age validation
 	t.Run("Check age of pod after changes", func(t *testing.T) {
-		deploymentAge, cacheAge := "", ""
-		for i := 0; i < resourceTreeSize; i++ {
-			deploymentKind := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
-			cacheKind := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
-			deploymentPodAge := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].CreatedAt
-			cachePodAge := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].CreatedAt
-			if deploymentKind == "pod" {
-				deploymentAge = deploymentPodAge
-			}
-			if cacheKind == "pod" {
-				cacheAge = cachePodAge
-			}
+		if resourceTreeSize != len(resourceDataBeforeSync) {
+			t.Errorf("Different Node length")
+			return
 		}
-		if cacheAge != deploymentAge {
-			t.Errorf("Pod age is different")
+		for uid := range resourceDataBeforeSync {
+			if nodeInfoAfterSync, ok := resourceDataAfterSync[uid]; ok {
+				deploymentKind := resourceDataBeforeSync[uid].kind
+				cacheKind := nodeInfoAfterSync.kind
+				if deploymentKind == "pod" && deploymentKind == cacheKind {
+					if !reflect.DeepEqual(resourceDataBeforeSync[uid].CreatedAt, nodeInfoAfterSync.CreatedAt) {
+						t.Errorf("Pod Created at before cluster cache = %v, Pod Created at after cluster cache = %v", resourceDataBeforeSync[uid].CreatedAt, nodeInfoAfterSync.CreatedAt)
+						break
+					}
+				}
+			}
 		}
 	})
 
 	// CanBeHibernated
 	t.Run("Check hibernation", func(t *testing.T) {
-		for i := 0; i < resourceTreeSize; i++ {
-			deploymentHibernated := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].IsHibernated
-			cacheHibernated := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].IsHibernated
-			if deploymentHibernated != cacheHibernated {
-				t.Errorf("Hibernation status is different")
+		if resourceTreeSize != len(resourceDataBeforeSync) {
+			t.Errorf("Different Node length")
+			return
+		}
+		for uid := range resourceDataBeforeSync {
+			if nodeInfoAfterSync, ok := resourceDataAfterSync[uid]; ok {
+				if resourceDataBeforeSync[uid].IsHibernated != nodeInfoAfterSync.IsHibernated {
+					t.Errorf("Is Hibernated before cluster cache = %v, Hibernate status after cluster cache = %v", resourceDataBeforeSync[uid].IsHibernated, nodeInfoAfterSync.IsHibernated)
+				}
 			}
 		}
 	})
 
 	// Pod Meta Data
 	t.Run("Pod Meta data", func(t *testing.T) {
-		deploymentPodMetaData := resourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata
-		cachePodMetaData := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata
-		podMetaDatSize := len(deploymentPodMetaData)
-		for j := 0; j < podMetaDatSize; j++ {
-			if !reflect.DeepEqual(deploymentPodMetaData, cachePodMetaData) || cachePodMetaData[j].Name != deploymentPodMetaData[j].Name || cachePodMetaData[j].UID != deploymentPodMetaData[j].UID {
-				t.Errorf("PodMeta data is different")
+		if resourceTreeSize != len(resourceDataBeforeSync) {
+			t.Errorf("Different Node length")
+			return
+		}
+		for uid := range resourceDataBeforeSync {
+			if nodeInfoAfterSync, ok := resourceDataAfterSync[uid]; ok {
+				deploymentPodMetaData := resourceDataBeforeSync[uid].PodMetaData
+				cachePodMetaData := nodeInfoAfterSync.PodMetaData
+				if !reflect.DeepEqual(deploymentPodMetaData, cachePodMetaData) {
+					t.Errorf("Pod Meta data before Cluster sync = %v, Pod Meta data After cluster sync = %v", deploymentPodMetaData, cachePodMetaData)
+				}
 			}
 		}
+
 	})
 
 	// Release status
 	t.Run("Release status", func(t *testing.T) {
+		if resourceTreeSize != len(resourceDataBeforeSync) {
+			t.Errorf("Different Node length")
+			return
+		}
 		for i := 0; i < resourceTreeSize; i++ {
 			deploymentReleaseStatus := resourceTreeMap["Deployment"].ReleaseStatus
 			cacheReleaseStatus := cacheResourceTreeMap["Deployment"].ReleaseStatus
 			if !reflect.DeepEqual(deploymentReleaseStatus, cacheReleaseStatus) {
-				t.Errorf("Release status is different for")
+				t.Errorf("Release status Before cluster sync = %v, Release Status After cluster sync = %v", deploymentReleaseStatus, cacheReleaseStatus)
 			}
 		}
 	})
 
 	//Application Status
 	t.Run("Application status", func(t *testing.T) {
+		if resourceTreeSize != len(resourceDataBeforeSync) {
+			t.Errorf("Different Node length")
+			return
+		}
 		deploymentAppStatus := *resourceTreeMap["Deployment"].ApplicationStatus
 		cacheAppStatus := *cacheResourceTreeMap["Deployment"].ApplicationStatus
 		if deploymentAppStatus != cacheAppStatus {
-			t.Errorf("Application status are not same as in cache")
+			t.Errorf("Application status Before Cluster sync = %v, Application Status After Cluster Sync = %v", deploymentAppStatus, cacheAppStatus)
 		}
 	})
 
 	// Count ReplicaSets
 	t.Run("Replica count for pod", func(t *testing.T) {
+		if resourceTreeSize != len(resourceDataBeforeSync) {
+			t.Errorf("Different Node length")
+			return
+		}
 		deploymentReplicaCount, cacheReplicaCount := 0, 0
 
 		// For deployment type chart
@@ -321,7 +426,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			}
 		}
 		if deploymentReplicaCount != cacheReplicaCount {
-			t.Errorf("Different Replica count pod")
+			t.Errorf("Replica count of Deployment Before cluster sync = %v, Replica count of deployment After Cluster sync = %v", deploymentReplicaCount, cacheReplicaCount)
 		}
 
 		// For StatefulSet deployment chart
@@ -337,7 +442,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			}
 		}
 		if statefulSetReplicaCount != cacheStatefulSetReplicaCount {
-			t.Errorf("Different Replica count pod")
+			t.Errorf("Replica count of StatefullSets Before cluster sync = %v, Replica count of StatefullSets After Cluster sync = %v", statefulSetReplicaCount, cacheStatefulSetReplicaCount)
 		}
 
 		// For RollOut type chart
@@ -353,7 +458,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			}
 		}
 		if rollOutReplicaCount != cacheRollOutCount {
-			t.Errorf("Different Replica count pod")
+			t.Errorf("Replica Count of RollOut Before Cluster sync = %v, Replica count After Cluster Sync = %v", rollOutReplicaCount, cacheRollOutCount)
 		}
 
 		// For Job and Cronjob
@@ -369,23 +474,23 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			}
 		}
 		if cronJobReplicaCount != cacheCronJobCount {
-			t.Errorf("Different Replica count pod")
+			t.Errorf("Replica count of Job And CronJob Before Cluster sync = %v, Replica count of Job And CronJob After Cluster sync = %v", cronJobReplicaCount, cacheCronJobCount)
 		}
 
 	})
 
 	// Restart Count
 	t.Run("Restart count for a pod", func(t *testing.T) {
-		for i := 0; i < resourceTreeSize; i++ {
-			deploymentKind := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
-			cacheKind := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
-			if deploymentKind == "pod" && cacheKind == deploymentKind {
-				deploymentRestart := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Info
-				cacheRestart := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Info
-				for j := 0; j < len(deploymentRestart); i++ {
-					if deploymentRestart[j].Name == "Restart Count" {
-						if deploymentRestart[j].Value != cacheRestart[j].Value {
-							t.Errorf("Restart count is different")
+		for uid := range resourceDataBeforeSync {
+			if nodeInfoAfterSync, ok := resourceDataAfterSync[uid]; ok {
+				if resourceDataBeforeSync[uid].kind == "pod" {
+					deploymentRestart := resourceDataBeforeSync[uid].info
+					cacheRestart := nodeInfoAfterSync.info
+					for i := 0; i < len(deploymentRestart); i++ {
+						if deploymentRestart[i].Name == "Restart Count" {
+							if deploymentRestart[i].Value != cacheRestart[i].Value {
+								t.Errorf("Restart count for pod Before Cluster sync = %v, Restart count for pod After CLuster sync = %v", deploymentRestart[i].Value, cacheRestart[i].Value)
+							}
 						}
 					}
 				}
@@ -407,7 +512,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			}
 		}
 		if cachePodCount != deploymentPodCount {
-			t.Errorf("Ready pod count is different")
+			t.Errorf("Ready pod count Before Cluster sync = %v, Ready pod count After Cluster sync = %v", deploymentPodCount, cachePodCount)
 		}
 	})
 
@@ -476,6 +581,61 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		}
 		if !reflect.DeepEqual(newPodData, cacheNewPodData) {
 			t.Errorf("Pod data is different for new and old pod")
+		}
+	})
+
+	// Test Cases for helm App
+	t.Run("Number_of_Replica_Pod for helm Apps ", func(t *testing.T) {
+		helmAppMap := map[string]*bean.ResourceNetworkingInfo{}
+		cacheHelmMap := map[string]*bean.ResourceNetworkingInfo{}
+		for i := 0; i < helmAppResourceTreeSize; i++ {
+			uid := helmAppResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes[i].UID
+			helmAppMap[uid] = helmAppResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes[i].NetworkingInfo
+			cacheHelmMap[uid] = cacheHelmResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes[i].NetworkingInfo
+		}
+		for uid := range helmAppMap {
+			if cacheHelmData, ok := cacheHelmMap[uid]; ok {
+				if !reflect.DeepEqual(helmAppMap[uid].Labels, cacheHelmData.Labels) {
+					t.Errorf("Networking Info Before cluster sync = %v, Networking Info After cluster sync = %v", helmAppMap[uid], cacheHelmData)
+				}
+			}
+		}
+	})
+
+	t.Run("Release_status for helm app", func(t *testing.T) {
+		for i := 0; i < helmAppResourceTreeSize; i++ {
+			helmReleaseStatus := helmAppResourceTreeMap["mongo-operator"].ReleaseStatus
+			cacheHelmReleaseStatus := cacheHelmResourceTreeMap["mongo-operator"].ReleaseStatus
+			if !reflect.DeepEqual(helmReleaseStatus, cacheHelmReleaseStatus) {
+				t.Errorf("Release status Before cluster sync = %v, Release status After cluster sync = %v", helmReleaseStatus, cacheHelmReleaseStatus)
+			}
+		}
+	})
+
+	t.Run("App_status for helm app", func(t *testing.T) {
+		for i := 0; i < helmAppResourceTreeSize; i++ {
+			helmAppStatus := helmAppResourceTreeMap["mongo-operator"].ApplicationStatus
+			cacheHelmAppStatus := cacheHelmResourceTreeMap["mongo-operator"].ApplicationStatus
+			if !reflect.DeepEqual(helmAppStatus, cacheHelmAppStatus) {
+				t.Errorf("Application status Before cluster sync = %v, Application status After cluster sync = %v", helmAppStatus, cacheHelmAppStatus)
+			}
+		}
+	})
+
+	t.Run("Replica_count_pods for helm app", func(t *testing.T) {
+		helmAppPodCount, cacheHelmAppPodCount := 0, 0
+		for i := 0; i < helmAppResourceTreeSize; i++ {
+			helmAppKind := helmAppResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes[i].Kind
+			cacheHelmAppKind := cacheHelmResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes[i].Kind
+			if helmAppKind == "pod" {
+				helmAppPodCount++
+			}
+			if cacheHelmAppKind == "pod" {
+				cacheHelmAppPodCount++
+			}
+		}
+		if helmAppPodCount != cacheHelmAppPodCount {
+			t.Errorf("Replica pod count Before cluster sync = %v, Replica pod count After cluster sync = %v", helmAppPodCount, cacheHelmAppPodCount)
 		}
 	})
 }

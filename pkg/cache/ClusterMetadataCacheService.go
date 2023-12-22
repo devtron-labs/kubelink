@@ -146,22 +146,26 @@ func (impl *ClusterCacheImpl) SyncCache() error {
 }
 
 func (impl *ClusterCacheImpl) SyncClusterCache(clusterInfo *bean.ClusterInfo) (clustercache.ClusterCache, error) {
-	impl.logger.Infow("cluster cache sync started..", "clusterId", clusterInfo.ClusterId)
+	clusterId := clusterInfo.ClusterId
+	impl.logger.Infow("cluster cache sync started", "clusterId", clusterId)
 	cache, err := impl.getClusterCache(clusterInfo)
 	if err != nil {
-		impl.logger.Errorw("failed to get cluster info for", "clusterId", clusterInfo.ClusterId, "error", err)
+		impl.logger.Errorw("failed to get cluster info for", "clusterId", clusterId, "error", err)
 		return cache, err
 	}
+	startTime := time.Now()
 	err = cache.EnsureSynced()
 	if err != nil {
-		impl.logger.Errorw("error in syncing cluster cache", "clusterId", clusterInfo.ClusterId, "sync-error", err)
+		impl.logger.Errorw("error in syncing cluster cache", "clusterId", clusterId, "sync-error", err)
 		return cache, err
 	}
 	impl.rwMutex.Lock()
-	impl.clustersCache[clusterInfo.ClusterId] = ClusterCacheInfo{
+	cacheSyncTime := time.Now()
+	impl.clustersCache[clusterId] = ClusterCacheInfo{
 		ClusterCache:             cache,
-		ClusterCacheLastSyncTime: time.Now(),
+		ClusterCacheLastSyncTime: cacheSyncTime,
 	}
+	impl.logger.Infow("cluster cache synced successfully", "clusterId", clusterId, "syncTime", time.Since(startTime).Seconds())
 	impl.rwMutex.Unlock()
 	return cache, nil
 }
