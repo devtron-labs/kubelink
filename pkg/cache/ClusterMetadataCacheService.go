@@ -187,5 +187,5 @@ func (impl *ClusterCacheImpl) GetClusterCacheByClusterId(clusterId int) (cluster
 	if clusterCacheInfo, found := impl.clustersCache[clusterId]; found {
 		return clusterCacheInfo.ClusterCache, nil
 	}
-	return nil, errors.New("cluster cache not yet synced for this cluster id")
+	return nil, errors.New(CacheNotSyncError)
 }
