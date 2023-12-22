@@ -601,7 +601,6 @@ func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest
 			return nil, err
 		}
 		deploymentDetail := &client.HelmAppDeploymentDetail{
-			DeployedAt: timestamppb.New(helmRelease.Info.LastDeployed.Time),
 			ChartMetadata: &client.ChartMetadata{
 				ChartName:    chartMetadata.Name,
 				ChartVersion: chartMetadata.Version,
@@ -611,6 +610,10 @@ func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest
 			},
 			DockerImages: dockerImages,
 			Version:      int32(helmRelease.Version),
+		}
+		if helmRelease.Info != nil {
+			deploymentDetail.DeployedAt = timestamppb.New(helmRelease.Info.LastDeployed.Time)
+			deploymentDetail.Status = string(helmRelease.Info.Status)
 		}
 		helmAppDeployments = append(helmAppDeployments, deploymentDetail)
 	}
@@ -1127,7 +1130,6 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 	}
 
 	var chartName, repoURL string
-
 	switch request.IsOCIRepo {
 	case true:
 		if request.RegistryCredential != nil && !request.RegistryCredential.IsPublic {
