@@ -449,7 +449,12 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		}
 		var newPodData []string
 		var cacheNewPodData []string
-
+		// empty the impl.clustersCache
+		//install release with cust chart
+		//build app detail se resource tree with new image jisme new pod rhenge jisme isNew ka tag bhi rhega
+		//sync cluster cache
+		//now get resoure tree after cache sync
+		// then compare
 		model, err := clusterRepository.FindById(int(installReleaseReq.ReleaseIdentifier.ClusterConfig.ClusterId))
 		assert.Nil(t, err)
 		clusterInfo := k8sInformer2.GetClusterInfo(model)
