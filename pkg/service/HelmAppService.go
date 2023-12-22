@@ -237,10 +237,13 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 		return nil, err
 	}
 	resourceTreeResponse, err := impl.buildResourceTreeFromClusterCache(req.ClusterConfig, helmRelease)
-	if err != nil {
-		impl.logger.Errorw("error in getting resourceTree from cluster cache, or cluster cache not synced for this cluster", "clusterName", req.ClusterConfig.ClusterName, "releaseName", helmRelease.Name, "err", err)
+	if err != nil && !strings.Contains(err.Error(), cache.CacheNotSyncError) {
+		impl.logger.Errorw("error in getting resourceTree from cluster cache", "clusterName", req.ClusterConfig.ClusterName, "releaseName", helmRelease.Name, "err", err)
+		return nil, err
 	}
+	//if err is cache.CacheNotSyncError that means resourceTreeResponse is nil
 	if resourceTreeResponse == nil {
+		impl.logger.Infow("cluster cache not synced for this cluster, fetching resource tree from API server", "clusterName", req.ClusterConfig.ClusterName, "releaseName", helmRelease.Name)
 		resourceTreeResponse, err = impl.buildResourceTree(req, helmRelease)
 		if err != nil {
 			impl.logger.Errorw("error in building resource tree ", "err", err)

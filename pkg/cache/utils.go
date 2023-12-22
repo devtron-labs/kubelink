@@ -54,6 +54,7 @@ var (
 
 const (
 	hibernateReplicaAnnotation = "hibernator.devtron.ai/replicas"
+	CacheNotSyncError          = "cluster cache not yet synced for this cluster id"
 )
 
 // isRetryableError is a helper method to see whether an error
