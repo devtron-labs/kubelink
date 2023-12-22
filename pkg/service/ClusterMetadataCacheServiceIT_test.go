@@ -22,8 +22,8 @@ import (
 )
 
 var clusterConfig = &client.ClusterConfig{
-	ApiServerUrl:          "https://20.232.141.127:16443",
-	Token:                 "dmVlcHI2NkpOckQrSVBnQWduSHlqRENjWHFIVXkrckdtQStVajZtaXBhMD0K",
+	ApiServerUrl:          "https://shared-aks-shared-rg-d1e22f-9a9cb33h.hcp.eastus.azmk8s.io:443",
+	Token:                 "eyJhbGciOiJSUzI1NiIsImtpZCI6ImREdU1manJQa1pQeGY3Rk9UQl8tZGNsQkFlLWR4c0JoRUcxc1pnaTgyZEEifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZXZ0cm9uY2QiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlY3JldC5uYW1lIjoiY2QtdXNlciIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJjZC11c2VyIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQudWlkIjoiYTRmZGExNDYtNjI2MC00N2ZiLWI5MzgtNGU3ZDRmYTgxYjY2Iiwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OmRldnRyb25jZDpjZC11c2VyIn0.TejaX9a8L_4-nerPmaBuItQq9QGYEdO8w4iYIWZifiaRPpwlkNyfRI1yvUwAAbcNETKRVPN9dQsSOG6uxknlE_6thQaPSHIJDzQaRBT0tCYWHzEakUy_4KDngpF6kFex_JtxnmCZzFiOHU2KnOCLzEbkRevB3VI1HB0e-XSJqq89BDkC_Wnci1e10-Y_IJCe7YOcLDvI0g8Q0LWwo7jNnhsstLfqghGIapOdzgLKhw3A7ZRT9pCYCiVErn-CMw2kpg93y8w2m5KAwv-QPBB1SpmOorEc2m2Zst182ZRB4DUflUR7y0cKBLcdeQn_Aj_NzGL9NQ_okZFiRbDfI-jh8aqV0qMHRlTRAHkK7JEFcpqPYMYajQqqA8XSTPZ6NKaRxjSDPG9FXiKeHTOLhT5a3N4wHp14hb-oNLxfJE5bGN4nC2Xl0vocT9lNQ54_137Tl9gmOF035fvbQwe-TA0hmIxCpwLMoJSMv9PeIZb-2uyvJcp1fMRBdr_PARU5b4Sjf5ceegeQ3jMaNgI9MKSNvsksl0NGU_5JPv-wgFWHacw9I7i1K_3ng5Gm7dYYVogYT9C25De5c8DsF6i9YmfRoUZrdCn44mWAS4mLJ7Zn28fv1ezaIz0w1S2N5_2JuEmUayu0-iiJNVCTYnnACF1HgwyQoBQaOtmQqj5H1wXlXm0",
 	ClusterId:             1,
 	ClusterName:           "default_cluster",
 	InsecureSkipTLSVerify: true,
@@ -282,10 +282,9 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		for uid, _ := range resourceDataBeforeSync {
 			if nodeInfoAfterSync, ok := resourceDataAfterSync[uid]; ok {
 				if !reflect.DeepEqual(resourceDataBeforeSync[uid].health, nodeInfoAfterSync.health) {
-					t.Errorf("Status_of_pod , status_b:= Node status is different")
+					t.Errorf("Status of pod health before cluster sync = %v , Status of pod health After cluster sync = %v ", resourceDataBeforeSync[uid].health, nodeInfoAfterSync.health)
+					break
 				}
-			} else {
-				// this is tests fail case hence throw error here
 			}
 		}
 	})
@@ -300,7 +299,8 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			if nodeInfoAfterSync, ok := resourceDataAfterSync[uid]; ok {
 				if (resourceDataBeforeSync[uid].kind == "Service" || resourceDataBeforeSync[uid].kind == "EndpointSlice" || resourceDataBeforeSync[uid].kind == "Endpoints") && resourceDataBeforeSync[uid].kind == nodeInfoAfterSync.kind {
 					if !reflect.DeepEqual(resourceDataBeforeSync[uid].port, nodeInfoAfterSync.port) {
-						t.Errorf("Port list is different")
+						t.Errorf("Port number bfore cluster cache = %v, Port Number after cluster cache = %v", resourceDataBeforeSync[uid].port, nodeInfoAfterSync.port)
+						break
 					}
 				}
 			}
@@ -318,7 +318,8 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 				deploymentNetworkingInfo := nodeInfoAfterSync.NetworkingInfo
 				cacheNetworkingInfo := resourceDataBeforeSync[uid].NetworkingInfo
 				if !reflect.DeepEqual(deploymentNetworkingInfo.Labels, cacheNetworkingInfo.Labels) {
-					t.Errorf("Networking Info are different")
+					t.Errorf("Networking Info Before cluster sync = %v, Networking Info After cluster sync = %v", deploymentNetworkingInfo.Labels, cacheNetworkingInfo.Labels)
+					break
 				}
 			}
 		}
@@ -336,7 +337,8 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 				cacheKind := nodeInfoAfterSync.kind
 				if deploymentKind == "pod" && deploymentKind == cacheKind {
 					if !reflect.DeepEqual(resourceDataBeforeSync[uid].CreatedAt, nodeInfoAfterSync.CreatedAt) {
-						t.Errorf("Pod Age is Different")
+						t.Errorf("Pod Created at before cluster cache = %v, Pod Created at after cluster cache = %v", resourceDataBeforeSync[uid].CreatedAt, nodeInfoAfterSync.CreatedAt)
+						break
 					}
 				}
 			}
@@ -352,7 +354,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		for uid := range resourceDataBeforeSync {
 			if nodeInfoAfterSync, ok := resourceDataAfterSync[uid]; ok {
 				if resourceDataBeforeSync[uid].IsHibernated != nodeInfoAfterSync.IsHibernated {
-					t.Errorf("Hibernation status is different")
+					t.Errorf("Is Hibernated before cluster cache = %v, Hibernate status after cluster cache = %v", resourceDataBeforeSync[uid].IsHibernated, nodeInfoAfterSync.IsHibernated)
 				}
 			}
 		}
@@ -369,7 +371,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 				deploymentPodMetaData := resourceDataBeforeSync[uid].PodMetaData
 				cachePodMetaData := nodeInfoAfterSync.PodMetaData
 				if !reflect.DeepEqual(deploymentPodMetaData, cachePodMetaData) {
-					t.Errorf("Pod Meta data is different")
+					t.Errorf("Pod Meta data before Cluster sync = %v, Pod Meta data After cluster sync = %v", deploymentPodMetaData, cachePodMetaData)
 				}
 			}
 		}
@@ -386,7 +388,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			deploymentReleaseStatus := resourceTreeMap["Deployment"].ReleaseStatus
 			cacheReleaseStatus := cacheResourceTreeMap["Deployment"].ReleaseStatus
 			if !reflect.DeepEqual(deploymentReleaseStatus, cacheReleaseStatus) {
-				t.Errorf("Release status is different for")
+				t.Errorf("Release status Before cluster sync = %v, Release Status After cluster sync = %v", deploymentReleaseStatus, cacheReleaseStatus)
 			}
 		}
 	})
@@ -400,7 +402,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		deploymentAppStatus := *resourceTreeMap["Deployment"].ApplicationStatus
 		cacheAppStatus := *cacheResourceTreeMap["Deployment"].ApplicationStatus
 		if deploymentAppStatus != cacheAppStatus {
-			t.Errorf("Application status are not same as in cache")
+			t.Errorf("Application status Before Cluster sync = %v, Application Status After Cluster Sync = %v", deploymentAppStatus, cacheAppStatus)
 		}
 	})
 
@@ -424,7 +426,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			}
 		}
 		if deploymentReplicaCount != cacheReplicaCount {
-			t.Errorf("Different Replica count pod")
+			t.Errorf("Replica count of Deployment Before cluster sync = %v, Replica count of deployment After Cluster sync = %v", deploymentReplicaCount, cacheReplicaCount)
 		}
 
 		// For StatefulSet deployment chart
@@ -440,7 +442,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			}
 		}
 		if statefulSetReplicaCount != cacheStatefulSetReplicaCount {
-			t.Errorf("Different Replica count pod")
+			t.Errorf("Replica count of StatefullSets Before cluster sync = %v, Replica count of StatefullSets After Cluster sync = %v", statefulSetReplicaCount, cacheStatefulSetReplicaCount)
 		}
 
 		// For RollOut type chart
@@ -456,7 +458,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			}
 		}
 		if rollOutReplicaCount != cacheRollOutCount {
-			t.Errorf("Different Replica count pod")
+			t.Errorf("Replica Count of RollOut Before Cluster sync = %v, Replica count After Cluster Sync = %v", rollOutReplicaCount, cacheRollOutCount)
 		}
 
 		// For Job and Cronjob
@@ -472,7 +474,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			}
 		}
 		if cronJobReplicaCount != cacheCronJobCount {
-			t.Errorf("Different Replica count pod")
+			t.Errorf("Replica count of Job And CronJob Before Cluster sync = %v, Replica count of Job And CronJob After Cluster sync = %v", cronJobReplicaCount, cacheCronJobCount)
 		}
 
 	})
@@ -487,7 +489,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 					for i := 0; i < len(deploymentRestart); i++ {
 						if deploymentRestart[i].Name == "Restart Count" {
 							if deploymentRestart[i].Value != cacheRestart[i].Value {
-								t.Errorf("Restart count is different")
+								t.Errorf("Restart count for pod Before Cluster sync = %v, Restart count for pod After CLuster sync = %v", deploymentRestart[i].Value, cacheRestart[i].Value)
 							}
 						}
 					}
@@ -510,7 +512,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			}
 		}
 		if cachePodCount != deploymentPodCount {
-			t.Errorf("Ready pod count is different")
+			t.Errorf("Ready pod count Before Cluster sync = %v, Ready pod count After Cluster sync = %v", deploymentPodCount, cachePodCount)
 		}
 	})
 
@@ -593,10 +595,8 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		}
 		for uid := range helmAppMap {
 			if cacheHelmData, ok := cacheHelmMap[uid]; ok {
-				helmAppNetworkingInfo := helmAppMap[uid].Labels
-				cacheHelmAppNetworkingInfo := cacheHelmData.Labels
-				if !reflect.DeepEqual(helmAppNetworkingInfo, cacheHelmAppNetworkingInfo) {
-					t.Errorf("Networking Info are different")
+				if !reflect.DeepEqual(helmAppMap[uid].Labels, cacheHelmData.Labels) {
+					t.Errorf("Networking Info Before cluster sync = %v, Networking Info After cluster sync = %v", helmAppMap[uid], cacheHelmData)
 				}
 			}
 		}
@@ -607,7 +607,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			helmReleaseStatus := helmAppResourceTreeMap["mongo-operator"].ReleaseStatus
 			cacheHelmReleaseStatus := cacheHelmResourceTreeMap["mongo-operator"].ReleaseStatus
 			if !reflect.DeepEqual(helmReleaseStatus, cacheHelmReleaseStatus) {
-				t.Errorf("Release status are different")
+				t.Errorf("Release status Before cluster sync = %v, Release status After cluster sync = %v", helmReleaseStatus, cacheHelmReleaseStatus)
 			}
 		}
 	})
@@ -617,7 +617,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			helmAppStatus := helmAppResourceTreeMap["mongo-operator"].ApplicationStatus
 			cacheHelmAppStatus := cacheHelmResourceTreeMap["mongo-operator"].ApplicationStatus
 			if !reflect.DeepEqual(helmAppStatus, cacheHelmAppStatus) {
-				t.Errorf("Application status are different")
+				t.Errorf("Application status Before cluster sync = %v, Application status After cluster sync = %v", helmAppStatus, cacheHelmAppStatus)
 			}
 		}
 	})
@@ -626,7 +626,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		helmAppPodCount, cacheHelmAppPodCount := 0, 0
 		for i := 0; i < helmAppResourceTreeSize; i++ {
 			helmAppKind := helmAppResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes[i].Kind
-			cacheHelmAppKind := cacheResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes[i].Kind
+			cacheHelmAppKind := cacheHelmResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes[i].Kind
 			if helmAppKind == "pod" {
 				helmAppPodCount++
 			}
@@ -635,7 +635,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			}
 		}
 		if helmAppPodCount != cacheHelmAppPodCount {
-			t.Errorf("Replica pod count is different")
+			t.Errorf("Replica pod count Before cluster sync = %v, Replica pod count After cluster sync = %v", helmAppPodCount, cacheHelmAppPodCount)
 		}
 	})
 }
