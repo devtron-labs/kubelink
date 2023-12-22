@@ -100,7 +100,6 @@ func getAllInfoItems(infoItems []bean.InfoItem, reason string, restarts int, rea
 	if reason != "" {
 		infoItems = append(infoItems, bean.InfoItem{Name: bean.StatusReason, Value: reason})
 	}
-	//make consts
 	infoItems = append(infoItems, bean.InfoItem{Name: bean.Node, Value: pod.Spec.NodeName})
 
 	containerNames, initContainerNames, ephemeralContainersInfo, ephemeralContainerStatus := getContainersInfo(pod)
