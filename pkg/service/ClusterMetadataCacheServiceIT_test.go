@@ -235,7 +235,6 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	}
 
 	resourceCacheTreeSize := len(cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes)
-	resourceCacheTreeSizeStatefulSets := len(cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes)
 
 	// Storing Resource data After Cluster Sync
 	resourceDataAfterSync := map[string]NodeInfo{}
@@ -256,23 +255,6 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		resourceDataAfterSync[uid] = nodeInfo
 	}
 
-	for i := 0; i < resourceCacheTreeSizeStatefulSets; i++ {
-		uid := cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].UID
-		nodeInfo := NodeInfo{
-			kind:              cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].Kind,
-			health:            cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].Health,
-			port:              cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].Port,
-			CreatedAt:         cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].CreatedAt,
-			IsHibernated:      cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].IsHibernated,
-			PodMetaData:       cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.PodMetadata,
-			ReleaseStatus:     cacheResourceTreeMap["StatefulSets"].ReleaseStatus,
-			ApplicationStatus: cacheResourceTreeMap["StatefulSets"].ApplicationStatus,
-			info:              cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].Info,
-			NetworkingInfo:    cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].NetworkingInfo,
-		}
-		resourceDataAfterSync[uid] = nodeInfo
-	}
-
 	//Health Status for Pod and other resources
 	t.Run("Status_of_pod and other resources", func(t *testing.T) {
 		if resourceTreeSize != len(resourceDataBeforeSync) {
@@ -289,7 +271,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		}
 	})
 
-	//Port number comparison for Service, Endpoints and EndpointSlice
+	// Port number comparison for Service, Endpoints and EndpointSlice
 	t.Run("Service, Endpoints and EndpointSlice with port numbers", func(t *testing.T) {
 		if resourceTreeSize != len(resourceDataBeforeSync) {
 			t.Errorf("Different Node length")
@@ -481,6 +463,10 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 
 	// Restart Count
 	t.Run("Restart count for a pod", func(t *testing.T) {
+		if resourceTreeSize != len(resourceDataBeforeSync) {
+			t.Errorf("Different Node length")
+			return
+		}
 		for uid := range resourceDataBeforeSync {
 			if nodeInfoAfterSync, ok := resourceDataAfterSync[uid]; ok {
 				if resourceDataBeforeSync[uid].kind == "pod" {
@@ -500,6 +486,10 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 
 	// Count of pods
 	t.Run("ReplicaCount as > 1, which is the Count of pods ready.", func(t *testing.T) {
+		if resourceTreeSize != len(resourceDataBeforeSync) {
+			t.Errorf("Different Node length")
+			return
+		}
 		deploymentPodCount, cachePodCount := 0, 0
 		for i := 0; i < resourceTreeSize; i++ {
 			deploymentKind := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
@@ -518,6 +508,10 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 
 	// PersistentVolumeClaim for StatefulSets Deployment
 	t.Run("Persistence volume", func(t *testing.T) {
+		if resourceTreeSize != len(resourceDataBeforeSync) {
+			t.Errorf("Different Node length")
+			return
+		}
 		isPVCDeployment, isPVCCache := false, false
 		for i := 0; i < resourceTreeSizeStatefulSets; i++ {
 			deploymentKind := resourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].Kind
@@ -536,6 +530,10 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 
 	// Init and Ephemeral container
 	t.Run("Init and Ephemeral container validation", func(t *testing.T) {
+		if resourceTreeSize != len(resourceDataBeforeSync) {
+			t.Errorf("Different Node length")
+			return
+		}
 		deploymentEphemeralContainer := resourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata
 		cacheEphemeralContainer := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata
 		for i := 0; i < len(deploymentEphemeralContainer); i++ {
@@ -550,6 +548,10 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 
 	// newPod vs oldPod
 	t.Run("NewPod Vs OldPod", func(t *testing.T) {
+		if resourceTreeSize != len(resourceDataBeforeSync) {
+			t.Errorf("Different Node length")
+			return
+		}
 		var newPodData []string
 		var cacheNewPodData []string
 
@@ -586,6 +588,10 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 
 	// Test Cases for helm App
 	t.Run("Number_of_Replica_Pod for helm Apps ", func(t *testing.T) {
+		if helmAppResourceTreeSize != len(cacheHelmResourceTreeMap) {
+			t.Errorf("Different Node length")
+			return
+		}
 		helmAppMap := map[string]*bean.ResourceNetworkingInfo{}
 		cacheHelmMap := map[string]*bean.ResourceNetworkingInfo{}
 		for i := 0; i < helmAppResourceTreeSize; i++ {
@@ -603,6 +609,10 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	})
 
 	t.Run("Release_status for helm app", func(t *testing.T) {
+		if helmAppResourceTreeSize != len(cacheHelmResourceTreeMap) {
+			t.Errorf("Different Node length")
+			return
+		}
 		for i := 0; i < helmAppResourceTreeSize; i++ {
 			helmReleaseStatus := helmAppResourceTreeMap["mongo-operator"].ReleaseStatus
 			cacheHelmReleaseStatus := cacheHelmResourceTreeMap["mongo-operator"].ReleaseStatus
@@ -613,6 +623,10 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	})
 
 	t.Run("App_status for helm app", func(t *testing.T) {
+		if helmAppResourceTreeSize != len(cacheHelmResourceTreeMap) {
+			t.Errorf("Different Node length")
+			return
+		}
 		for i := 0; i < helmAppResourceTreeSize; i++ {
 			helmAppStatus := helmAppResourceTreeMap["mongo-operator"].ApplicationStatus
 			cacheHelmAppStatus := cacheHelmResourceTreeMap["mongo-operator"].ApplicationStatus
@@ -623,6 +637,10 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	})
 
 	t.Run("Replica_count_pods for helm app", func(t *testing.T) {
+		if helmAppResourceTreeSize != len(cacheHelmResourceTreeMap) {
+			t.Errorf("Different Node length")
+			return
+		}
 		helmAppPodCount, cacheHelmAppPodCount := 0, 0
 		for i := 0; i < helmAppResourceTreeSize; i++ {
 			helmAppKind := helmAppResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes[i].Kind
