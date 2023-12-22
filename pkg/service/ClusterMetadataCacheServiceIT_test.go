@@ -115,6 +115,141 @@ type NodeInfo struct {
 	NetworkingInfo    *bean.ResourceNetworkingInfo
 }
 
+func prepareResourceTreeMapBeforeClusterSyncForDevtronApp(t *testing.T, resourceTreeMap *map[string]*bean.AppDetail,
+	helmAppResourceTreeMap *map[string]*bean.AppDetail, helmAppServiceImpl *HelmAppServiceImpl) {
+	devtronAppResp := *resourceTreeMap
+	for _, payload := range devtronPayloadArray {
+		appDetailReqDev := &client.AppDetailRequest{
+			ClusterConfig: payload.ReleaseIdentifier.ClusterConfig,
+			Namespace:     payload.ReleaseIdentifier.ReleaseNamespace,
+			ReleaseName:   payload.ReleaseIdentifier.ReleaseName,
+		}
+		appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReqDev)
+		assert.Nil(t, err)
+
+		//store appDetail in the map for corresponding key eg "deployment":appDetail for deployment kind
+		if payload == installReleaseReqJobAndCronJob {
+			devtronAppResp["JobAndCronJob"] = appDetail
+		} else if payload == installReleaseReqStatefullset {
+			devtronAppResp["StatefulSets"] = appDetail
+		} else if payload == installReleaseReqRollout {
+			devtronAppResp["RollOut"] = appDetail
+		} else {
+			devtronAppResp["Deployment"] = appDetail
+		}
+	}
+	resourceTreeMap = &devtronAppResp
+
+	helmChartResp := *helmAppResourceTreeMap
+	// Store appDetails in the map for corresponding chart type
+	for _, payload := range helmPayloadArray {
+		appDetailHelmReq := &client.AppDetailRequest{
+			ClusterConfig: payload.ReleaseIdentifier.ClusterConfig,
+			Namespace:     payload.ReleaseIdentifier.ReleaseNamespace,
+			ReleaseName:   payload.ReleaseIdentifier.ReleaseName,
+		}
+		appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailHelmReq)
+		if err != nil {
+			logrus.Error("Error in fetching app details")
+		}
+
+		//Store App details for particular chart
+		helmChartResp[payload.ReleaseIdentifier.ReleaseName] = appDetail
+	}
+	helmAppResourceTreeMap = &helmChartResp
+}
+
+func prepareResourceTreeMapAfterClusterSyncForDevtronApp(t *testing.T, cacheResourceTreeMap *map[string]*bean.AppDetail,
+	cacheHelmResourceTreeMap *map[string]*bean.AppDetail, helmAppServiceImpl *HelmAppServiceImpl) {
+
+	cacheDevtronAppResp := *cacheResourceTreeMap
+	for _, payload := range devtronPayloadArray {
+		appDetailReqDev := &client.AppDetailRequest{
+			ClusterConfig: payload.ReleaseIdentifier.ClusterConfig,
+			Namespace:     payload.ReleaseIdentifier.ReleaseNamespace,
+			ReleaseName:   payload.ReleaseIdentifier.ReleaseName,
+		}
+		cacheAppDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReqDev)
+		assert.Nil(t, err)
+		// Storing cache App Details
+		if payload == installReleaseReqJobAndCronJob {
+			cacheDevtronAppResp["JobAndCronJob"] = cacheAppDetail
+		} else if payload == installReleaseReqStatefullset {
+			cacheDevtronAppResp["StatefulSets"] = cacheAppDetail
+		} else if payload == installReleaseReqRollout {
+			cacheDevtronAppResp["RollOut"] = cacheAppDetail
+		} else {
+			cacheDevtronAppResp["Deployment"] = cacheAppDetail
+		}
+	}
+	cacheResourceTreeMap = &cacheDevtronAppResp
+
+	cacheHelmChartResp := *cacheHelmResourceTreeMap
+	for _, payload := range helmPayloadArray {
+		appDetailHelmReq := &client.AppDetailRequest{
+			ClusterConfig: payload.ReleaseIdentifier.ClusterConfig,
+			Namespace:     payload.ReleaseIdentifier.ReleaseNamespace,
+			ReleaseName:   payload.ReleaseIdentifier.ReleaseName,
+		}
+		appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailHelmReq)
+		if err != nil {
+			logrus.Error("Error in fetching app details")
+		}
+		//Store Cache App details for particular chart
+		cacheHelmChartResp[payload.ReleaseIdentifier.ReleaseName] = appDetail
+	}
+	cacheHelmResourceTreeMap = &cacheHelmChartResp
+}
+
+func buildResourceInfoBeforeCacheSync(resourceTreeMap map[string]*bean.AppDetail) map[string]NodeInfo {
+	resourceTreeSize := len(resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes)
+	// Storing Resource data before Cluster sync
+	resourceDataBeforeSync := map[string]NodeInfo{}
+	for i := 0; i < resourceTreeSize; i++ {
+		node := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i]
+		uid := node.UID
+		nodeInfo := NodeInfo{
+			kind:              node.Kind,
+			health:            node.Health,
+			port:              node.Port,
+			CreatedAt:         node.CreatedAt,
+			IsHibernated:      node.IsHibernated,
+			PodMetaData:       resourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata,
+			ReleaseStatus:     resourceTreeMap["Deployment"].ReleaseStatus,
+			ApplicationStatus: resourceTreeMap["Deployment"].ApplicationStatus,
+			info:              node.Info,
+			NetworkingInfo:    node.NetworkingInfo,
+		}
+		resourceDataBeforeSync[uid] = nodeInfo
+	}
+	return resourceDataBeforeSync
+}
+
+func buildResourceInfoAfterCacheSync(cacheResourceTreeMap map[string]*bean.AppDetail) map[string]NodeInfo {
+	resourceCacheTreeSize := len(cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes)
+
+	// Storing Resource data After Cluster Sync
+	resourceDataAfterSync := map[string]NodeInfo{}
+	for i := 0; i < resourceCacheTreeSize; i++ {
+		node := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i]
+		uid := node.UID
+		nodeInfo := NodeInfo{
+			kind:              node.Kind,
+			health:            node.Health,
+			port:              node.Port,
+			CreatedAt:         node.CreatedAt,
+			IsHibernated:      node.IsHibernated,
+			PodMetaData:       cacheResourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata,
+			ReleaseStatus:     cacheResourceTreeMap["Deployment"].ReleaseStatus,
+			ApplicationStatus: cacheResourceTreeMap["Deployment"].ApplicationStatus,
+			info:              node.Info,
+			NetworkingInfo:    node.NetworkingInfo,
+		}
+		resourceDataAfterSync[uid] = nodeInfo
+	}
+	return resourceDataAfterSync
+}
+
 func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	logger, k8sInformer, helmReleaseConfig, k8sUtil, clusterRepository, k8sServiceImpl := getHelmAppServiceDependencies(t)
 	clusterCacheConfig := &cache.ClusterCacheConfig{
@@ -132,129 +267,24 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	var helmAppResourceTreeMap = map[string]*bean.AppDetail{}
 	var cacheResourceTreeMap = map[string]*bean.AppDetail{}
 	var cacheHelmResourceTreeMap = map[string]*bean.AppDetail{}
-	for _, payload := range devtronPayloadArray {
-		appDetailReqDev := &client.AppDetailRequest{
-			ClusterConfig: payload.ReleaseIdentifier.ClusterConfig,
-			Namespace:     payload.ReleaseIdentifier.ReleaseNamespace,
-			ReleaseName:   payload.ReleaseIdentifier.ReleaseName,
-		}
-		appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReqDev)
-		if err != nil {
-			logger.Errorw("App Details not build successfully", err)
-		}
 
-		//store appDetail in the map for corresponding key eg "deployment":appDetail for deployment kind
-		if payload == installReleaseReqJobAndCronJob {
-			resourceTreeMap["JobAndCronJob"] = appDetail
-		} else if payload == installReleaseReqStatefullset {
-			resourceTreeMap["StatefulSets"] = appDetail
-		} else if payload == installReleaseReqRollout {
-			resourceTreeMap["RollOut"] = appDetail
-		} else {
-			resourceTreeMap["Deployment"] = appDetail
-		}
-	}
-
-	// Store appDetails in the map for corresponding chart type
-	for _, payload := range helmPayloadArray {
-		appDetailHelmReq := &client.AppDetailRequest{
-			ClusterConfig: payload.ReleaseIdentifier.ClusterConfig,
-			Namespace:     payload.ReleaseIdentifier.ReleaseNamespace,
-			ReleaseName:   payload.ReleaseIdentifier.ReleaseName,
-		}
-		appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailHelmReq)
-		if err != nil {
-			logrus.Error("Error in fetching app details")
-		}
-
-		//Store App details for particular chart
-		helmAppResourceTreeMap[payload.ReleaseIdentifier.ReleaseName] = appDetail
-	}
-
+	prepareResourceTreeMapBeforeClusterSyncForDevtronApp(t, &resourceTreeMap, &helmAppResourceTreeMap, helmAppServiceImpl)
+	resourceDataBeforeSync := buildResourceInfoBeforeCacheSync(resourceTreeMap)
 	helmAppResourceTreeSize := len(helmAppResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes)
-
 	resourceTreeSize := len(resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes)
 	resourceTreeSizeStatefulSets := len(resourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes)
 
-	// Storing Resource data before Cluster sync
-	resourceDataBeforeSync := map[string]NodeInfo{}
-	for i := 0; i < resourceTreeSize; i++ {
-		uid := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].UID
-		nodeInfo := NodeInfo{
-			kind:              resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind,
-			health:            resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Health,
-			port:              resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Port,
-			CreatedAt:         resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].CreatedAt,
-			IsHibernated:      resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].IsHibernated,
-			PodMetaData:       resourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata,
-			ReleaseStatus:     resourceTreeMap["Deployment"].ReleaseStatus,
-			ApplicationStatus: resourceTreeMap["Deployment"].ApplicationStatus,
-			info:              resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Info,
-			NetworkingInfo:    resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].NetworkingInfo,
-		}
-		resourceDataBeforeSync[uid] = nodeInfo
-	}
-
+	//cluster cache sync started
 	model, err := clusterRepository.FindById(int(installReleaseReq.ReleaseIdentifier.ClusterConfig.ClusterId))
 	assert.Nil(t, err)
 	clusterInfo := k8sInformer2.GetClusterInfo(model)
 
 	clusterCacheImpl.SyncClusterCache(clusterInfo)
+	//cluster cache sync ended
 
-	for _, payload := range devtronPayloadArray {
-		appDetailReqDev := &client.AppDetailRequest{
-			ClusterConfig: payload.ReleaseIdentifier.ClusterConfig,
-			Namespace:     payload.ReleaseIdentifier.ReleaseNamespace,
-			ReleaseName:   payload.ReleaseIdentifier.ReleaseName,
-		}
-		cacheAppDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailReqDev)
-		assert.Nil(t, err)
-		// Storing cache App Details
-		if payload == installReleaseReqJobAndCronJob {
-			cacheResourceTreeMap["JobAndCronJob"] = cacheAppDetail
-		} else if payload == installReleaseReqStatefullset {
-			cacheResourceTreeMap["StatefulSets"] = cacheAppDetail
-		} else if payload == installReleaseReqRollout {
-			cacheResourceTreeMap["RollOut"] = cacheAppDetail
-		} else {
-			cacheResourceTreeMap["Deployment"] = cacheAppDetail
-		}
-	}
-	for _, payload := range helmPayloadArray {
-		appDetailHelmReq := &client.AppDetailRequest{
-			ClusterConfig: payload.ReleaseIdentifier.ClusterConfig,
-			Namespace:     payload.ReleaseIdentifier.ReleaseNamespace,
-			ReleaseName:   payload.ReleaseIdentifier.ReleaseName,
-		}
-		appDetail, err := helmAppServiceImpl.BuildAppDetail(appDetailHelmReq)
-		if err != nil {
-			logrus.Error("Error in fetching app details")
-		}
-		//Store Cache App details for particular chart
-		cacheHelmResourceTreeMap[payload.ReleaseIdentifier.ReleaseName] = appDetail
-	}
-
-	resourceCacheTreeSize := len(cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes)
-
-	// Storing Resource data After Cluster Sync
-	resourceDataAfterSync := map[string]NodeInfo{}
-	for i := 0; i < resourceCacheTreeSize; i++ {
-		uid := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].UID
-		nodeInfo := NodeInfo{
-			kind:              cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind,
-			health:            cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Health,
-			port:              cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Port,
-			CreatedAt:         cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].CreatedAt,
-			IsHibernated:      cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].IsHibernated,
-			PodMetaData:       cacheResourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata,
-			ReleaseStatus:     cacheResourceTreeMap["Deployment"].ReleaseStatus,
-			ApplicationStatus: cacheResourceTreeMap["Deployment"].ApplicationStatus,
-			info:              cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Info,
-			NetworkingInfo:    cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].NetworkingInfo,
-		}
-		resourceDataAfterSync[uid] = nodeInfo
-	}
-
+	prepareResourceTreeMapAfterClusterSyncForDevtronApp(t, &cacheResourceTreeMap, &cacheHelmResourceTreeMap, helmAppServiceImpl)
+	resourceDataAfterSync := buildResourceInfoAfterCacheSync(cacheResourceTreeMap)
+	cacheAppResourceTreeSize := len(cacheHelmResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes)
 	//Health Status for Pod and other resources
 	t.Run("Status_of_pod and other resources", func(t *testing.T) {
 		if resourceTreeSize != len(resourceDataBeforeSync) {
@@ -271,16 +301,16 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		}
 	})
 
-	// Port number comparison for Service, Endpoints and EndpointSlice
+	//Port number comparison for Service, Endpoints and EndpointSlice
 	t.Run("Service, Endpoints and EndpointSlice with port numbers", func(t *testing.T) {
 		if resourceTreeSize != len(resourceDataBeforeSync) {
 			t.Errorf("Different Node length")
 			return
 		}
-		for uid, _ := range resourceDataBeforeSync {
+		for uid, resourceInfo := range resourceDataBeforeSync {
 			if nodeInfoAfterSync, ok := resourceDataAfterSync[uid]; ok {
-				if (resourceDataBeforeSync[uid].kind == "Service" || resourceDataBeforeSync[uid].kind == "EndpointSlice" || resourceDataBeforeSync[uid].kind == "Endpoints") && resourceDataBeforeSync[uid].kind == nodeInfoAfterSync.kind {
-					if !reflect.DeepEqual(resourceDataBeforeSync[uid].port, nodeInfoAfterSync.port) {
+				if (resourceInfo.kind == "Service" || resourceInfo.kind == "EndpointSlice" || resourceInfo.kind == "Endpoints") && resourceInfo.kind == nodeInfoAfterSync.kind {
+					if !reflect.DeepEqual(resourceInfo.port, nodeInfoAfterSync.port) {
 						t.Errorf("Port number bfore cluster cache = %v, Port Number after cluster cache = %v", resourceDataBeforeSync[uid].port, nodeInfoAfterSync.port)
 						break
 					}
@@ -295,10 +325,10 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			t.Errorf("Different Node length")
 			return
 		}
-		for uid := range resourceDataBeforeSync {
+		for uid, resourceInfo := range resourceDataBeforeSync {
 			if nodeInfoAfterSync, ok := resourceDataAfterSync[uid]; ok {
 				deploymentNetworkingInfo := nodeInfoAfterSync.NetworkingInfo
-				cacheNetworkingInfo := resourceDataBeforeSync[uid].NetworkingInfo
+				cacheNetworkingInfo := resourceInfo.NetworkingInfo
 				if !reflect.DeepEqual(deploymentNetworkingInfo.Labels, cacheNetworkingInfo.Labels) {
 					t.Errorf("Networking Info Before cluster sync = %v, Networking Info After cluster sync = %v", deploymentNetworkingInfo.Labels, cacheNetworkingInfo.Labels)
 					break
@@ -313,12 +343,12 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			t.Errorf("Different Node length")
 			return
 		}
-		for uid := range resourceDataBeforeSync {
+		for uid, resourceInfo := range resourceDataBeforeSync {
 			if nodeInfoAfterSync, ok := resourceDataAfterSync[uid]; ok {
-				deploymentKind := resourceDataBeforeSync[uid].kind
+				deploymentKind := resourceInfo.kind
 				cacheKind := nodeInfoAfterSync.kind
 				if deploymentKind == "pod" && deploymentKind == cacheKind {
-					if !reflect.DeepEqual(resourceDataBeforeSync[uid].CreatedAt, nodeInfoAfterSync.CreatedAt) {
+					if !reflect.DeepEqual(resourceInfo.CreatedAt, nodeInfoAfterSync.CreatedAt) {
 						t.Errorf("Pod Created at before cluster cache = %v, Pod Created at after cluster cache = %v", resourceDataBeforeSync[uid].CreatedAt, nodeInfoAfterSync.CreatedAt)
 						break
 					}
@@ -333,9 +363,9 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			t.Errorf("Different Node length")
 			return
 		}
-		for uid := range resourceDataBeforeSync {
+		for uid, resourceInfo := range resourceDataBeforeSync {
 			if nodeInfoAfterSync, ok := resourceDataAfterSync[uid]; ok {
-				if resourceDataBeforeSync[uid].IsHibernated != nodeInfoAfterSync.IsHibernated {
+				if resourceInfo.IsHibernated != nodeInfoAfterSync.IsHibernated {
 					t.Errorf("Is Hibernated before cluster cache = %v, Hibernate status after cluster cache = %v", resourceDataBeforeSync[uid].IsHibernated, nodeInfoAfterSync.IsHibernated)
 				}
 			}
@@ -348,9 +378,9 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			t.Errorf("Different Node length")
 			return
 		}
-		for uid := range resourceDataBeforeSync {
+		for uid, resourceInfo := range resourceDataBeforeSync {
 			if nodeInfoAfterSync, ok := resourceDataAfterSync[uid]; ok {
-				deploymentPodMetaData := resourceDataBeforeSync[uid].PodMetaData
+				deploymentPodMetaData := resourceInfo.PodMetaData
 				cachePodMetaData := nodeInfoAfterSync.PodMetaData
 				if !reflect.DeepEqual(deploymentPodMetaData, cachePodMetaData) {
 					t.Errorf("Pod Meta data before Cluster sync = %v, Pod Meta data After cluster sync = %v", deploymentPodMetaData, cachePodMetaData)
@@ -370,7 +400,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			deploymentReleaseStatus := resourceTreeMap["Deployment"].ReleaseStatus
 			cacheReleaseStatus := cacheResourceTreeMap["Deployment"].ReleaseStatus
 			if !reflect.DeepEqual(deploymentReleaseStatus, cacheReleaseStatus) {
-				t.Errorf("Release status Before cluster sync = %v, Release Status After cluster sync = %v", deploymentReleaseStatus, cacheReleaseStatus)
+				t.Errorf("Release status Before cluster sync = %v, Release Status After cluster sync = %v", *deploymentReleaseStatus, *cacheReleaseStatus)
 			}
 		}
 	})
@@ -397,6 +427,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		deploymentReplicaCount, cacheReplicaCount := 0, 0
 
 		// For deployment type chart
+		//since size check has passed so iterating over resourceTreeSize since cache nodes size will also be same
 		for i := 0; i < resourceTreeSize; i++ {
 			deploymentKind := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
 			cacheReplicaKind := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
@@ -458,7 +489,6 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		if cronJobReplicaCount != cacheCronJobCount {
 			t.Errorf("Replica count of Job And CronJob Before Cluster sync = %v, Replica count of Job And CronJob After Cluster sync = %v", cronJobReplicaCount, cacheCronJobCount)
 		}
-
 	})
 
 	// Restart Count
@@ -467,10 +497,10 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			t.Errorf("Different Node length")
 			return
 		}
-		for uid := range resourceDataBeforeSync {
+		for uid, resourceInfo := range resourceDataBeforeSync {
 			if nodeInfoAfterSync, ok := resourceDataAfterSync[uid]; ok {
 				if resourceDataBeforeSync[uid].kind == "pod" {
-					deploymentRestart := resourceDataBeforeSync[uid].info
+					deploymentRestart := resourceInfo.info
 					cacheRestart := nodeInfoAfterSync.info
 					for i := 0; i < len(deploymentRestart); i++ {
 						if deploymentRestart[i].Name == "Restart Count" {
@@ -587,29 +617,8 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	})
 
 	// Test Cases for helm App
-	t.Run("Number_of_Replica_Pod for helm Apps ", func(t *testing.T) {
-		if helmAppResourceTreeSize != len(cacheHelmResourceTreeMap) {
-			t.Errorf("Different Node length")
-			return
-		}
-		helmAppMap := map[string]*bean.ResourceNetworkingInfo{}
-		cacheHelmMap := map[string]*bean.ResourceNetworkingInfo{}
-		for i := 0; i < helmAppResourceTreeSize; i++ {
-			uid := helmAppResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes[i].UID
-			helmAppMap[uid] = helmAppResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes[i].NetworkingInfo
-			cacheHelmMap[uid] = cacheHelmResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes[i].NetworkingInfo
-		}
-		for uid := range helmAppMap {
-			if cacheHelmData, ok := cacheHelmMap[uid]; ok {
-				if !reflect.DeepEqual(helmAppMap[uid].Labels, cacheHelmData.Labels) {
-					t.Errorf("Networking Info Before cluster sync = %v, Networking Info After cluster sync = %v", helmAppMap[uid], cacheHelmData)
-				}
-			}
-		}
-	})
-
 	t.Run("Release_status for helm app", func(t *testing.T) {
-		if helmAppResourceTreeSize != len(cacheHelmResourceTreeMap) {
+		if helmAppResourceTreeSize != cacheAppResourceTreeSize {
 			t.Errorf("Different Node length")
 			return
 		}
@@ -623,7 +632,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	})
 
 	t.Run("App_status for helm app", func(t *testing.T) {
-		if helmAppResourceTreeSize != len(cacheHelmResourceTreeMap) {
+		if helmAppResourceTreeSize != cacheAppResourceTreeSize {
 			t.Errorf("Different Node length")
 			return
 		}
@@ -637,7 +646,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	})
 
 	t.Run("Replica_count_pods for helm app", func(t *testing.T) {
-		if helmAppResourceTreeSize != len(cacheHelmResourceTreeMap) {
+		if helmAppResourceTreeSize != cacheAppResourceTreeSize {
 			t.Errorf("Different Node length")
 			return
 		}
