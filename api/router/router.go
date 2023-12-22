@@ -42,7 +42,7 @@ func (r *RouterImpl) InitRouter() {
 	statsVizRouter := r.Router.Methods("GET").Subrouter()
 	r.statsVizRouter.InitStatsVizRouter(statsVizRouter)
 
-	r.Router.PathPrefix("/kubelink/metrics").Handler(promhttp.Handler())
+	r.Router.PathPrefix("/metrics").Handler(promhttp.Handler())
 	r.Router.Path("/health").HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("Content-Type", "application/json")
 		writer.WriteHeader(200)
