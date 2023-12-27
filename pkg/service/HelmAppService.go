@@ -242,7 +242,7 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 	}
 	resourceTreeResponse, err := impl.buildResourceTreeFromClusterCache(req.ClusterConfig, helmRelease)
 	if err != nil {
-		impl.logger.Errorw("error in getting resourceTree from cluster cache", "clusterName", req.ClusterConfig.ClusterName, "releaseName", helmRelease.Name, "err", err)
+		impl.logger.Errorw("error in getting resourceTree from cluster cache, or cluster cache not synced for this cluster", "clusterName", req.ClusterConfig.ClusterName, "releaseName", helmRelease.Name, "err", err)
 	}
 	if resourceTreeResponse == nil {
 		resourceTreeResponse, err = impl.buildResourceTree(req, helmRelease)
@@ -319,7 +319,7 @@ func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig 
 	impl.logger.Infow("building resource tree from cluster cache", "clusterName", clusterConfig.ClusterName, "helmReleaseName", helmRelease.Name)
 	clusterCache, err := impl.clusterCache.GetClusterCacheByClusterId(int(clusterConfig.ClusterId))
 	if err != nil {
-		impl.logger.Errorw("error in getting cluster cache, or cluster cache not synced for this cluster", "clusterId", clusterConfig.ClusterId, "err", err)
+		impl.logger.Infow("cluster cache not synced for this cluster", "clusterName", clusterConfig.ClusterName, "clusterId", clusterConfig.ClusterId, "err", err)
 		return nil, err
 	}
 	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
@@ -610,7 +610,6 @@ func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest
 			return nil, err
 		}
 		deploymentDetail := &client.HelmAppDeploymentDetail{
-			DeployedAt: timestamppb.New(helmRelease.Info.LastDeployed.Time),
 			ChartMetadata: &client.ChartMetadata{
 				ChartName:    chartMetadata.Name,
 				ChartVersion: chartMetadata.Version,
@@ -620,6 +619,10 @@ func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest
 			},
 			DockerImages: dockerImages,
 			Version:      int32(helmRelease.Version),
+		}
+		if helmRelease.Info != nil {
+			deploymentDetail.DeployedAt = timestamppb.New(helmRelease.Info.LastDeployed.Time)
+			deploymentDetail.Status = string(helmRelease.Info.Status)
 		}
 		helmAppDeployments = append(helmAppDeployments, deploymentDetail)
 	}
@@ -1136,7 +1139,6 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 	}
 
 	var chartName, repoURL string
-
 	switch request.IsOCIRepo {
 	case true:
 		if request.RegistryCredential != nil && !request.RegistryCredential.IsPublic {
@@ -1929,8 +1931,8 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 	updateChartSpec.MaxHistory = int(request.HistoryMax)
 
 	impl.logger.Debug("Upgrading release")
-	res, err := helmClientObj.UpgradeReleaseWithChartInfo(ctx, updateChartSpec)
-	impl.logger.Debugw("response form UpgradeReleaseWithChartInfo", "res", res)
+	_, err = helmClientObj.UpgradeReleaseWithChartInfo(ctx, updateChartSpec)
+	impl.logger.Debugw("response form UpgradeReleaseWithChartInfo", "err", err)
 	if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
 		if UpgradeErr != nil {
 			if UpgradeErr.Err == driver.ErrNoDeployedReleases {

@@ -567,7 +567,6 @@ func (c *HelmClient) GetNotes(spec *ChartSpec, options *HelmTemplateOptions) ([]
 }
 
 func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions, chartData []byte) ([]byte, error) {
-	c.ActionConfig.RegistryClient = spec.RegistryClient
 	var helmChart *chart.Chart
 	var chartPath string
 	var err error
@@ -577,6 +576,7 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 			return nil, err
 		}
 	}
+	c.ActionConfig.RegistryClient = spec.RegistryClient
 	client := action.NewInstall(c.ActionConfig)
 	mergeInstallOptions(spec, client)
 
@@ -602,11 +602,6 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 	if client.Version == "" {
 		client.Version = ">0.0.0-0"
 	}
-	ChartPathOptions := action.ChartPathOptions{
-		RepoURL: spec.RepoURL,
-		Version: spec.Version,
-	}
-	client.ChartPathOptions = ChartPathOptions
 
 	// if we are not sending chart from orchestrator, then we have to fetch the chart from helm
 	if chartData == nil {
@@ -697,6 +692,8 @@ func mergeInstallOptions(chartSpec *ChartSpec, installOptions *action.Install) {
 	installOptions.DryRun = chartSpec.DryRun
 	installOptions.SubNotes = chartSpec.SubNotes
 	installOptions.WaitForJobs = chartSpec.WaitForJobs
+	installOptions.ChartPathOptions.RepoURL = chartSpec.RepoURL
+	installOptions.ChartPathOptions.Version = chartSpec.Version
 }
 
 // updateDependencies checks dependencies for given helmChart and updates dependencies with metadata if dependencyUpdate is true. returns updated HelmChart
