@@ -31,6 +31,7 @@ import (
 	"github.com/devtron-labs/kubelink/pkg/service"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 	"github.com/devtron-labs/kubelink/pprof"
+	"github.com/devtron-labs/kubelink/statsViz"
 	"github.com/google/wire"
 )
 
@@ -48,6 +49,9 @@ func InitializeApp() (*App, error) {
 		wire.Bind(new(service.HelmAppService), new(*service.HelmAppServiceImpl)),
 		service.NewApplicationServiceServerImpl,
 		router.NewRouter,
+		statsViz.NewStatsVizRouter,
+		wire.Bind(new(statsViz.StatsVizRouter), new(*statsViz.StatsVizRouterImpl)),
+		statsViz.GetStatsVizConfig,
 		pprof.NewPProfRestHandler,
 		wire.Bind(new(pprof.PProfRestHandler), new(*pprof.PProfRestHandlerImpl)),
 		pprof.NewPProfRouter,
