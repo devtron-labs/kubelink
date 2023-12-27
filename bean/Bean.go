@@ -97,6 +97,7 @@ type ResourceNode struct {
 	Port            []int64                 `json:"port,omitempty"`
 	CreatedAt       string                  `json:"createdAt,omitempty"`
 	IsHook          bool                    `json:"isHook,omitempty"`
+	HookType        string                  `json:"hookType,omitempty"`
 }
 
 // ResourceRef includes fields which unique identify resource

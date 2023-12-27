@@ -158,8 +158,9 @@ func getResourceNodeFromManifest(un *unstructured.Unstructured, gvk schema.Group
 			UID:       string(un.GetUID()),
 			Manifest:  *un,
 		},
+		IsHook:   util.IsNodeHook(un),
+		HookType: util.GetHookLifeCycleType(un),
 	}
-	node.IsHook = util.IsNodeHook(un)
 	return node
 }
 

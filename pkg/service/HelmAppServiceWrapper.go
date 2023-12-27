@@ -339,6 +339,8 @@ func (impl *ApplicationServiceServerImpl) AppDetailAdaptor(req *bean.AppDetail) 
 			Info:            impl.buildInfoItems(node.Info),
 			CreatedAt:       node.CreatedAt,
 			Port:            node.Port,
+			IsHook:          node.IsHook,
+			HookType:        node.HookType,
 		}
 		resourceNodes = append(resourceNodes, resourceNode)
 	}

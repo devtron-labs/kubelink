@@ -1522,8 +1522,9 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 			},
 			CreatedAt: creationTimeStamp,
 			Port:      ports,
+			IsHook:    util.IsNodeHook(manifest),
+			HookType:  util.GetHookLifeCycleType(manifest),
 		}
-		node.IsHook = util.IsNodeHook(manifest)
 
 		if parentResourceRef != nil {
 			node.ParentRefs = append(make([]*bean.ResourceRef, 0), parentResourceRef)

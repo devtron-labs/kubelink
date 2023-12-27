@@ -209,3 +209,13 @@ func IsNodeHook(manifest *unstructured.Unstructured) bool {
 	}
 	return false
 }
+
+func GetHookLifeCycleType(manifest *unstructured.Unstructured) string {
+	annotations, found, _ := unstructured.NestedStringMap(manifest.Object, "metadata", "annotations")
+	if found {
+		if hookType, ok := annotations[release.HookAnnotation]; ok {
+			return hookType
+		}
+	}
+	return ""
+}
