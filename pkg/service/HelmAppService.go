@@ -1325,17 +1325,17 @@ func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDet
 }
 
 func setHookInfoInHooksChildNodes(nodes []*bean.ResourceNode) {
-	hookUidMap := make(map[string]string)
+	hookUidToHookTypeMap := make(map[string]string)
 	for _, node := range nodes {
 		if node.IsHook {
-			hookUidMap[node.UID] = node.HookType
+			hookUidToHookTypeMap[node.UID] = node.HookType
 		}
 	}
 	//if node's parentRef is a hook then add hook info in child node also
-	if len(hookUidMap) > 0 {
+	if len(hookUidToHookTypeMap) > 0 {
 		for _, node := range nodes {
 			if node.ParentRefs != nil {
-				if hookType, ok := hookUidMap[node.ParentRefs[0].UID]; ok {
+				if hookType, ok := hookUidToHookTypeMap[node.ParentRefs[0].UID]; ok {
 					node.IsHook = true
 					node.HookType = hookType
 				}
