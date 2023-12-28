@@ -142,7 +142,7 @@ func getClusterCacheOptions(clusterCacheConfig *ClusterCacheConfig) []clustercac
 }
 
 func getResourceNodeFromManifest(un *unstructured.Unstructured, gvk schema.GroupVersionKind) *bean.ResourceNode {
-	node := &bean.ResourceNode{
+	return &bean.ResourceNode{
 		Port:            util.GetPorts(un, gvk),
 		ResourceVersion: un.GetResourceVersion(),
 		NetworkingInfo: &bean.ResourceNetworkingInfo{
@@ -161,7 +161,6 @@ func getResourceNodeFromManifest(un *unstructured.Unstructured, gvk schema.Group
 		IsHook:   util.IsNodeHook(un),
 		HookType: util.GetHookLifeCycleType(un),
 	}
-	return node
 }
 
 func setHealthStatusForNode(res *bean.ResourceNode, un *unstructured.Unstructured, gvk schema.GroupVersionKind) {
