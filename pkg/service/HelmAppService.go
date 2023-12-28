@@ -1332,11 +1332,13 @@ func setHookInfoInHooksChildNodes(nodes []*bean.ResourceNode) {
 		}
 	}
 	//if node's parentRef is a hook then add hook info in child node also
-	for _, node := range nodes {
-		if len(node.ParentRefs) > 0 && len(hookUidMap) > 0 {
-			if hookType, ok := hookUidMap[node.ParentRefs[0].UID]; ok {
-				node.IsHook = true
-				node.HookType = hookType
+	if len(hookUidMap) > 0 {
+		for _, node := range nodes {
+			if len(node.ParentRefs) > 0 {
+				if hookType, ok := hookUidMap[node.ParentRefs[0].UID]; ok {
+					node.IsHook = true
+					node.HookType = hookType
+				}
 			}
 		}
 	}
