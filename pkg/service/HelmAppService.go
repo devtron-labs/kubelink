@@ -1334,7 +1334,7 @@ func updateHookInfoForChildNodes(nodes []*bean.ResourceNode) {
 	//if node's parentRef is a hook then add hook info in child node also
 	if len(hookUidToHookTypeMap) > 0 {
 		for _, node := range nodes {
-			if node.ParentRefs != nil {
+			if node.ParentRefs != nil && len(node.ParentRefs) > 0 {
 				if hookType, ok := hookUidToHookTypeMap[node.ParentRefs[0].UID]; ok {
 					node.IsHook = true
 					node.HookType = hookType
