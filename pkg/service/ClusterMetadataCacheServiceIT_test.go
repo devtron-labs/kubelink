@@ -6,12 +6,14 @@ import (
 	client2 "github.com/devtron-labs/authenticator/client"
 	"github.com/devtron-labs/common-lib/utils"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
+	"github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/pkg/cache"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	k8sInformer2 "github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/sql"
+	test_data "github.com/devtron-labs/kubelink/test-data"
 	"github.com/go-pg/pg"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -21,81 +23,106 @@ import (
 	"testing"
 )
 
+const (
+	mongoOperatorChartName = "mongo-operator"
+)
+
+var clusterName = "default_cluster"
+var clusterId int32 = 1
+
+// helm chart variables
+var helmAppReleaseName = "mongo-operator"
+var helmAppReleaseNamespace = "ns1"
+var helmChartName = "community-operator"
+var helmChartVersion = "0.8.3"
+var helmChartRepoName = "mongodb"
+var helmChartUrl = "https://mongodb.github.io/helm-charts"
+
+// cronjob and job variables
+var jobCronjobReleaseName = "cache-test-cronjob-devtron-demo"
+var jobCronjobReleaseNamespace = "devtron-demo"
+
+// deployment variables
+var deploymentReleaseName = "testing-deployment-devtron-demo"
+var deploymentReleaseNamespace = "devtron-demo"
+
+// rollout variables
+var rolloutReleaseName = "cache-test-01-default-cluster--devtroncd"
+var rolloutReleaseNamespace = "devtron-demo"
+
+// statefulSet variables
+var statefulSetReleaseName = "cache-test-stateful-devtron-demo"
+var statefulSetReleaseNamespace = "devtron-demo"
+
 var clusterConfig = &client.ClusterConfig{
 	ApiServerUrl:          "",
 	Token:                 "",
-	ClusterId:             1,
-	ClusterName:           "default_cluster",
+	ClusterId:             clusterId,
+	ClusterName:           clusterName,
 	InsecureSkipTLSVerify: true,
 }
 
 var installReleaseReq = &client.InstallReleaseRequest{
 	ReleaseIdentifier: &client.ReleaseIdentifier{
 		ClusterConfig:    clusterConfig,
-		ReleaseName:      "mongo-operator",
-		ReleaseNamespace: "ns1",
+		ReleaseName:      helmAppReleaseName,
+		ReleaseNamespace: helmAppReleaseNamespace,
 	},
-	ChartName:    "community-operator",
-	ChartVersion: "0.8.3",
-	ValuesYaml:   installReleaseReqYamlValue,
+	ChartName:    helmChartName,
+	ChartVersion: helmChartVersion,
+	ValuesYaml:   test_data.InstallReleaseReqYamlValue,
 	ChartRepository: &client.ChartRepository{
-		Name:     "mongodb",
-		Url:      "https://mongodb.github.io/helm-charts",
-		Username: "",
-		Password: "",
+		Name: helmChartRepoName,
+		Url:  helmChartUrl,
 	},
 }
 
 var installReleaseReqJobAndCronJob = &client.HelmInstallCustomRequest{
 	ReleaseIdentifier: &client.ReleaseIdentifier{
 		ClusterConfig:    clusterConfig,
-		ReleaseName:      "cache-test-cronjob-devtron-demo",
-		ReleaseNamespace: "devtron-demo",
+		ReleaseName:      jobCronjobReleaseName,
+		ReleaseNamespace: jobCronjobReleaseNamespace,
 	},
-	ValuesYaml: cronJobYamlValue,
+	ValuesYaml: test_data.CronJobYamlValue,
 	ChartContent: &client.ChartContent{
 		Content: cronJobRefChart,
 	},
-	RunInCtx: false,
 }
 
 var installReleaseReqDeployment = &client.HelmInstallCustomRequest{
 	ReleaseIdentifier: &client.ReleaseIdentifier{
 		ClusterConfig:    clusterConfig,
-		ReleaseName:      "testing-deployment-devtron-demo",
-		ReleaseNamespace: "devtron-demo",
+		ReleaseName:      deploymentReleaseName,
+		ReleaseNamespace: deploymentReleaseNamespace,
 	},
-	ValuesYaml: deploymentYamlvalue,
+	ValuesYaml: test_data.DeploymentYamlValue,
 	ChartContent: &client.ChartContent{
 		Content: deploymentRefChart,
 	},
-	RunInCtx: false,
 }
 
 var installReleaseReqRollout = &client.HelmInstallCustomRequest{
 	ReleaseIdentifier: &client.ReleaseIdentifier{
 		ClusterConfig:    clusterConfig,
-		ReleaseName:      "cache-test-01-default-cluster--devtroncd",
-		ReleaseNamespace: "devtron-demo",
+		ReleaseName:      rolloutReleaseName,
+		ReleaseNamespace: rolloutReleaseNamespace,
 	},
-	ValuesYaml: rollOutYamlValue,
+	ValuesYaml: test_data.RollOutYamlValue,
 	ChartContent: &client.ChartContent{
 		Content: rolloutDeploymentCharContent,
 	},
-	RunInCtx: true,
 }
 
 var installReleaseReqStatefullset = &client.HelmInstallCustomRequest{
 	ReleaseIdentifier: &client.ReleaseIdentifier{
 		ClusterConfig:    clusterConfig,
-		ReleaseName:      "cache-test-stateful-devtron-demo",
-		ReleaseNamespace: "devtron-demo",
+		ReleaseName:      statefulSetReleaseName,
+		ReleaseNamespace: statefulSetReleaseNamespace,
 	},
-	ValuesYaml: statefullSetYamlValue,
+	ValuesYaml: test_data.StatefulSetYamlValue,
 	ChartContent: &client.ChartContent{
 		Content: statefullsetsChartContent,
 	},
-	RunInCtx: false,
 }
 
 var devtronPayloadArray = [4]*client.HelmInstallCustomRequest{installReleaseReqRollout, installReleaseReqStatefullset, installReleaseReqDeployment, installReleaseReqJobAndCronJob}
@@ -135,9 +162,9 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 
 	prepareResourceTreeMapBeforeClusterSyncForDevtronApp(t, &resourceTreeMap, &helmAppResourceTreeMap, helmAppServiceImpl)
 	resourceDataBeforeSync := buildResourceInfoBeforeCacheSync(resourceTreeMap)
-	helmAppResourceTreeSize := len(helmAppResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes)
-	resourceTreeSize := len(resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes)
-	resourceTreeSizeStatefulSets := len(resourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes)
+	helmAppResourceTreeSize := len(helmAppResourceTreeMap[mongoOperatorChartName].ResourceTreeResponse.Nodes)
+	resourceTreeSize := len(resourceTreeMap[commonBean.DeploymentKind].ResourceTreeResponse.Nodes)
+	resourceTreeSizeStatefulSets := len(resourceTreeMap[commonBean.StatefulSetKind].ResourceTreeResponse.Nodes)
 
 	//cluster cache sync started
 	model, err := clusterRepository.FindById(int(installReleaseReq.ReleaseIdentifier.ClusterConfig.ClusterId))
@@ -149,7 +176,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 
 	prepareResourceTreeMapAfterClusterSyncForDevtronApp(t, &cacheResourceTreeMap, &cacheHelmResourceTreeMap, helmAppServiceImpl)
 	resourceDataAfterSync := buildResourceInfoAfterCacheSync(cacheResourceTreeMap)
-	cacheAppResourceTreeSize := len(cacheHelmResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes)
+	cacheAppResourceTreeSize := len(cacheHelmResourceTreeMap[mongoOperatorChartName].ResourceTreeResponse.Nodes)
 	//Health Status for Pod and other resources
 	t.Run("Status_of_pod and other resources", func(t *testing.T) {
 		if resourceTreeSize != len(resourceDataBeforeSync) {
@@ -262,8 +289,8 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			return
 		}
 		for i := 0; i < resourceTreeSize; i++ {
-			deploymentReleaseStatus := resourceTreeMap["Deployment"].ReleaseStatus
-			cacheReleaseStatus := cacheResourceTreeMap["Deployment"].ReleaseStatus
+			deploymentReleaseStatus := resourceTreeMap[commonBean.DeploymentKind].ReleaseStatus
+			cacheReleaseStatus := cacheResourceTreeMap[commonBean.DeploymentKind].ReleaseStatus
 			if !reflect.DeepEqual(deploymentReleaseStatus, cacheReleaseStatus) {
 				t.Errorf("Release status Before cluster sync = %v, Release Status After cluster sync = %v", *deploymentReleaseStatus, *cacheReleaseStatus)
 			}
@@ -276,8 +303,8 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			t.Errorf("Different Node length")
 			return
 		}
-		deploymentAppStatus := *resourceTreeMap["Deployment"].ApplicationStatus
-		cacheAppStatus := *cacheResourceTreeMap["Deployment"].ApplicationStatus
+		deploymentAppStatus := *resourceTreeMap[commonBean.DeploymentKind].ApplicationStatus
+		cacheAppStatus := *cacheResourceTreeMap[commonBean.DeploymentKind].ApplicationStatus
 		if deploymentAppStatus != cacheAppStatus {
 			t.Errorf("Application status Before Cluster sync = %v, Application Status After Cluster Sync = %v", deploymentAppStatus, cacheAppStatus)
 		}
@@ -294,8 +321,8 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		// For deployment type chart
 		//since size check has passed so iterating over resourceTreeSize since cache nodes size will also be same
 		for i := 0; i < resourceTreeSize; i++ {
-			deploymentKind := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
-			cacheReplicaKind := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
+			deploymentKind := resourceTreeMap[commonBean.DeploymentKind].ResourceTreeResponse.Nodes[i].Kind
+			cacheReplicaKind := cacheResourceTreeMap[commonBean.DeploymentKind].ResourceTreeResponse.Nodes[i].Kind
 			if deploymentKind == "pod" {
 				deploymentReplicaCount++
 			}
@@ -309,9 +336,9 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 
 		// For StatefulSet deployment chart
 		statefulSetReplicaCount, cacheStatefulSetReplicaCount := 0, 0
-		for i := 0; i < len(resourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes); i++ {
-			deploymentKind := resourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].Kind
-			cacheReplicaKind := cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].Kind
+		for i := 0; i < len(resourceTreeMap[commonBean.StatefulSetKind].ResourceTreeResponse.Nodes); i++ {
+			deploymentKind := resourceTreeMap[commonBean.StatefulSetKind].ResourceTreeResponse.Nodes[i].Kind
+			cacheReplicaKind := cacheResourceTreeMap[commonBean.StatefulSetKind].ResourceTreeResponse.Nodes[i].Kind
 			if deploymentKind == "pod" {
 				statefulSetReplicaCount++
 			}
@@ -325,9 +352,9 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 
 		// For RollOut type chart
 		rollOutReplicaCount, cacheRollOutCount := 0, 0
-		for i := 0; i < len(resourceTreeMap["RollOut"].ResourceTreeResponse.Nodes); i++ {
-			deploymentKind := resourceTreeMap["RollOut"].ResourceTreeResponse.Nodes[i].Kind
-			cacheReplicaKind := cacheResourceTreeMap["RollOut"].ResourceTreeResponse.Nodes[i].Kind
+		for i := 0; i < len(resourceTreeMap[commonBean.K8sClusterResourceRolloutKind].ResourceTreeResponse.Nodes); i++ {
+			deploymentKind := resourceTreeMap[commonBean.K8sClusterResourceRolloutKind].ResourceTreeResponse.Nodes[i].Kind
+			cacheReplicaKind := cacheResourceTreeMap[commonBean.K8sClusterResourceRolloutKind].ResourceTreeResponse.Nodes[i].Kind
 			if deploymentKind == "pod" {
 				rollOutReplicaCount++
 			}
@@ -341,9 +368,9 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 
 		// For Job and Cronjob
 		cronJobReplicaCount, cacheCronJobCount := 0, 0
-		for i := 0; i < len(resourceTreeMap["JobAndCronJob"].ResourceTreeResponse.Nodes); i++ {
-			deploymentKind := resourceTreeMap["JobAndCronJob"].ResourceTreeResponse.Nodes[i].Kind
-			cacheReplicaKind := cacheResourceTreeMap["JobAndCronJob"].ResourceTreeResponse.Nodes[i].Kind
+		for i := 0; i < len(resourceTreeMap[commonBean.K8sClusterResourceCronJobKind].ResourceTreeResponse.Nodes); i++ {
+			deploymentKind := resourceTreeMap[commonBean.K8sClusterResourceCronJobKind].ResourceTreeResponse.Nodes[i].Kind
+			cacheReplicaKind := cacheResourceTreeMap[commonBean.K8sClusterResourceCronJobKind].ResourceTreeResponse.Nodes[i].Kind
 			if deploymentKind == "pod" {
 				cronJobReplicaCount++
 			}
@@ -387,8 +414,8 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		}
 		deploymentPodCount, cachePodCount := 0, 0
 		for i := 0; i < resourceTreeSize; i++ {
-			deploymentKind := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
-			cacheKind := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i].Kind
+			deploymentKind := resourceTreeMap[commonBean.DeploymentKind].ResourceTreeResponse.Nodes[i].Kind
+			cacheKind := cacheResourceTreeMap[commonBean.DeploymentKind].ResourceTreeResponse.Nodes[i].Kind
 			if deploymentKind == "pod" {
 				deploymentPodCount++
 			}
@@ -409,8 +436,8 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		}
 		isPVCDeployment, isPVCCache := false, false
 		for i := 0; i < resourceTreeSizeStatefulSets; i++ {
-			deploymentKind := resourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].Kind
-			cacheKind := cacheResourceTreeMap["StatefulSets"].ResourceTreeResponse.Nodes[i].Kind
+			deploymentKind := resourceTreeMap[commonBean.StatefulSetKind].ResourceTreeResponse.Nodes[i].Kind
+			cacheKind := cacheResourceTreeMap[commonBean.StatefulSetKind].ResourceTreeResponse.Nodes[i].Kind
 			if deploymentKind == "PersistentVolumeClaim" {
 				isPVCDeployment = true
 			}
@@ -429,8 +456,8 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			t.Errorf("Different Node length")
 			return
 		}
-		deploymentEphemeralContainer := resourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata
-		cacheEphemeralContainer := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata
+		deploymentEphemeralContainer := resourceTreeMap[commonBean.DeploymentKind].ResourceTreeResponse.PodMetadata
+		cacheEphemeralContainer := cacheResourceTreeMap[commonBean.DeploymentKind].ResourceTreeResponse.PodMetadata
 		for i := 0; i < len(deploymentEphemeralContainer); i++ {
 			if !reflect.DeepEqual(deploymentEphemeralContainer[i].EphemeralContainers, cacheEphemeralContainer[i].EphemeralContainers) {
 				t.Errorf("Ephemeral Containers does not exist")
@@ -493,8 +520,8 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			return
 		}
 		for i := 0; i < helmAppResourceTreeSize; i++ {
-			helmReleaseStatus := helmAppResourceTreeMap["mongo-operator"].ReleaseStatus
-			cacheHelmReleaseStatus := cacheHelmResourceTreeMap["mongo-operator"].ReleaseStatus
+			helmReleaseStatus := helmAppResourceTreeMap[mongoOperatorChartName].ReleaseStatus
+			cacheHelmReleaseStatus := cacheHelmResourceTreeMap[mongoOperatorChartName].ReleaseStatus
 			if !reflect.DeepEqual(helmReleaseStatus, cacheHelmReleaseStatus) {
 				t.Errorf("Release status Before cluster sync = %v, Release status After cluster sync = %v", helmReleaseStatus, cacheHelmReleaseStatus)
 			}
@@ -507,8 +534,8 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 			return
 		}
 		for i := 0; i < helmAppResourceTreeSize; i++ {
-			helmAppStatus := helmAppResourceTreeMap["mongo-operator"].ApplicationStatus
-			cacheHelmAppStatus := cacheHelmResourceTreeMap["mongo-operator"].ApplicationStatus
+			helmAppStatus := helmAppResourceTreeMap[mongoOperatorChartName].ApplicationStatus
+			cacheHelmAppStatus := cacheHelmResourceTreeMap[mongoOperatorChartName].ApplicationStatus
 			if !reflect.DeepEqual(helmAppStatus, cacheHelmAppStatus) {
 				t.Errorf("Application status Before cluster sync = %v, Application status After cluster sync = %v", helmAppStatus, cacheHelmAppStatus)
 			}
@@ -522,8 +549,8 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 		}
 		helmAppPodCount, cacheHelmAppPodCount := 0, 0
 		for i := 0; i < helmAppResourceTreeSize; i++ {
-			helmAppKind := helmAppResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes[i].Kind
-			cacheHelmAppKind := cacheHelmResourceTreeMap["mongo-operator"].ResourceTreeResponse.Nodes[i].Kind
+			helmAppKind := helmAppResourceTreeMap[mongoOperatorChartName].ResourceTreeResponse.Nodes[i].Kind
+			cacheHelmAppKind := cacheHelmResourceTreeMap[mongoOperatorChartName].ResourceTreeResponse.Nodes[i].Kind
 			if helmAppKind == "pod" {
 				helmAppPodCount++
 			}
@@ -579,13 +606,13 @@ func prepareResourceTreeMapBeforeClusterSyncForDevtronApp(t *testing.T, resource
 
 		//store appDetail in the map for corresponding key eg "deployment":appDetail for deployment kind
 		if payload == installReleaseReqJobAndCronJob {
-			devtronAppResp["JobAndCronJob"] = appDetail
+			devtronAppResp[commonBean.K8sClusterResourceCronJobKind] = appDetail
 		} else if payload == installReleaseReqStatefullset {
-			devtronAppResp["StatefulSets"] = appDetail
+			devtronAppResp[commonBean.StatefulSetKind] = appDetail
 		} else if payload == installReleaseReqRollout {
-			devtronAppResp["RollOut"] = appDetail
+			devtronAppResp[commonBean.K8sClusterResourceRolloutKind] = appDetail
 		} else {
-			devtronAppResp["Deployment"] = appDetail
+			devtronAppResp[commonBean.DeploymentKind] = appDetail
 		}
 	}
 	resourceTreeMap = &devtronAppResp
@@ -623,13 +650,13 @@ func prepareResourceTreeMapAfterClusterSyncForDevtronApp(t *testing.T, cacheReso
 		assert.Nil(t, err)
 		// Storing cache App Details
 		if payload == installReleaseReqJobAndCronJob {
-			cacheDevtronAppResp["JobAndCronJob"] = cacheAppDetail
+			cacheDevtronAppResp[commonBean.K8sClusterResourceCronJobKind] = cacheAppDetail
 		} else if payload == installReleaseReqStatefullset {
-			cacheDevtronAppResp["StatefulSets"] = cacheAppDetail
+			cacheDevtronAppResp[commonBean.StatefulSetKind] = cacheAppDetail
 		} else if payload == installReleaseReqRollout {
-			cacheDevtronAppResp["RollOut"] = cacheAppDetail
+			cacheDevtronAppResp[commonBean.K8sClusterResourceRolloutKind] = cacheAppDetail
 		} else {
-			cacheDevtronAppResp["Deployment"] = cacheAppDetail
+			cacheDevtronAppResp[commonBean.DeploymentKind] = cacheAppDetail
 		}
 	}
 	cacheResourceTreeMap = &cacheDevtronAppResp
@@ -652,11 +679,11 @@ func prepareResourceTreeMapAfterClusterSyncForDevtronApp(t *testing.T, cacheReso
 }
 
 func buildResourceInfoBeforeCacheSync(resourceTreeMap map[string]*bean.AppDetail) map[string]NodeInfo {
-	resourceTreeSize := len(resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes)
+	resourceTreeSize := len(resourceTreeMap[commonBean.DeploymentKind].ResourceTreeResponse.Nodes)
 	// Storing Resource data before Cluster sync
 	resourceDataBeforeSync := map[string]NodeInfo{}
 	for i := 0; i < resourceTreeSize; i++ {
-		node := resourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i]
+		node := resourceTreeMap[commonBean.DeploymentKind].ResourceTreeResponse.Nodes[i]
 		uid := node.UID
 		nodeInfo := NodeInfo{
 			kind:              node.Kind,
@@ -664,9 +691,9 @@ func buildResourceInfoBeforeCacheSync(resourceTreeMap map[string]*bean.AppDetail
 			port:              node.Port,
 			CreatedAt:         node.CreatedAt,
 			IsHibernated:      node.IsHibernated,
-			PodMetaData:       resourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata,
-			ReleaseStatus:     resourceTreeMap["Deployment"].ReleaseStatus,
-			ApplicationStatus: resourceTreeMap["Deployment"].ApplicationStatus,
+			PodMetaData:       resourceTreeMap[commonBean.DeploymentKind].ResourceTreeResponse.PodMetadata,
+			ReleaseStatus:     resourceTreeMap[commonBean.DeploymentKind].ReleaseStatus,
+			ApplicationStatus: resourceTreeMap[commonBean.DeploymentKind].ApplicationStatus,
 			info:              node.Info,
 			NetworkingInfo:    node.NetworkingInfo,
 		}
@@ -676,12 +703,12 @@ func buildResourceInfoBeforeCacheSync(resourceTreeMap map[string]*bean.AppDetail
 }
 
 func buildResourceInfoAfterCacheSync(cacheResourceTreeMap map[string]*bean.AppDetail) map[string]NodeInfo {
-	resourceCacheTreeSize := len(cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes)
+	resourceCacheTreeSize := len(cacheResourceTreeMap[commonBean.DeploymentKind].ResourceTreeResponse.Nodes)
 
 	// Storing Resource data After Cluster Sync
 	resourceDataAfterSync := map[string]NodeInfo{}
 	for i := 0; i < resourceCacheTreeSize; i++ {
-		node := cacheResourceTreeMap["Deployment"].ResourceTreeResponse.Nodes[i]
+		node := cacheResourceTreeMap[commonBean.DeploymentKind].ResourceTreeResponse.Nodes[i]
 		uid := node.UID
 		nodeInfo := NodeInfo{
 			kind:              node.Kind,
@@ -689,9 +716,9 @@ func buildResourceInfoAfterCacheSync(cacheResourceTreeMap map[string]*bean.AppDe
 			port:              node.Port,
 			CreatedAt:         node.CreatedAt,
 			IsHibernated:      node.IsHibernated,
-			PodMetaData:       cacheResourceTreeMap["Deployment"].ResourceTreeResponse.PodMetadata,
-			ReleaseStatus:     cacheResourceTreeMap["Deployment"].ReleaseStatus,
-			ApplicationStatus: cacheResourceTreeMap["Deployment"].ApplicationStatus,
+			PodMetaData:       cacheResourceTreeMap[commonBean.DeploymentKind].ResourceTreeResponse.PodMetadata,
+			ReleaseStatus:     cacheResourceTreeMap[commonBean.DeploymentKind].ReleaseStatus,
+			ApplicationStatus: cacheResourceTreeMap[commonBean.DeploymentKind].ApplicationStatus,
 			info:              node.Info,
 			NetworkingInfo:    node.NetworkingInfo,
 		}
@@ -704,40 +731,42 @@ func setupSuite(t *testing.T) func(t *testing.T) {
 	logger, k8sInformer, helmReleaseConfig, k8sUtil, clusterRepository, k8sServiceImpl := getHelmAppServiceDependencies(t)
 	clusterCacheConfig := &cache.ClusterCacheConfig{}
 	clusterCacheImpl := cache.NewClusterCacheImpl(logger, clusterCacheConfig, clusterRepository, k8sUtil, k8sInformer)
-
 	helmAppServiceImpl := NewHelmAppServiceImpl(logger, k8sServiceImpl, k8sInformer, helmReleaseConfig, k8sUtil, clusterRepository, clusterCacheImpl)
 
 	// App creation with different payload for helm app chart
 	for _, payload := range helmPayloadArray {
-		installReleaseReq, err := helmAppServiceImpl.InstallRelease(context.Background(), payload)
-		if err != nil {
-			logger.Errorw("Char not installed successfully", err)
-		}
-		fmt.Println(installReleaseReq)
+		installReleaseResp, err := helmAppServiceImpl.InstallRelease(context.Background(), payload)
+		assert.Nil(t, err)
+		fmt.Println(installReleaseResp)
 	}
 
 	// App Creation with different payload for devtron apps
 	for _, payload := range devtronPayloadArray {
-		installReleaseReq, err := helmAppServiceImpl.InstallReleaseWithCustomChart(context.Background(), payload)
-		if err != nil {
-			logger.Errorw("Chart not installed successfully", err)
-		}
-		fmt.Println(installReleaseReq)
+		installReleaseResp, err := helmAppServiceImpl.InstallReleaseWithCustomChart(context.Background(), payload)
+		assert.Nil(t, err)
+		fmt.Println(installReleaseResp)
 	}
 
 	// Return a function to teardown the test
 	return func(t *testing.T) {
-		releaseIdentfier := &client.ReleaseIdentifier{
-			ClusterConfig:    installReleaseReq.ReleaseIdentifier.ClusterConfig,
-			ReleaseNamespace: installReleaseReq.ReleaseIdentifier.ReleaseNamespace,
-			ReleaseName:      installReleaseReq.ReleaseIdentifier.ReleaseName,
+		for _, payload := range helmPayloadArray {
+			releaseIdentifier := &client.ReleaseIdentifier{
+				ClusterConfig:    payload.ReleaseIdentifier.ClusterConfig,
+				ReleaseNamespace: payload.ReleaseIdentifier.ReleaseNamespace,
+				ReleaseName:      payload.ReleaseIdentifier.ReleaseName,
+			}
+			_, err := helmAppServiceImpl.UninstallRelease(releaseIdentifier)
+			assert.Nil(t, err)
 		}
-		resp, err := helmAppServiceImpl.UninstallRelease(releaseIdentfier)
-		if err != nil {
-			logger.Errorw("error in uninstalling chart", "releaseName", releaseIdentfier.ReleaseName)
-		}
-		if resp.Success == true {
-			logger.Infow("chart uninstalled successfully")
+
+		for _, payload := range devtronPayloadArray {
+			releaseIdentifier := &client.ReleaseIdentifier{
+				ClusterConfig:    payload.ReleaseIdentifier.ClusterConfig,
+				ReleaseNamespace: payload.ReleaseIdentifier.ReleaseNamespace,
+				ReleaseName:      payload.ReleaseIdentifier.ReleaseName,
+			}
+			_, err := helmAppServiceImpl.UninstallRelease(releaseIdentifier)
+			assert.Nil(t, err)
 		}
 	}
 }
