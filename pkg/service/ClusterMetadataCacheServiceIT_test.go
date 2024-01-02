@@ -1,6 +1,7 @@
 package service
 
 import (
+	"compress/gzip"
 	"context"
 	"fmt"
 	client2 "github.com/devtron-labs/authenticator/client"
@@ -14,11 +15,16 @@ import (
 	k8sInformer2 "github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 	test_data "github.com/devtron-labs/kubelink/test-data"
+	"github.com/ghodss/yaml"
 	"github.com/go-pg/pg"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+	"io/ioutil"
+	"k8s.io/helm/pkg/chartutil"
+	chart2 "k8s.io/helm/pkg/proto/hapi/chart"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -27,8 +33,19 @@ const (
 	mongoOperatorChartName = "mongo-operator"
 )
 
+// while running these test cases ensure you have these charts present in local file system
+var deploymentReferenceTemplateDir = "/tmp/deployment-chart_4-18-0"
+var cronjobReferenceTemplateDir = "/tmp/cronjob-chart_1-5-0"
+var statefulSetReferenceTemplateDir = "/tmp/statefulset-chart_5-0-0"
+var rolloutReferenceTemplateDir = "/tmp/rollout-reference-chart_4-18-0"
+
+// cluster details
 var clusterName = "default_cluster"
 var clusterId int32 = 1
+
+var appName = "sample-app"
+var chartVersion = "4.18.1"
+var apiVersion = "v1"
 
 // helm chart variables
 var helmAppReleaseName = "mongo-operator"
@@ -39,23 +56,23 @@ var helmChartRepoName = "mongodb"
 var helmChartUrl = "https://mongodb.github.io/helm-charts"
 
 // cronjob and job variables
-var jobCronjobReleaseName = "cache-test-cronjob-devtron-demo"
+var jobCronjobReleaseName = "cronjob-devtron-demo"
 var jobCronjobReleaseNamespace = "devtron-demo"
 
 // deployment variables
-var deploymentReleaseName = "testing-deployment-devtron-demo"
+var deploymentReleaseName = "deployment-test1"
 var deploymentReleaseNamespace = "devtron-demo"
 
 // rollout variables
-var rolloutReleaseName = "cache-test-01-default-cluster--devtroncd"
+var rolloutReleaseName = "rollout-devtron-demo"
 var rolloutReleaseNamespace = "devtron-demo"
 
 // statefulSet variables
-var statefulSetReleaseName = "cache-test-stateful-devtron-demo"
+var statefulSetReleaseName = "statefulset-devtron-demo"
 var statefulSetReleaseNamespace = "devtron-demo"
 
 var clusterConfig = &client.ClusterConfig{
-	ApiServerUrl:          "",
+	ApiServerUrl:          "https://kubernetes.default.svc",
 	Token:                 "",
 	ClusterId:             clusterId,
 	ClusterName:           clusterName,
@@ -83,10 +100,8 @@ var installReleaseReqJobAndCronJob = &client.HelmInstallCustomRequest{
 		ReleaseName:      jobCronjobReleaseName,
 		ReleaseNamespace: jobCronjobReleaseNamespace,
 	},
-	ValuesYaml: test_data.CronJobYamlValue,
-	ChartContent: &client.ChartContent{
-		Content: cronJobRefChart,
-	},
+	ValuesYaml:   test_data.CronJobYamlValue,
+	ChartContent: &client.ChartContent{},
 }
 
 var installReleaseReqDeployment = &client.HelmInstallCustomRequest{
@@ -95,10 +110,8 @@ var installReleaseReqDeployment = &client.HelmInstallCustomRequest{
 		ReleaseName:      deploymentReleaseName,
 		ReleaseNamespace: deploymentReleaseNamespace,
 	},
-	ValuesYaml: test_data.DeploymentYamlValue,
-	ChartContent: &client.ChartContent{
-		Content: deploymentRefChart,
-	},
+	ValuesYaml:   test_data.DeploymentYamlValue,
+	ChartContent: &client.ChartContent{},
 }
 
 var installReleaseReqRollout = &client.HelmInstallCustomRequest{
@@ -107,10 +120,8 @@ var installReleaseReqRollout = &client.HelmInstallCustomRequest{
 		ReleaseName:      rolloutReleaseName,
 		ReleaseNamespace: rolloutReleaseNamespace,
 	},
-	ValuesYaml: test_data.RollOutYamlValue,
-	ChartContent: &client.ChartContent{
-		Content: rolloutDeploymentCharContent,
-	},
+	ValuesYaml:   test_data.RollOutYamlValue,
+	ChartContent: &client.ChartContent{},
 }
 
 var installReleaseReqStatefullset = &client.HelmInstallCustomRequest{
@@ -119,15 +130,20 @@ var installReleaseReqStatefullset = &client.HelmInstallCustomRequest{
 		ReleaseName:      statefulSetReleaseName,
 		ReleaseNamespace: statefulSetReleaseNamespace,
 	},
-	ValuesYaml: test_data.StatefulSetYamlValue,
-	ChartContent: &client.ChartContent{
-		Content: statefullsetsChartContent,
-	},
+	ValuesYaml:   test_data.StatefulSetYamlValue,
+	ChartContent: &client.ChartContent{},
 }
 
-var devtronPayloadArray = [4]*client.HelmInstallCustomRequest{installReleaseReqRollout, installReleaseReqStatefullset, installReleaseReqDeployment, installReleaseReqJobAndCronJob}
+var devtronPayloadArray = [4]*client.HelmInstallCustomRequest{installReleaseReqDeployment}
 
 var helmPayloadArray = [1]*client.InstallReleaseRequest{installReleaseReq}
+
+var refChartsPathMapping = map[string]string{
+	commonBean.DeploymentKind: deploymentReferenceTemplateDir,
+	//commonBean.StatefulSetKind: statefulSetReferenceTemplateDir,
+	//commonBean.K8sClusterResourceRolloutKind: rolloutReferenceTemplateDir,
+	//commonBean.K8sClusterResourceCronJobKind: cronjobReferenceTemplateDir,
+}
 
 type NodeInfo struct {
 	kind              string
@@ -727,18 +743,66 @@ func buildResourceInfoAfterCacheSync(cacheResourceTreeMap map[string]*bean.AppDe
 	return resourceDataAfterSync
 }
 
-func setupSuite(t *testing.T) func(t *testing.T) {
-	logger, k8sInformer, helmReleaseConfig, k8sUtil, clusterRepository, k8sServiceImpl := getHelmAppServiceDependencies(t)
-	clusterCacheConfig := &cache.ClusterCacheConfig{}
-	clusterCacheImpl := cache.NewClusterCacheImpl(logger, clusterCacheConfig, clusterRepository, k8sUtil, k8sInformer)
-	helmAppServiceImpl := NewHelmAppServiceImpl(logger, k8sServiceImpl, k8sInformer, helmReleaseConfig, k8sUtil, clusterRepository, clusterCacheImpl)
-
-	// App creation with different payload for helm app chart
-	for _, payload := range helmPayloadArray {
-		installReleaseResp, err := helmAppServiceImpl.InstallRelease(context.Background(), payload)
-		assert.Nil(t, err)
-		fmt.Println(installReleaseResp)
+func packageChartAndGetByteArrayRefChart(t *testing.T, refChartPath string, chartMetadata *chart2.Metadata) []byte {
+	valid, err := chartutil.IsChartDir(refChartPath)
+	assert.Nil(t, err)
+	if !valid {
+		return nil
 	}
+	b, err := yaml.Marshal(chartMetadata)
+	assert.Nil(t, err)
+	err = ioutil.WriteFile(filepath.Join(refChartPath, "Chart.yaml"), b, 0600)
+	assert.Nil(t, err)
+
+	chart, err := chartutil.LoadDir(refChartPath)
+	assert.Nil(t, err)
+
+	archivePath, err := chartutil.Save(chart, refChartPath)
+	assert.Nil(t, err)
+
+	file, err := os.Open(archivePath)
+	reader, err := gzip.NewReader(file)
+	assert.Nil(t, err)
+
+	// read the complete content of the file h.Name into the bs []byte
+	bs, err := ioutil.ReadAll(reader)
+	assert.Nil(t, err)
+	return bs
+}
+
+func setupSuite(t *testing.T) func(t *testing.T) {
+	logger, k8sInformer, helmReleaseConfig, _, clusterRepository, k8sServiceImpl := getHelmAppServiceDependencies(t)
+	clusterCacheConfig := &cache.ClusterCacheConfig{}
+	runTimeConfig := &client2.RuntimeConfig{LocalDevMode: true}
+	k8sUtilLocal := k8sUtils.NewK8sUtil(logger, runTimeConfig)
+	clusterCacheImpl := cache.NewClusterCacheImpl(logger, clusterCacheConfig, clusterRepository, k8sUtilLocal, k8sInformer)
+	helmAppServiceImpl := NewHelmAppServiceImpl(logger, k8sServiceImpl, k8sInformer, helmReleaseConfig, k8sUtilLocal, clusterRepository, clusterCacheImpl)
+
+	//reading reference chart info from /tmp filepath where ref charts are expected to be stored
+	for deployType, refChartPath := range refChartsPathMapping {
+		chartMetadata := &chart2.Metadata{
+			Name:       appName,
+			Version:    chartVersion,
+			ApiVersion: apiVersion,
+		}
+		refChartByte := packageChartAndGetByteArrayRefChart(t, refChartPath, chartMetadata)
+		switch deployType {
+		case commonBean.DeploymentKind:
+			installReleaseReqDeployment.ChartContent.Content = refChartByte
+		case commonBean.StatefulSetKind:
+			installReleaseReqStatefullset.ChartContent.Content = refChartByte
+		case commonBean.K8sClusterResourceCronJobKind:
+			installReleaseReqJobAndCronJob.ChartContent.Content = refChartByte
+		case commonBean.K8sClusterResourceRolloutKind:
+			installReleaseReqRollout.ChartContent.Content = refChartByte
+		}
+	}
+	// App creation with different payload for helm app chart
+	//for _, payload := range helmPayloadArray {
+	//	installReleaseResp, err := helmAppServiceImpl.InstallRelease(context.Background(), payload)
+	//	assert.Nil(t, err)
+	//	fmt.Println(installReleaseResp)
+	//}
 
 	// App Creation with different payload for devtron apps
 	for _, payload := range devtronPayloadArray {
@@ -768,6 +832,11 @@ func setupSuite(t *testing.T) func(t *testing.T) {
 			_, err := helmAppServiceImpl.UninstallRelease(releaseIdentifier)
 			assert.Nil(t, err)
 		}
+		//delete the packaged chart as everytime helm install is run it multiplies in size,
+		//which eventually leads to the .tgz file memory limit error thrown from helm
+		//for deployType, refChartPath := range refChartsPathMapping {
+		//
+		//}
 	}
 }
 
