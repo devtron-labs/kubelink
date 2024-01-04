@@ -6,6 +6,7 @@ import (
 	"github.com/caarlos0/env"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/kubelink/bean"
+	"github.com/devtron-labs/kubelink/converter"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"go.uber.org/zap"
@@ -44,10 +45,12 @@ type ClusterCacheImpl struct {
 	clustersCache      map[int]ClusterCacheInfo
 	rwMutex            sync.RWMutex
 	k8sInformer        k8sInformer.K8sInformer
+	converter          converter.ClusterBeanConverter
 }
 
 func NewClusterCacheImpl(logger *zap.SugaredLogger, clusterCacheConfig *ClusterCacheConfig,
-	clusterRepository repository.ClusterRepository, k8sUtil *k8sUtils.K8sUtil, k8sInformer k8sInformer.K8sInformer) *ClusterCacheImpl {
+	clusterRepository repository.ClusterRepository, k8sUtil *k8sUtils.K8sUtil, k8sInformer k8sInformer.K8sInformer,
+	converter converter.ClusterBeanConverter) *ClusterCacheImpl {
 
 	clustersCache := make(map[int]ClusterCacheInfo)
 	clusterCacheImpl := &ClusterCacheImpl{
@@ -57,6 +60,7 @@ func NewClusterCacheImpl(logger *zap.SugaredLogger, clusterCacheConfig *ClusterC
 		k8sUtil:            k8sUtil,
 		clustersCache:      clustersCache,
 		k8sInformer:        k8sInformer,
+		converter:          converter,
 	}
 
 	if len(clusterCacheConfig.ClusterIdList) > 0 {
@@ -75,7 +79,7 @@ func (impl *ClusterCacheImpl) getClusterInfoByClusterId(clusterId int) (*bean.Cl
 		impl.logger.Errorw("error in getting cluster from db by cluster id", "clusterId", clusterId)
 		return nil, time.Time{}, err
 	}
-	clusterInfo := k8sInformer.GetClusterInfo(model)
+	clusterInfo := impl.converter.GetClusterInfo(model)
 	return clusterInfo, model.UpdatedOn, nil
 }
 
@@ -171,7 +175,7 @@ func (impl *ClusterCacheImpl) getClusterCache(clusterInfo *bean.ClusterInfo) (cl
 	if err == nil {
 		return cache, nil
 	}
-	clusterConfig := clusterInfo.GetClusterConfig()
+	clusterConfig := impl.converter.GetClusterConfig(clusterInfo)
 	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(clusterConfig)
 	if err != nil {
 		impl.logger.Errorw("error in getting rest config", "err", err, "clusterName", clusterConfig.ClusterName)
