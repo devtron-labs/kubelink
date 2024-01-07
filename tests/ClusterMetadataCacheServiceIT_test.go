@@ -1,30 +1,20 @@
-package service
+package tests
 
 import (
-	"compress/gzip"
 	"context"
 	"fmt"
 	client2 "github.com/devtron-labs/authenticator/client"
-	"github.com/devtron-labs/common-lib/utils"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/pkg/cache"
-	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	k8sInformer2 "github.com/devtron-labs/kubelink/pkg/k8sInformer"
-	"github.com/devtron-labs/kubelink/pkg/sql"
-	test_data "github.com/devtron-labs/kubelink/test-data"
-	"github.com/ghodss/yaml"
-	"github.com/go-pg/pg"
+	"github.com/devtron-labs/kubelink/pkg/service"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
-	"io/ioutil"
-	"k8s.io/helm/pkg/chartutil"
 	chart2 "k8s.io/helm/pkg/proto/hapi/chart"
 	"os"
-	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -33,21 +23,21 @@ const (
 	mongoOperatorChartName = "mongo-operator"
 )
 
-// while running these test cases ensure you have these charts present in local file system
-var deploymentReferenceTemplateDir = "/tmp/deployment-chart_4-18-0"
-var cronjobReferenceTemplateDir = "/tmp/cronjob-chart_1-5-0"
-var statefulSetReferenceTemplateDir = "/tmp/statefulset-chart_5-0-0"
-var rolloutReferenceTemplateDir = "/tmp/rollout-reference-chart_4-18-0"
-
-// cluster details
-var clusterName = "default_cluster"
-var clusterId int32 = 1
-
-var appName = "sample-app"
-var chartVersion = "4.18.1"
-var apiVersion = "v1"
-
-// helm chart variables
+// // while running these test cases ensure you have these charts present in local file system
+// var deploymentReferenceTemplateDir = "/tmp/deployment-chart_4-18-0"
+// var cronjobReferenceTemplateDir = "/tmp/cronjob-chart_1-5-0"
+// var statefulSetReferenceTemplateDir = "/tmp/statefulset-chart_5-0-0"
+// var rolloutReferenceTemplateDir = "/tmp/rollout-reference-chart_4-18-0"
+//
+// // cluster details
+// var clusterName = "default_cluster"
+// var clusterId int32 = 1
+//
+// var appName = "sample-app"
+// var chartVersion = "4.18.1"
+// var apiVersion = "v1"
+//
+// // helm chart variables
 var helmAppReleaseName = "mongo-operator"
 var helmAppReleaseNamespace = "ns1"
 var helmChartName = "community-operator"
@@ -55,29 +45,30 @@ var helmChartVersion = "0.8.3"
 var helmChartRepoName = "mongodb"
 var helmChartUrl = "https://mongodb.github.io/helm-charts"
 
-// cronjob and job variables
-var jobCronjobReleaseName = "cronjob-devtron-demo"
-var jobCronjobReleaseNamespace = "devtron-demo"
-
-// deployment variables
-var deploymentReleaseName = "deployment-test1"
-var deploymentReleaseNamespace = "devtron-demo"
-
-// rollout variables
-var rolloutReleaseName = "rollout-devtron-demo"
-var rolloutReleaseNamespace = "devtron-demo"
-
-// statefulSet variables
-var statefulSetReleaseName = "statefulset-devtron-demo"
-var statefulSetReleaseNamespace = "devtron-demo"
-
-var clusterConfig = &client.ClusterConfig{
-	ApiServerUrl:          "https://kubernetes.default.svc",
-	Token:                 "",
-	ClusterId:             clusterId,
-	ClusterName:           clusterName,
-	InsecureSkipTLSVerify: true,
-}
+//
+//// cronjob and job variables
+//var jobCronjobReleaseName = "cronjob-devtron-demo"
+//var jobCronjobReleaseNamespace = "devtron-demo"
+//
+//// deployment variables
+//var deploymentReleaseName = "deployment-test1"
+//var deploymentReleaseNamespace = "devtron-demo"
+//
+//// rollout variables
+//var rolloutReleaseName = "rollout-devtron-demo"
+//var rolloutReleaseNamespace = "devtron-demo"
+//
+//// statefulSet variables
+//var statefulSetReleaseName = "statefulset-devtron-demo"
+//var statefulSetReleaseNamespace = "devtron-demo"
+//
+//var clusterConfig = &client.ClusterConfig{
+//	ApiServerUrl:          "https://kubernetes.default.svc",
+//	Token:                 "",
+//	ClusterId:             clusterId,
+//	ClusterName:           clusterName,
+//	InsecureSkipTLSVerify: true,
+//}
 
 var installReleaseReq = &client.InstallReleaseRequest{
 	ReleaseIdentifier: &client.ReleaseIdentifier{
@@ -87,7 +78,7 @@ var installReleaseReq = &client.InstallReleaseRequest{
 	},
 	ChartName:    helmChartName,
 	ChartVersion: helmChartVersion,
-	ValuesYaml:   test_data.InstallReleaseReqYamlValue,
+	ValuesYaml:   InstallReleaseReqYamlValue,
 	ChartRepository: &client.ChartRepository{
 		Name: helmChartRepoName,
 		Url:  helmChartUrl,
@@ -100,7 +91,7 @@ var installReleaseReqJobAndCronJob = &client.HelmInstallCustomRequest{
 		ReleaseName:      jobCronjobReleaseName,
 		ReleaseNamespace: jobCronjobReleaseNamespace,
 	},
-	ValuesYaml:   test_data.CronJobYamlValue,
+	ValuesYaml:   CronJobYamlValue,
 	ChartContent: &client.ChartContent{},
 }
 
@@ -110,7 +101,7 @@ var installReleaseReqDeployment = &client.HelmInstallCustomRequest{
 		ReleaseName:      deploymentReleaseName,
 		ReleaseNamespace: deploymentReleaseNamespace,
 	},
-	ValuesYaml:   test_data.DeploymentYamlValue,
+	ValuesYaml:   DeploymentYamlValue,
 	ChartContent: &client.ChartContent{},
 }
 
@@ -120,7 +111,7 @@ var installReleaseReqRollout = &client.HelmInstallCustomRequest{
 		ReleaseName:      rolloutReleaseName,
 		ReleaseNamespace: rolloutReleaseNamespace,
 	},
-	ValuesYaml:   test_data.RollOutYamlValue,
+	ValuesYaml:   RollOutYamlValue,
 	ChartContent: &client.ChartContent{},
 }
 
@@ -130,7 +121,7 @@ var installReleaseReqStatefullset = &client.HelmInstallCustomRequest{
 		ReleaseName:      statefulSetReleaseName,
 		ReleaseNamespace: statefulSetReleaseNamespace,
 	},
-	ValuesYaml:   test_data.StatefulSetYamlValue,
+	ValuesYaml:   StatefulSetYamlValue,
 	ChartContent: &client.ChartContent{},
 }
 
@@ -145,19 +136,6 @@ var refChartsPathMapping = map[string]string{
 	//commonBean.K8sClusterResourceCronJobKind: cronjobReferenceTemplateDir,
 }
 
-type NodeInfo struct {
-	kind              string
-	health            *bean.HealthStatus
-	port              []int64
-	CreatedAt         string
-	IsHibernated      bool
-	PodMetaData       []*bean.PodMetadata
-	ReleaseStatus     *bean.ReleaseStatus
-	ApplicationStatus *bean.HealthStatusCode
-	info              []bean.InfoItem
-	NetworkingInfo    *bean.ResourceNetworkingInfo
-}
-
 func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	logger, k8sInformer, helmReleaseConfig, k8sUtil, clusterRepository, k8sServiceImpl := getHelmAppServiceDependencies(t)
 	clusterCacheConfig := &cache.ClusterCacheConfig{
@@ -170,7 +148,7 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	k8sUtilLocal := k8sUtils.NewK8sUtil(logger, runTimeConfig)
 
 	clusterCacheImpl := cache.NewClusterCacheImpl(logger, clusterCacheConfig, clusterRepository, k8sUtilLocal, k8sInformer)
-	helmAppServiceImpl := NewHelmAppServiceImpl(logger, k8sServiceImpl, k8sInformer, helmReleaseConfig, k8sUtil, clusterRepository, clusterCacheImpl)
+	helmAppServiceImpl := service.NewHelmAppServiceImpl(logger, k8sServiceImpl, k8sInformer, helmReleaseConfig, k8sUtil, clusterRepository, clusterCacheImpl)
 	var resourceTreeMap = map[string]*bean.AppDetail{}
 	var helmAppResourceTreeMap = map[string]*bean.AppDetail{}
 	var cacheResourceTreeMap = map[string]*bean.AppDetail{}
@@ -580,36 +558,8 @@ func TestHelmAppService_BuildAppDetail(t *testing.T) {
 	})
 }
 
-func GetDbConnAndLoggerService(t *testing.T) (*zap.SugaredLogger, *pg.DB) {
-	cfg, _ := sql.GetConfig()
-	logger, err := utils.NewSugardLogger()
-	assert.Nil(t, err)
-	dbConnection, err := sql.NewDbConnection(cfg, logger)
-	assert.Nil(t, err)
-
-	return logger, dbConnection
-}
-
-func getHelmAppServiceDependencies(t *testing.T) (*zap.SugaredLogger, *k8sInformer2.K8sInformerImpl, *HelmReleaseConfig,
-	*k8sUtils.K8sUtil, *repository.ClusterRepositoryImpl, *K8sServiceImpl) {
-	logger, dbConnection := GetDbConnAndLoggerService(t)
-	helmReleaseConfig := &HelmReleaseConfig{
-		EnableHelmReleaseCache:    false,
-		MaxCountForHelmRelease:    0,
-		ManifestFetchBatchSize:    0,
-		RunHelmInstallInAsyncMode: false,
-	}
-	helmReleaseConfig2 := &k8sInformer2.HelmReleaseConfig{EnableHelmReleaseCache: true}
-	clusterRepository := repository.NewClusterRepositoryImpl(dbConnection, logger)
-	runTimeConfig := &client2.RuntimeConfig{LocalDevMode: false}
-	k8sUtil := k8sUtils.NewK8sUtil(logger, runTimeConfig)
-	k8sInformer := k8sInformer2.Newk8sInformerImpl(logger, clusterRepository, helmReleaseConfig2, k8sUtil)
-	k8sServiceImpl := NewK8sServiceImpl(logger)
-	return logger, k8sInformer, helmReleaseConfig, k8sUtil, clusterRepository, k8sServiceImpl
-}
-
 func prepareResourceTreeMapBeforeClusterSyncForDevtronApp(t *testing.T, resourceTreeMap *map[string]*bean.AppDetail,
-	helmAppResourceTreeMap *map[string]*bean.AppDetail, helmAppServiceImpl *HelmAppServiceImpl) {
+	helmAppResourceTreeMap *map[string]*bean.AppDetail, helmAppServiceImpl *service.HelmAppServiceImpl) {
 	devtronAppResp := *resourceTreeMap
 	for _, payload := range devtronPayloadArray {
 		appDetailReqDev := &client.AppDetailRequest{
@@ -653,7 +603,7 @@ func prepareResourceTreeMapBeforeClusterSyncForDevtronApp(t *testing.T, resource
 }
 
 func prepareResourceTreeMapAfterClusterSyncForDevtronApp(t *testing.T, cacheResourceTreeMap *map[string]*bean.AppDetail,
-	cacheHelmResourceTreeMap *map[string]*bean.AppDetail, helmAppServiceImpl *HelmAppServiceImpl) {
+	cacheHelmResourceTreeMap *map[string]*bean.AppDetail, helmAppServiceImpl *service.HelmAppServiceImpl) {
 
 	cacheDevtronAppResp := *cacheResourceTreeMap
 	for _, payload := range devtronPayloadArray {
@@ -743,40 +693,13 @@ func buildResourceInfoAfterCacheSync(cacheResourceTreeMap map[string]*bean.AppDe
 	return resourceDataAfterSync
 }
 
-func packageChartAndGetByteArrayRefChart(t *testing.T, refChartPath string, chartMetadata *chart2.Metadata) []byte {
-	valid, err := chartutil.IsChartDir(refChartPath)
-	assert.Nil(t, err)
-	if !valid {
-		return nil
-	}
-	b, err := yaml.Marshal(chartMetadata)
-	assert.Nil(t, err)
-	err = ioutil.WriteFile(filepath.Join(refChartPath, "Chart.yaml"), b, 0600)
-	assert.Nil(t, err)
-
-	chart, err := chartutil.LoadDir(refChartPath)
-	assert.Nil(t, err)
-
-	archivePath, err := chartutil.Save(chart, refChartPath)
-	assert.Nil(t, err)
-
-	file, err := os.Open(archivePath)
-	reader, err := gzip.NewReader(file)
-	assert.Nil(t, err)
-
-	// read the complete content of the file h.Name into the bs []byte
-	bs, err := ioutil.ReadAll(reader)
-	assert.Nil(t, err)
-	return bs
-}
-
 func setupSuite(t *testing.T) func(t *testing.T) {
 	logger, k8sInformer, helmReleaseConfig, _, clusterRepository, k8sServiceImpl := getHelmAppServiceDependencies(t)
 	clusterCacheConfig := &cache.ClusterCacheConfig{}
 	runTimeConfig := &client2.RuntimeConfig{LocalDevMode: true}
 	k8sUtilLocal := k8sUtils.NewK8sUtil(logger, runTimeConfig)
 	clusterCacheImpl := cache.NewClusterCacheImpl(logger, clusterCacheConfig, clusterRepository, k8sUtilLocal, k8sInformer)
-	helmAppServiceImpl := NewHelmAppServiceImpl(logger, k8sServiceImpl, k8sInformer, helmReleaseConfig, k8sUtilLocal, clusterRepository, clusterCacheImpl)
+	helmAppServiceImpl := service.NewHelmAppServiceImpl(logger, k8sServiceImpl, k8sInformer, helmReleaseConfig, k8sUtilLocal, clusterRepository, clusterCacheImpl)
 
 	//reading reference chart info from /tmp filepath where ref charts are expected to be stored
 	for deployType, refChartPath := range refChartsPathMapping {
