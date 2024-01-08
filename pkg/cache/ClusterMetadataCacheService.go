@@ -41,7 +41,7 @@ type ClusterCacheImpl struct {
 	logger             *zap.SugaredLogger
 	clusterCacheConfig *ClusterCacheConfig
 	clusterRepository  repository.ClusterRepository
-	k8sUtil            k8sUtils.K8sUtilIf
+	k8sUtil            k8sUtils.K8sService
 	clustersCache      map[int]ClusterCacheInfo
 	rwMutex            sync.RWMutex
 	k8sInformer        k8sInformer.K8sInformer
@@ -49,7 +49,7 @@ type ClusterCacheImpl struct {
 }
 
 func NewClusterCacheImpl(logger *zap.SugaredLogger, clusterCacheConfig *ClusterCacheConfig,
-	clusterRepository repository.ClusterRepository, k8sUtil k8sUtils.K8sUtilIf, k8sInformer k8sInformer.K8sInformer,
+	clusterRepository repository.ClusterRepository, k8sUtil k8sUtils.K8sService, k8sInformer k8sInformer.K8sInformer,
 	converter converter.ClusterBeanConverter) *ClusterCacheImpl {
 
 	clustersCache := make(map[int]ClusterCacheInfo)

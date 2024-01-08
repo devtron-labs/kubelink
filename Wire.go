@@ -43,7 +43,7 @@ func InitializeApp() (*App, error) {
 		logger.NewSugaredLogger,
 		client.GetRuntimeConfig,
 		k8s.NewK8sUtil,
-		wire.Bind(new(k8s.K8sUtilIf), new(*k8s.K8sUtil)),
+		wire.Bind(new(k8s.K8sService), new(*k8s.K8sServiceImpl)),
 		lock.NewChartRepositoryLocker,
 		service.NewK8sServiceImpl,
 		wire.Bind(new(service.K8sService), new(*service.K8sServiceImpl)),

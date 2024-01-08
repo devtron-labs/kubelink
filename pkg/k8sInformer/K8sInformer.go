@@ -72,13 +72,13 @@ type K8sInformerImpl struct {
 	informerStopper    map[int]chan struct{}
 	clusterRepository  repository.ClusterRepository
 	helmReleaseConfig  *HelmReleaseConfig
-	k8sUtil            k8sUtils.K8sUtilIf
+	k8sUtil            k8sUtils.K8sService
 	listeners          []ClusterSecretUpdateListener
 	converter          converter.ClusterBeanConverter
 }
 
 func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.ClusterRepository,
-	helmReleaseConfig *HelmReleaseConfig, k8sUtil k8sUtils.K8sUtilIf, converter converter.ClusterBeanConverter) *K8sInformerImpl {
+	helmReleaseConfig *HelmReleaseConfig, k8sUtil k8sUtils.K8sService, converter converter.ClusterBeanConverter) *K8sInformerImpl {
 	informerFactory := &K8sInformerImpl{
 		logger:            logger,
 		clusterRepository: clusterRepository,
