@@ -159,8 +159,8 @@ func getResourceNodeFromManifest(un *unstructured.Unstructured, gvk schema.Group
 			UID:       string(un.GetUID()),
 		},
 	}
+	resourceNode.IsHook, resourceNode.HookType = util.GetHookMetadata(un)
 	util.AddSelectiveInfoInResourceNode(resourceNode, gvk, un.UnstructuredContent())
-
 	return resourceNode
 }
 

@@ -107,6 +107,8 @@ type ResourceNode struct {
 	Info            []InfoItem              `json:"info,omitempty"`
 	Port            []int64                 `json:"port,omitempty"`
 	CreatedAt       string                  `json:"createdAt,omitempty"`
+	IsHook          bool                    `json:"isHook,omitempty"`
+	HookType        string                  `json:"hookType,omitempty"`
 	// UpdateRevision is used when a pod's owner is a StatefulSet for identifying if the pod is new or old
 	UpdateRevision string `json:"updateRevision,omitempty"`
 	// DeploymentPodHash is the podHash in deployment manifest and is used to compare replicaSet's podHash for identifying new vs old pod

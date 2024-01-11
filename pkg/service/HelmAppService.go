@@ -341,6 +341,7 @@ func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig 
 			nodes = append(nodes, getNodeInfoFromHierarchy(node, resourceHierarchy.UidToResourceRefMapping))
 		}
 	}
+	updateHookInfoForChildNodes(nodes)
 
 	podsMetadata, err := impl.buildPodMetadata(nodes, conf)
 	if err != nil {
@@ -1308,6 +1309,7 @@ func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDet
 	if err != nil {
 		return nil, err
 	}
+	updateHookInfoForChildNodes(nodes)
 
 	// filter nodes based on ResourceTreeFilter
 	resourceTreeFilter := appDetailRequest.ResourceTreeFilter
@@ -1327,6 +1329,26 @@ func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDet
 		PodMetadata: podsMetadata,
 	}
 	return resourceTreeResponse, nil
+}
+
+func updateHookInfoForChildNodes(nodes []*bean.ResourceNode) {
+	hookUidToHookTypeMap := make(map[string]string)
+	for _, node := range nodes {
+		if node.IsHook {
+			hookUidToHookTypeMap[node.UID] = node.HookType
+		}
+	}
+	//if node's parentRef is a hook then add hook info in child node also
+	if len(hookUidToHookTypeMap) > 0 {
+		for _, node := range nodes {
+			if node.ParentRefs != nil && len(node.ParentRefs) > 0 {
+				if hookType, ok := hookUidToHookTypeMap[node.ParentRefs[0].UID]; ok {
+					node.IsHook = true
+					node.HookType = hookType
+				}
+			}
+		}
+	}
 }
 
 func (impl HelmAppServiceImpl) filterNodes(resourceTreeFilter *client.ResourceTreeFilter, nodes []*bean.ResourceNode) []*bean.ResourceNode {
@@ -1530,6 +1552,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 			CreatedAt: creationTimeStamp,
 			Port:      ports,
 		}
+		node.IsHook, node.HookType = util.GetHookMetadata(manifest)
 
 		if parentResourceRef != nil {
 			node.ParentRefs = append(make([]*bean.ResourceRef, 0), parentResourceRef)

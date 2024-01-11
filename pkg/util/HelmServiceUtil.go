@@ -66,6 +66,9 @@ func BuildAppHealthStatus(nodes []*bean.ResourceNode) *bean.HealthStatusCode {
 	var isAnyNodeCanByHibernated bool
 
 	for _, node := range nodes {
+		if node.IsHook {
+			continue
+		}
 		nodeHealth := node.Health
 		if node.CanBeHibernated {
 			isAnyNodeCanByHibernated = true
@@ -192,6 +195,16 @@ func GetRolloutPodHash(rollout map[string]interface{}) string {
 		}
 	}
 	return ""
+}
+
+func GetHookMetadata(manifest *unstructured.Unstructured) (bool, string) {
+	annotations, found, _ := unstructured.NestedStringMap(manifest.Object, "metadata", "annotations")
+	if found {
+		if hookType, ok := annotations[release.HookAnnotation]; ok {
+			return true, hookType
+		}
+	}
+	return false, ""
 }
 
 func AddSelectiveInfoInResourceNode(resourceNode *bean.ResourceNode, gvk schema.GroupVersionKind, obj map[string]interface{}) {
