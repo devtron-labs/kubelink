@@ -11,7 +11,6 @@ import (
 	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
-	"github.com/devtron-labs/common-lib/utils/k8s/health"
 	k8sObjectUtils "github.com/devtron-labs/common-lib/utils/k8sObjectsUtil"
 	"github.com/devtron-labs/kubelink/pkg/cache"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
@@ -1462,58 +1461,60 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 		if _namespace == "" {
 			_namespace = releaseNamespace
 		}
-		ports := make([]int64, 0)
-		if k8sUtils.IsService(gvk) || gvk.Kind == "Service" {
-			if manifest.Object["spec"] != nil {
-				spec := manifest.Object["spec"].(map[string]interface{})
-				if spec["ports"] != nil {
-					portList := spec["ports"].([]interface{})
-					for _, portItem := range portList {
-						if portItem.(map[string]interface{}) != nil {
-							_portNumber := portItem.(map[string]interface{})["port"]
-							portNumber := _portNumber.(int64)
-							if portNumber != 0 {
-								ports = append(ports, portNumber)
-							} else {
-								impl.logger.Errorw("there is no port", "err", portNumber)
-							}
-						} else {
-							impl.logger.Errorw("there are no port list availabe", "err", portItem)
-						}
-					}
-				}
-			}
-		}
-		if manifest.Object["kind"] == "EndpointSlice" {
-			if manifest.Object["ports"] != nil {
-				endPointsSlicePorts := manifest.Object["ports"].([]interface{})
-				for _, val := range endPointsSlicePorts {
-					_portNumber := val.(map[string]interface{})["port"]
-					portNumber := _portNumber.(int64)
-					if portNumber != 0 {
-						ports = append(ports, portNumber)
-					}
-				}
-			}
-		}
-		if gvk.Kind == "Endpoints" {
-			if manifest.Object["subsets"] != nil {
-				subsets := manifest.Object["subsets"].([]interface{})
-				for _, subset := range subsets {
-					subsetObj := subset.(map[string]interface{})
-					if subsetObj != nil {
-						portsIfs := subsetObj["ports"].([]interface{})
-						for _, portsIf := range portsIfs {
-							portsIfObj := portsIf.(map[string]interface{})
-							if portsIfObj != nil {
-								port := portsIfObj["port"].(int64)
-								ports = append(ports, port)
-							}
-						}
-					}
-				}
-			}
-		}
+		ports := util.GetPorts(manifest, gvk)
+		//TODO KB: check this logic
+		//ports := make([]int64, 0)
+		//if k8sUtils.IsService(gvk) || gvk.Kind == "Service" {
+		//	if manifest.Object["spec"] != nil {
+		//		spec := manifest.Object["spec"].(map[string]interface{})
+		//		if spec["ports"] != nil {
+		//			portList := spec["ports"].([]interface{})
+		//			for _, portItem := range portList {
+		//				if portItem.(map[string]interface{}) != nil {
+		//					_portNumber := portItem.(map[string]interface{})["port"]
+		//					portNumber := _portNumber.(int64)
+		//					if portNumber != 0 {
+		//						ports = append(ports, portNumber)
+		//					} else {
+		//						impl.logger.Errorw("there is no port", "err", portNumber)
+		//					}
+		//				} else {
+		//					impl.logger.Errorw("there are no port list availabe", "err", portItem)
+		//				}
+		//			}
+		//		}
+		//	}
+		//}
+		//if manifest.Object["kind"] == "EndpointSlice" {
+		//	if manifest.Object["ports"] != nil {
+		//		endPointsSlicePorts := manifest.Object["ports"].([]interface{})
+		//		for _, val := range endPointsSlicePorts {
+		//			_portNumber := val.(map[string]interface{})["port"]
+		//			portNumber := _portNumber.(int64)
+		//			if portNumber != 0 {
+		//				ports = append(ports, portNumber)
+		//			}
+		//		}
+		//	}
+		//}
+		//if gvk.Kind == "Endpoints" {
+		//	if manifest.Object["subsets"] != nil {
+		//		subsets := manifest.Object["subsets"].([]interface{})
+		//		for _, subset := range subsets {
+		//			subsetObj := subset.(map[string]interface{})
+		//			if subsetObj != nil {
+		//				portsIfs := subsetObj["ports"].([]interface{})
+		//				for _, portsIf := range portsIfs {
+		//					portsIfObj := portsIf.(map[string]interface{})
+		//					if portsIfObj != nil {
+		//						port := portsIfObj["port"].(int64)
+		//						ports = append(ports, port)
+		//					}
+		//				}
+		//			}
+		//		}
+		//	}
+		//}
 		resourceRef := buildResourceRef(gvk, *manifest, _namespace)
 
 		if impl.k8sService.CanHaveChild(gvk) {
@@ -1572,48 +1573,52 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 				}
 			}
 		} else {
-			//TODO: verify
-			if k8sUtils.IsService(gvk) && node.Name == k8sUtils.DEVTRON_SERVICE_NAME && k8sUtils.IsDevtronApp(node.NetworkingInfo.Labels) {
-
-				node.Health = &bean.HealthStatus{
-					Status: bean.HealthStatusHealthy,
-				}
-			} else {
-				if healthCheck := health.GetHealthCheckFunc(gvk); healthCheck != nil {
-					health, err := healthCheck(manifest)
-					if err != nil {
-						node.Health = &bean.HealthStatus{
-							Status:  bean.HealthStatusUnknown,
-							Message: err.Error(),
-						}
-					} else if health != nil {
-						node.Health = &bean.HealthStatus{
-							Status:  string(health.Status),
-							Message: health.Message,
-						}
-					}
-				}
-			}
+			cache.SetHealthStatusForNode(node, manifest, gvk)
+			//TODO KB: check this logic
+			//if k8sUtils.IsService(gvk) && node.Name == k8sUtils.DEVTRON_SERVICE_NAME && k8sUtils.IsDevtronApp(node.NetworkingInfo.Labels) {
+			//
+			//	node.Health = &bean.HealthStatus{
+			//		Status: bean.HealthStatusHealthy,
+			//	}
+			//} else {
+			//	if healthCheck := health.GetHealthCheckFunc(gvk); healthCheck != nil {
+			//		health, err := healthCheck(manifest)
+			//		if err != nil {
+			//			node.Health = &bean.HealthStatus{
+			//				Status:  bean.HealthStatusUnknown,
+			//				Message: err.Error(),
+			//			}
+			//		} else if health != nil {
+			//			node.Health = &bean.HealthStatus{
+			//				Status:  string(health.Status),
+			//				Message: health.Message,
+			//			}
+			//		}
+			//	}
+			//}
 		}
 
 		// hibernate set starts
 		if parentResourceRef == nil {
 
 			// set CanBeHibernated
-			replicas, found, _ := unstructured.NestedInt64(node.Manifest.UnstructuredContent(), "spec", "replicas")
-			if found {
-				node.CanBeHibernated = true
-			}
+			cache.SetHibernationRules(node, &node.Manifest)
 
-			// set IsHibernated
-			annotations := node.Manifest.GetAnnotations()
-			if annotations != nil {
-				if val, ok := annotations[hibernateReplicaAnnotation]; ok {
-					if val != "0" && replicas == 0 {
-						node.IsHibernated = true
-					}
-				}
-			}
+			//TODO KB: check this logic
+			//replicas, found, _ := unstructured.NestedInt64(node.Manifest.UnstructuredContent(), "spec", "replicas")
+			//if found {
+			//	node.CanBeHibernated = true
+			//}
+			//
+			//// set IsHibernated
+			//annotations := node.Manifest.GetAnnotations()
+			//if annotations != nil {
+			//	if val, ok := annotations[hibernateReplicaAnnotation]; ok {
+			//		if val != "0" && replicas == 0 {
+			//			node.IsHibernated = true
+			//		}
+			//	}
+			//}
 
 		}
 		// hibernate set ends
@@ -1751,9 +1756,16 @@ func (impl HelmAppServiceImpl) isPodNew(nodes []*bean.ResourceNode, node *bean.R
 			if err != nil {
 				return isNew, err
 			}
-			deploymentCollisionCount, err := impl.getDeploymentCollisionCount(restConfig, replicaSetParent)
-			if err != nil {
-				return isNew, err
+			deploymentNode := getMatchingNode(nodes, replicaSetParent.Kind, replicaSetParent.Name)
+			// TODO: why do we need deployment object for collisionCount ??
+			var deploymentCollisionCount *int32
+			if deploymentNode != nil && deploymentNode.DeploymentCollisionCount != nil {
+				deploymentCollisionCount = deploymentNode.DeploymentCollisionCount
+			} else {
+				deploymentCollisionCount, err = impl.getDeploymentCollisionCount(restConfig, replicaSetParent)
+				if err != nil {
+					return isNew, err
+				}
 			}
 			replicaSetPodHash := util.GetReplicaSetPodHash(replicaSetObj, deploymentCollisionCount)
 			isNew = replicaSetPodHash == deploymentPodHash
@@ -1784,6 +1796,7 @@ func (impl HelmAppServiceImpl) isPodNew(nodes []*bean.ResourceNode, node *bean.R
 }
 
 func (impl HelmAppServiceImpl) buildPodMetadata(nodes []*bean.ResourceNode, restConfig *rest.Config) ([]*bean.PodMetadata, error) {
+	// Why do we need this map ??
 	deploymentPodHashMap, rolloutMap, uidVsExtraNodeInfoMap := getExtraNodeInfoMappings(nodes)
 	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
 	for _, node := range nodes {

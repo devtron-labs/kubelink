@@ -112,7 +112,8 @@ type ResourceNode struct {
 	// UpdateRevision is used when a pod's owner is a StatefulSet for identifying if the pod is new or old
 	UpdateRevision string `json:"updateRevision,omitempty"`
 	// DeploymentPodHash is the podHash in deployment manifest and is used to compare replicaSet's podHash for identifying new vs old pod
-	DeploymentPodHash string `json:"deploymentPodHash,omitempty"`
+	DeploymentPodHash        string `json:"deploymentPodHash,omitempty"`
+	DeploymentCollisionCount *int32 `json:"deploymentCollisionCount,omitempty"`
 	// RolloutCurrentPodHash is the podHash in rollout manifest and is used to compare replicaSet's podHash for identifying new vs old pod
 	RolloutCurrentPodHash string `json:"rolloutCurrentPodHash,omitempty"`
 }

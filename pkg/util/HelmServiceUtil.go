@@ -218,6 +218,7 @@ func AddSelectiveInfoInResourceNode(resourceNode *bean.ResourceNode, gvk schema.
 		}
 		deploymentPodHash := ComputePodHash(&deployment.Spec.Template, deployment.Status.CollisionCount)
 		resourceNode.DeploymentPodHash = deploymentPodHash
+		resourceNode.DeploymentCollisionCount = deployment.Status.CollisionCount
 	}
 	if gvk.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
 		rolloutPodHash, found, _ := unstructured.NestedString(obj, "status", "currentPodHash")
