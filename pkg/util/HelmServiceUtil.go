@@ -11,6 +11,7 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
@@ -56,6 +57,9 @@ func BuildAppHealthStatus(nodes []*bean.ResourceNode) *bean.HealthStatusCode {
 	var isAnyNodeCanByHibernated bool
 
 	for _, node := range nodes {
+		if node.IsHook {
+			continue
+		}
 		nodeHealth := node.Health
 		if node.CanBeHibernated {
 			isAnyNodeCanByHibernated = true
@@ -181,4 +185,14 @@ func GetRolloutPodHash(rollout map[string]interface{}) string {
 		}
 	}
 	return ""
+}
+
+func GetHookMetadata(manifest *unstructured.Unstructured) (bool, string) {
+	annotations, found, _ := unstructured.NestedStringMap(manifest.Object, "metadata", "annotations")
+	if found {
+		if hookType, ok := annotations[release.HookAnnotation]; ok {
+			return true, hookType
+		}
+	}
+	return false, ""
 }
