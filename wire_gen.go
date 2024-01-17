@@ -10,8 +10,9 @@ import (
 	"github.com/devtron-labs/authenticator/client"
 	"github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/kubelink/api/router"
-	"github.com/devtron-labs/kubelink/internal/lock"
-	"github.com/devtron-labs/kubelink/internal/logger"
+	"github.com/devtron-labs/kubelink/converter"
+	"github.com/devtron-labs/kubelink/internals/lock"
+	"github.com/devtron-labs/kubelink/internals/logger"
 	"github.com/devtron-labs/kubelink/pkg/cache"
 	"github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
@@ -44,8 +45,9 @@ func InitializeApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	k8sUtil := k8s.NewK8sUtil(sugaredLogger, runtimeConfig)
-	k8sInformerImpl := k8sInformer.Newk8sInformerImpl(sugaredLogger, clusterRepositoryImpl, helmReleaseConfig, k8sUtil)
+	k8sK8sServiceImpl := k8s.NewK8sUtil(sugaredLogger, runtimeConfig)
+	clusterBeanConverterImpl := converter.NewConverterImpl()
+	k8sInformerImpl := k8sInformer.Newk8sInformerImpl(sugaredLogger, clusterRepositoryImpl, helmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl)
 	serviceHelmReleaseConfig, err := service.GetHelmReleaseConfig()
 	if err != nil {
 		return nil, err
@@ -54,8 +56,8 @@ func InitializeApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	clusterCacheImpl := cache.NewClusterCacheImpl(sugaredLogger, clusterCacheConfig, clusterRepositoryImpl, k8sUtil, k8sInformerImpl)
-	helmAppServiceImpl := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, serviceHelmReleaseConfig, k8sUtil, clusterRepositoryImpl, clusterCacheImpl)
+	clusterCacheImpl := cache.NewClusterCacheImpl(sugaredLogger, clusterCacheConfig, clusterRepositoryImpl, k8sK8sServiceImpl, k8sInformerImpl, clusterBeanConverterImpl)
+	helmAppServiceImpl := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, serviceHelmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl, clusterRepositoryImpl, clusterCacheImpl)
 	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(sugaredLogger, chartRepositoryLocker, helmAppServiceImpl)
 	pProfRestHandlerImpl := pprof.NewPProfRestHandler(sugaredLogger)
 	pProfRouterImpl := pprof.NewPProfRouter(sugaredLogger, pProfRestHandlerImpl)

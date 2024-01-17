@@ -23,7 +23,7 @@ import (
 )
 
 type LogConfig struct {
-	Level int `env:"LOG_LEVEL" envDefault:"-1"`  // default debug
+	Level int `env:"LOG_LEVEL" envDefault:"-1"` // default debug
 }
 
 func NewSugaredLogger() *zap.SugaredLogger {
