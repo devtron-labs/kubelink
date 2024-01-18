@@ -7,7 +7,7 @@ require (
 	github.com/arl/statsviz v0.6.0
 	github.com/aws/aws-sdk-go v1.44.285
 	github.com/caarlos0/env v3.5.0+incompatible
-	github.com/devtron-labs/common-lib v0.0.9-0.20240108123250-8b5bb992caae
+	github.com/devtron-labs/common-lib v0.0.10-0.20240118113330-de45a43c85bd
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/go-pg/pg v6.15.1+incompatible
@@ -36,6 +36,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/devtron-labs/authenticator v0.4.31
 	github.com/sirupsen/logrus v1.9.0
+	sigs.k8s.io/kustomize/kyaml v0.13.9
 )
 
 require (
@@ -177,7 +178,6 @@ require (
 	oras.land/oras-go v1.2.2 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.12.1 // indirect
-	sigs.k8s.io/kustomize/kyaml v0.13.9 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
 
