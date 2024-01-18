@@ -60,7 +60,7 @@ const (
 	StatusPendingRollback HelmReleaseStatus = "pending-rollback"
 )
 const (
-	ContainersType                = "Container"
+	ContainersType                = "Containers"
 	ContainersNamesType           = "ContainerNames"
 	InitContainersNamesType       = "InitContainerNames"
 	EphemeralContainersInfoType   = "EphemeralContainerInfo"
