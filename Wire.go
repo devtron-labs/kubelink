@@ -21,6 +21,7 @@ package main
 
 import (
 	"github.com/devtron-labs/authenticator/client"
+	"github.com/devtron-labs/common-lib/monitoring"
 	"github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/kubelink/api/router"
 	"github.com/devtron-labs/kubelink/converter"
@@ -31,8 +32,6 @@ import (
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
 	"github.com/devtron-labs/kubelink/pkg/sql"
-	"github.com/devtron-labs/kubelink/pprof"
-	"github.com/devtron-labs/kubelink/statsViz"
 	"github.com/google/wire"
 )
 
@@ -53,13 +52,6 @@ func InitializeApp() (*App, error) {
 		wire.Bind(new(converter.ClusterBeanConverter), new(*converter.ClusterBeanConverterImpl)),
 		service.NewApplicationServiceServerImpl,
 		router.NewRouter,
-		statsViz.NewStatsVizRouter,
-		wire.Bind(new(statsViz.StatsVizRouter), new(*statsViz.StatsVizRouterImpl)),
-		statsViz.GetStatsVizConfig,
-		pprof.NewPProfRestHandler,
-		wire.Bind(new(pprof.PProfRestHandler), new(*pprof.PProfRestHandlerImpl)),
-		pprof.NewPProfRouter,
-		wire.Bind(new(pprof.PProfRouter), new(*pprof.PProfRouterImpl)),
 		k8sInformer.Newk8sInformerImpl,
 		wire.Bind(new(k8sInformer.K8sInformer), new(*k8sInformer.K8sInformerImpl)),
 		repository.NewClusterRepositoryImpl,
@@ -70,6 +62,7 @@ func InitializeApp() (*App, error) {
 		cache.NewClusterCacheImpl,
 		wire.Bind(new(cache.ClusterCache), new(*cache.ClusterCacheImpl)),
 		cache.GetClusterCacheConfig,
+		monitoring.NewMonitoringRouter,
 	)
 	return &App{}, nil
 }
