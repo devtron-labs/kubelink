@@ -33,6 +33,7 @@ require (
 require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/devtron-labs/authenticator v0.4.31
+	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.1
 )
 
 require (
