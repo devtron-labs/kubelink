@@ -4,10 +4,9 @@ go 1.20
 
 require (
 	github.com/argoproj/gitops-engine v0.7.1-0.20231013183858-f15cf615b814
-	github.com/arl/statsviz v0.6.0
 	github.com/aws/aws-sdk-go v1.44.285
 	github.com/caarlos0/env v3.5.0+incompatible
-	github.com/devtron-labs/common-lib v0.0.9-0.20231226070212-c47f7a07ebf5
+	github.com/devtron-labs/common-lib v0.0.10-0.20240118094125-5f5b506c6907
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/go-pg/pg v6.15.1+incompatible
@@ -45,6 +44,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.3 // indirect
 	github.com/Masterminds/squirrel v1.5.4 // indirect
+	github.com/arl/statsviz v0.6.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect

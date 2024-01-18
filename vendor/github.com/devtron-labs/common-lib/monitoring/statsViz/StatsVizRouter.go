@@ -8,7 +8,7 @@ import (
 )
 
 type StatsVizRouter interface {
-	InitStatsVizRouter(router *mux.Router)
+	InitStatsVizRouter(router *mux.Router, servicePrefix string)
 }
 
 type StatVizConfig struct {
@@ -26,18 +26,20 @@ type StatsVizRouterImpl struct {
 	config *StatVizConfig
 }
 
-func NewStatsVizRouter(logger *zap.SugaredLogger, config *StatVizConfig) *StatsVizRouterImpl {
+func NewStatsVizRouter(logger *zap.SugaredLogger) *StatsVizRouterImpl {
+	cfg, _ := GetStatsVizConfig()
 	return &StatsVizRouterImpl{
 		logger: logger,
-		config: config,
+		config: cfg,
 	}
 }
 
-func (r *StatsVizRouterImpl) InitStatsVizRouter(router *mux.Router) {
+func (r *StatsVizRouterImpl) InitStatsVizRouter(router *mux.Router, servicePrefix string) {
 	if !r.config.EnableStatsviz {
 		return
 	}
-	stvServer, _ := statsviz.NewServer()
+	stvServer, _ := statsviz.NewServer(statsviz.Root(servicePrefix + "/debug/statsviz"))
+
 	router.Path("/debug/statsviz/ws").Name("GET /debug/statsviz/ws").HandlerFunc(stvServer.Ws())
 	router.PathPrefix("/debug/statsviz/").Name("GET /debug/statsviz/").Handler(stvServer.Index())
 }
