@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/devtron-labs/common-lib/constants"
+	"github.com/devtron-labs/common-lib/middlewares"
 	"github.com/devtron-labs/kubelink/api/router"
-	"github.com/devtron-labs/kubelink/api/router/middleware"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
@@ -74,7 +74,7 @@ func (app *App) Start() {
 	grpc_prometheus.Register(grpcServer)
 	go func() {
 		server := &http.Server{Addr: fmt.Sprintf(":%d", httpPort), Handler: app.router.Router}
-		app.router.Router.Use(middleware.Recovery)
+		app.router.Router.Use(middlewares.Recovery)
 		err := server.ListenAndServe()
 		if err != nil {
 			log.Fatal("error in starting http server", err)
