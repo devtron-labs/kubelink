@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
+	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/common-lib/utils/k8s/health"
 	"github.com/devtron-labs/kubelink/bean"
 	"hash"
@@ -13,8 +14,16 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
+
+type ExtraNodeInfo struct {
+	// UpdateRevision is only used for StatefulSets, if not empty, indicates the version of the StatefulSet used to generate Pods in the sequence
+	UpdateRevision         string
+	ResourceNetworkingInfo *bean.ResourceNetworkingInfo
+	RolloutCurrentPodHash  string
+}
 
 // GetAppId returns AppID by logic  cluster_id|namespace|release_name
 func GetAppId(clusterId int32, release *release.Release) string {
@@ -138,24 +147,25 @@ func ComputePodHash(template *coreV1.PodTemplateSpec, collisionCount *int32) str
 	return rand.SafeEncodeString(fmt.Sprint(podTemplateSpecHasher.Sum32()))
 }
 
-func ConvertToV1Deployment(node *bean.ResourceNode) (*v1beta1.Deployment, error) {
+func ConvertToV1Deployment(nodeObj map[string]interface{}) (*v1beta1.Deployment, error) {
 	deploymentObj := v1beta1.Deployment{}
-	err := runtime.DefaultUnstructuredConverter.FromUnstructured(node.Manifest.UnstructuredContent(), &deploymentObj)
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(nodeObj, &deploymentObj)
 	if err != nil {
 		return nil, err
 	}
 	return &deploymentObj, nil
 }
-func ConvertToV1ReplicaSet(node *bean.ResourceNode) (*v1beta1.ReplicaSet, error) {
+
+func ConvertToV1ReplicaSet(nodeObj map[string]interface{}) (*v1beta1.ReplicaSet, error) {
 	replicaSetObj := v1beta1.ReplicaSet{}
-	err := runtime.DefaultUnstructuredConverter.FromUnstructured(node.Manifest.UnstructuredContent(), &replicaSetObj)
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(nodeObj, &replicaSetObj)
 	if err != nil {
 		return nil, err
 	}
 	return &replicaSetObj, nil
 }
 
-func GetReplicaSetPodHash(replicasetObj *v1beta1.ReplicaSet, deploymentObj *v1beta1.Deployment) string {
+func GetReplicaSetPodHash(replicasetObj *v1beta1.ReplicaSet, collisionCount *int32) string {
 	labels := make(map[string]string)
 	for k, v := range replicasetObj.Spec.Template.Labels {
 		if k != "pod-template-hash" {
@@ -163,12 +173,12 @@ func GetReplicaSetPodHash(replicasetObj *v1beta1.ReplicaSet, deploymentObj *v1be
 		}
 	}
 	replicasetObj.Spec.Template.Labels = labels
-	podHash := ComputePodHash(&replicasetObj.Spec.Template, deploymentObj.Status.CollisionCount)
+	podHash := ComputePodHash(&replicasetObj.Spec.Template, collisionCount)
 	return podHash
 }
 
-func GetRolloutPodTemplateHash(replicasetObj *v1beta1.ReplicaSet) string {
-	if rolloutPodTemplateHash, ok := replicasetObj.Labels["rollouts-pod-template-hash"]; ok {
+func GetRolloutPodTemplateHash(replicasetNode *bean.ResourceNode) string {
+	if rolloutPodTemplateHash, ok := replicasetNode.NetworkingInfo.Labels["rollouts-pod-template-hash"]; ok {
 		return rolloutPodTemplateHash
 	}
 	return ""
@@ -195,4 +205,33 @@ func GetHookMetadata(manifest *unstructured.Unstructured) (bool, string) {
 		}
 	}
 	return false, ""
+}
+
+func AddSelectiveInfoInResourceNode(resourceNode *bean.ResourceNode, gvk schema.GroupVersionKind, obj map[string]interface{}) {
+	if gvk.Kind == k8sCommonBean.StatefulSetKind {
+		resourceNode.UpdateRevision = GetUpdateRevisionForStatefulSet(obj)
+	}
+	if gvk.Kind == k8sCommonBean.DeploymentKind {
+		deployment, _ := ConvertToV1Deployment(obj)
+		if deployment == nil {
+			return
+		}
+		deploymentPodHash := ComputePodHash(&deployment.Spec.Template, deployment.Status.CollisionCount)
+		resourceNode.DeploymentPodHash = deploymentPodHash
+		resourceNode.DeploymentCollisionCount = deployment.Status.CollisionCount
+	}
+	if gvk.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
+		rolloutPodHash, found, _ := unstructured.NestedString(obj, "status", "currentPodHash")
+		if found {
+			resourceNode.RolloutCurrentPodHash = rolloutPodHash
+		}
+	}
+}
+
+func GetUpdateRevisionForStatefulSet(obj map[string]interface{}) string {
+	updateRevisionFromManifest, found, _ := unstructured.NestedString(obj, "status", "updateRevision")
+	if found {
+		return updateRevisionFromManifest
+	}
+	return ""
 }

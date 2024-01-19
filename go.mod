@@ -6,7 +6,7 @@ require (
 	github.com/argoproj/gitops-engine v0.7.1-0.20231013183858-f15cf615b814
 	github.com/aws/aws-sdk-go v1.44.285
 	github.com/caarlos0/env v3.5.0+incompatible
-	github.com/devtron-labs/common-lib v0.0.10-0.20240119124817-22edd78beee8
+	github.com/devtron-labs/common-lib v0.0.10-0.20240119152739-85a36a53774f
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/go-pg/pg v6.15.1+incompatible
@@ -25,6 +25,7 @@ require (
 	k8s.io/apimachinery v0.26.11
 	k8s.io/cli-runtime v0.26.4
 	k8s.io/client-go v0.26.11
+	k8s.io/helm v2.12.3+incompatible
 	k8s.io/kube-aggregator v0.26.4 // indirect
 	k8s.io/kubectl v0.26.4 // indirect
 	sigs.k8s.io/yaml v1.3.0
@@ -34,6 +35,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/devtron-labs/authenticator v0.4.31
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.1
+	sigs.k8s.io/kustomize/kyaml v0.13.9
 )
 
 require (
@@ -42,6 +44,7 @@ require (
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
+	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.3 // indirect
 	github.com/Masterminds/squirrel v1.5.4 // indirect
@@ -67,6 +70,7 @@ require (
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fvbommel/sortorder v1.0.1 // indirect
+	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-gorp/gorp/v3 v3.0.5 // indirect
 	github.com/go-logr/logr v1.3.0 // indirect
@@ -175,7 +179,6 @@ require (
 	oras.land/oras-go v1.2.2 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.12.1 // indirect
-	sigs.k8s.io/kustomize/kyaml v0.13.9 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
 
