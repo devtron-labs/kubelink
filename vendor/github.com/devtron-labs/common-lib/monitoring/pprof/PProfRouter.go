@@ -14,11 +14,10 @@ type PProfRouterImpl struct {
 	pProfRestHandler PProfRestHandler
 }
 
-func NewPProfRouter(logger *zap.SugaredLogger,
-	pProfRestHandler PProfRestHandler) *PProfRouterImpl {
+func NewPProfRouter(logger *zap.SugaredLogger) *PProfRouterImpl {
 	return &PProfRouterImpl{
 		logger:           logger,
-		pProfRestHandler: pProfRestHandler,
+		pProfRestHandler: NewPProfRestHandler(logger),
 	}
 }
 

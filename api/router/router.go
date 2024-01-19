@@ -2,8 +2,8 @@ package router
 
 import (
 	"encoding/json"
-	"github.com/devtron-labs/kubelink/pprof"
-	"github.com/devtron-labs/kubelink/statsViz"
+
+	"github.com/devtron-labs/common-lib/monitoring"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
@@ -11,21 +11,16 @@ import (
 )
 
 type RouterImpl struct {
-	logger         *zap.SugaredLogger
-	Router         *mux.Router
-	pprofRouter    pprof.PProfRouter
-	statsVizRouter statsViz.StatsVizRouter
+	logger           *zap.SugaredLogger
+	Router           *mux.Router
+	monitoringRouter *monitoring.MonitoringRouter
 }
 
-func NewRouter(logger *zap.SugaredLogger,
-	pprofRouter pprof.PProfRouter,
-	statsVizRouter statsViz.StatsVizRouter,
-) *RouterImpl {
+func NewRouter(logger *zap.SugaredLogger, monitoringRouter *monitoring.MonitoringRouter) *RouterImpl {
 	return &RouterImpl{
-		logger:         logger,
-		Router:         mux.NewRouter(),
-		pprofRouter:    pprofRouter,
-		statsVizRouter: statsVizRouter,
+		logger:           logger,
+		Router:           mux.NewRouter(),
+		monitoringRouter: monitoringRouter,
 	}
 }
 
@@ -37,10 +32,9 @@ type Response struct {
 
 func (r *RouterImpl) InitRouter() {
 	pProfListenerRouter := r.Router.PathPrefix("/kubelink/debug/pprof/").Subrouter()
-	r.pprofRouter.InitPProfRouter(pProfListenerRouter)
+	statsVizRouter := r.Router.PathPrefix("/kubelink").Subrouter()
 
-	statsVizRouter := r.Router.Methods("GET").Subrouter()
-	r.statsVizRouter.InitStatsVizRouter(statsVizRouter)
+	r.monitoringRouter.InitMonitoringRouter(pProfListenerRouter, statsVizRouter, "/kubelink")
 
 	r.Router.PathPrefix("/metrics").Handler(promhttp.Handler())
 	r.Router.Path("/health").HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
