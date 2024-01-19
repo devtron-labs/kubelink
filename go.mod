@@ -6,7 +6,7 @@ require (
 	github.com/argoproj/gitops-engine v0.7.1-0.20231013183858-f15cf615b814
 	github.com/aws/aws-sdk-go v1.44.285
 	github.com/caarlos0/env v3.5.0+incompatible
-	github.com/devtron-labs/common-lib v0.0.10-0.20240119145348-c0a954e53e9e
+	github.com/devtron-labs/common-lib v0.0.10-0.20240119152739-85a36a53774f
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/go-pg/pg v6.15.1+incompatible
@@ -35,7 +35,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/devtron-labs/authenticator v0.4.31
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.1
-	github.com/sirupsen/logrus v1.9.0
 	sigs.k8s.io/kustomize/kyaml v0.13.9
 )
 
@@ -138,6 +137,7 @@ require (
 	github.com/rubenv/sql-migrate v1.3.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
+	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/cobra v1.6.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
