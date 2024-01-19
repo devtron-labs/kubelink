@@ -118,6 +118,27 @@ type K8sService interface {
 	GetClientForInCluster() (*v12.CoreV1Client, error)
 	GetCoreV1Client(clusterConfig *ClusterConfig) (*v12.CoreV1Client, error)
 	GetRestConfigByCluster(clusterConfig *ClusterConfig) (*restclient.Config, error)
+	GetResource(ctx context.Context, namespace string, name string, gvk schema.GroupVersionKind, restConfig *rest.Config) (*ManifestResponse, error)
+	UpdateResource(ctx context.Context, restConfig *rest.Config, gvk schema.GroupVersionKind, namespace string, k8sRequestPatch string) (*ManifestResponse, error)
+	DeleteResource(ctx context.Context, restConfig *rest.Config, gvk schema.GroupVersionKind, namespace string, name string, forceDelete bool) (*ManifestResponse, error)
+	GetPodListByLabel(namespace, label string, clientSet *kubernetes.Clientset) ([]v1.Pod, error)
+	ExtractK8sServerMajorAndMinorVersion(k8sServerVersion *version.Info) (int, int, error)
+	GetK8sServerVersion(clientSet *kubernetes.Clientset) (*version.Info, error)
+	DecodeGroupKindversion(data string) (*schema.GroupVersionKind, error)
+	GetApiResources(restConfig *rest.Config, includeOnlyVerb string) ([]*K8sApiResource, error)
+	CreateResources(ctx context.Context, restConfig *rest.Config, manifest string, gvk schema.GroupVersionKind, namespace string) (*ManifestResponse, error)
+	PatchResourceRequest(ctx context.Context, restConfig *rest.Config, pt types.PatchType, manifest string, name string, namespace string, gvk schema.GroupVersionKind) (*ManifestResponse, error)
+	GetResourceList(ctx context.Context, restConfig *rest.Config, gvk schema.GroupVersionKind, namespace string) (*ResourceListResponse, bool, error)
+	GetResourceIfWithAcceptHeader(restConfig *rest.Config, groupVersionKind schema.GroupVersionKind) (resourceIf dynamic.NamespaceableResourceInterface, namespaced bool, err error)
+	GetPodLogs(ctx context.Context, restConfig *rest.Config, name string, namespace string, sinceTime *metav1.Time, tailLines int, follow bool, containerName string, isPrevContainerLogsEnabled bool) (io.ReadCloser, error)
+	ListEvents(restConfig *rest.Config, namespace string, groupVersionKind schema.GroupVersionKind, ctx context.Context, name string) (*v1.EventList, error)
+	GetResourceIf(restConfig *rest.Config, groupVersionKind schema.GroupVersionKind) (resourceIf dynamic.NamespaceableResourceInterface, namespaced bool, err error)
+	FetchConnectionStatusForCluster(k8sClientSet *kubernetes.Clientset) error
+	CreateK8sClientSet(restConfig *rest.Config) (*kubernetes.Clientset, error)
+	IsDevtronApp(labels map[string]string) bool
+	IsPod(gvk schema.GroupVersionKind) bool
+	IsService(gvk schema.GroupVersionKind) bool
+	ResolveResourceReferences(un *unstructured.Unstructured) ([]metav1.OwnerReference, func(ResourceKey) bool)
 }
 
 func NewK8sUtil(logger *zap.SugaredLogger, runTimeConfig *client.RuntimeConfig) *K8sServiceImpl {
@@ -1529,15 +1550,15 @@ func (impl K8sServiceImpl) GetPodListByLabel(namespace, label string, clientSet 
 	return podList.Items, nil
 }
 
-func IsService(gvk schema.GroupVersionKind) bool {
+func (impl K8sServiceImpl) IsService(gvk schema.GroupVersionKind) bool {
 	return gvk.Group == "" && gvk.Kind == commonBean.ServiceKind
 }
 
-func IsPod(gvk schema.GroupVersionKind) bool {
+func (impl K8sServiceImpl) IsPod(gvk schema.GroupVersionKind) bool {
 	return gvk.Group == "" && gvk.Kind == commonBean.PodKind && gvk.Version == "v1"
 }
 
-func IsDevtronApp(labels map[string]string) bool {
+func (impl K8sServiceImpl) IsDevtronApp(labels map[string]string) bool {
 	isDevtronApp := false
 	if val, ok := labels[DEVTRON_APP_LABEL_KEY]; ok {
 		if val == DEVTRON_APP_LABEL_VALUE1 || val == DEVTRON_APP_LABEL_VALUE2 {
@@ -1575,7 +1596,7 @@ func isServiceAccountTokenSecret(un *unstructured.Unstructured) (bool, metav1.Ow
 	return ref.Name != "" && ref.UID != "", ref
 }
 
-func ResolveResourceReferences(un *unstructured.Unstructured) ([]metav1.OwnerReference, func(ResourceKey) bool) {
+func (impl K8sServiceImpl) ResolveResourceReferences(un *unstructured.Unstructured) ([]metav1.OwnerReference, func(ResourceKey) bool) {
 	var isInferredParentOf func(_ ResourceKey) bool
 	ownerRefs := un.GetOwnerReferences()
 	gvk := un.GroupVersionKind()

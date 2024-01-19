@@ -144,8 +144,8 @@ github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSs
 github.com/denisenkom/go-mssqldb v0.9.0/go.mod h1:xbL0rPBG9cCiLr28tMa8zpbdarY27NDyej4t/EjAShU=
 github.com/devtron-labs/authenticator v0.4.31 h1:CEMLek3JnMuH9ULsC6BHNJr+NiyGzBd4lgdSxH2IGnc=
 github.com/devtron-labs/authenticator v0.4.31/go.mod h1:ozNfT8WcruiSgnUbyp48WVfc41++W6xYXhKFp67lNTU=
-github.com/devtron-labs/common-lib v0.0.10-0.20240119124817-22edd78beee8 h1:qqsT57Xt7xgV9Qk+Xo11DDVc8zR4lFXdS56pFq5lwvo=
-github.com/devtron-labs/common-lib v0.0.10-0.20240119124817-22edd78beee8/go.mod h1:95/DizzVXu1kHap/VwEvdxwgd+BvPVYc0bJzt8yqGDU=
+github.com/devtron-labs/common-lib v0.0.10-0.20240119145348-c0a954e53e9e h1:HNajUj9e9sBqFKMO3aE4GAdd4UFFF6XjRAZvMxz3c/g=
+github.com/devtron-labs/common-lib v0.0.10-0.20240119145348-c0a954e53e9e/go.mod h1:95/DizzVXu1kHap/VwEvdxwgd+BvPVYc0bJzt8yqGDU=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
 github.com/distribution/distribution/v3 v3.0.0-20221208165359-362910506bc2 h1:aBfCb7iqHmDEIp6fBvC/hQUddQfg+3qdYjwzaiP9Hnc=

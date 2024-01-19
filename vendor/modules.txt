@@ -148,7 +148,7 @@ github.com/davecgh/go-spew/spew
 github.com/devtron-labs/authenticator/client
 github.com/devtron-labs/authenticator/jwt
 github.com/devtron-labs/authenticator/oidc
-# github.com/devtron-labs/common-lib v0.0.10-0.20240119124817-22edd78beee8
+# github.com/devtron-labs/common-lib v0.0.10-0.20240119145348-c0a954e53e9e
 ## explicit; go 1.20
 github.com/devtron-labs/common-lib/constants
 github.com/devtron-labs/common-lib/middlewares
