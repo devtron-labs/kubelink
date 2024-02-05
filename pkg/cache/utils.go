@@ -54,6 +54,7 @@ var (
 
 const (
 	hibernateReplicaAnnotation = "hibernator.devtron.ai/replicas"
+	CacheNotSyncError          = "cluster cache not yet synced for this cluster id"
 )
 
 // isRetryableError is a helper method to see whether an error
@@ -128,13 +129,13 @@ func getClusterCacheOptions(clusterCacheConfig *ClusterCacheConfig) []clustercac
 		clustercache.SetPopulateResourceInfoHandler(func(un *unstructured.Unstructured, isRoot bool) (interface{}, bool) {
 			gvk := un.GroupVersionKind()
 			res := getResourceNodeFromManifest(un, gvk)
-			setHealthStatusForNode(res, un, gvk)
+			SetHealthStatusForNode(res, un, gvk)
 
 			if k8sUtils.IsPod(gvk) {
 				infoItems, _ := argo.PopulatePodInfo(un)
 				res.Info = infoItems
 			}
-			setHibernationRules(res, un)
+			SetHibernationRules(res, un)
 			return res, false
 		}),
 	}
@@ -142,7 +143,7 @@ func getClusterCacheOptions(clusterCacheConfig *ClusterCacheConfig) []clustercac
 }
 
 func getResourceNodeFromManifest(un *unstructured.Unstructured, gvk schema.GroupVersionKind) *bean.ResourceNode {
-	node := &bean.ResourceNode{
+	resourceNode := &bean.ResourceNode{
 		Port:            util.GetPorts(un, gvk),
 		ResourceVersion: un.GetResourceVersion(),
 		NetworkingInfo: &bean.ResourceNetworkingInfo{
@@ -156,14 +157,14 @@ func getResourceNodeFromManifest(un *unstructured.Unstructured, gvk schema.Group
 			Namespace: un.GetNamespace(),
 			Name:      un.GetName(),
 			UID:       string(un.GetUID()),
-			Manifest:  *un,
 		},
 	}
-	node.IsHook, node.HookType = util.GetHookMetadata(un)
-	return node
+	resourceNode.IsHook, resourceNode.HookType = util.GetHookMetadata(un)
+	util.AddSelectiveInfoInResourceNode(resourceNode, gvk, un.UnstructuredContent())
+	return resourceNode
 }
 
-func setHealthStatusForNode(res *bean.ResourceNode, un *unstructured.Unstructured, gvk schema.GroupVersionKind) {
+func SetHealthStatusForNode(res *bean.ResourceNode, un *unstructured.Unstructured, gvk schema.GroupVersionKind) {
 	if k8sUtils.IsService(gvk) && un.GetName() == k8sUtils.DEVTRON_SERVICE_NAME && k8sUtils.IsDevtronApp(res.NetworkingInfo.Labels) {
 		res.Health = &bean.HealthStatus{
 			Status: bean.HealthStatusHealthy,
@@ -185,7 +186,7 @@ func setHealthStatusForNode(res *bean.ResourceNode, un *unstructured.Unstructure
 		}
 	}
 }
-func setHibernationRules(res *bean.ResourceNode, un *unstructured.Unstructured) {
+func SetHibernationRules(res *bean.ResourceNode, un *unstructured.Unstructured) {
 	if un.GetOwnerReferences() == nil {
 		// set CanBeHibernated
 		replicas, found, _ := unstructured.NestedInt64(un.UnstructuredContent(), "spec", "replicas")

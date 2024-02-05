@@ -9,18 +9,19 @@ import (
 func GetPorts(manifest *unstructured.Unstructured, gvk schema.GroupVersionKind) []int64 {
 	ports := make([]int64, 0)
 	if gvk.Kind == commonBean.ServiceKind {
-		ports = getPortsFromService(manifest, ports)
+		ports = append(ports, getPortsFromService(manifest)...)
 	}
 	if gvk.Kind == commonBean.EndPointsSlice {
-		ports = getPortsFromEndPointsSlice(manifest, ports)
+		ports = append(ports, getPortsFromEndPointsSlice(manifest)...)
 	}
 	if gvk.Kind == commonBean.EndpointsKind {
-		ports = getPortsFromEndpointsKind(manifest, ports)
+		ports = append(ports, getPortsFromEndpointsKind(manifest)...)
 	}
 	return ports
 }
 
-func getPortsFromService(manifest *unstructured.Unstructured, ports []int64) []int64 {
+func getPortsFromService(manifest *unstructured.Unstructured) []int64 {
+	var ports []int64
 	if manifest.Object["spec"] != nil {
 		spec := manifest.Object["spec"].(map[string]interface{})
 		if spec["ports"] != nil {
@@ -39,7 +40,8 @@ func getPortsFromService(manifest *unstructured.Unstructured, ports []int64) []i
 	return ports
 }
 
-func getPortsFromEndPointsSlice(manifest *unstructured.Unstructured, ports []int64) []int64 {
+func getPortsFromEndPointsSlice(manifest *unstructured.Unstructured) []int64 {
+	var ports []int64
 	if manifest.Object["ports"] != nil {
 		endPointsSlicePorts := manifest.Object["ports"].([]interface{})
 		for _, val := range endPointsSlicePorts {
@@ -53,7 +55,8 @@ func getPortsFromEndPointsSlice(manifest *unstructured.Unstructured, ports []int
 	return ports
 }
 
-func getPortsFromEndpointsKind(manifest *unstructured.Unstructured, ports []int64) []int64 {
+func getPortsFromEndpointsKind(manifest *unstructured.Unstructured) []int64 {
+	var ports []int64
 	if manifest.Object["subsets"] != nil {
 		subsets := manifest.Object["subsets"].([]interface{})
 		for _, subset := range subsets {

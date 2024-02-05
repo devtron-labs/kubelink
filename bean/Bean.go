@@ -1,8 +1,8 @@
 package bean
 
 import (
-	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	client "github.com/devtron-labs/kubelink/grpc"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"time"
@@ -58,6 +58,16 @@ const (
 	// StatusPendingRollback indicates that an rollback operation is underway.
 	StatusPendingRollback HelmReleaseStatus = "pending-rollback"
 )
+const (
+	ContainersType                = "Containers"
+	ContainersNamesType           = "ContainerNames"
+	InitContainersNamesType       = "InitContainerNames"
+	EphemeralContainersInfoType   = "EphemeralContainerInfo"
+	EphemeralContainersStatusType = "EphemeralContainerStatuses"
+	StatusReason                  = "Status Reason"
+	Node                          = "Node"
+	RestartCount                  = "Restart Count"
+)
 
 type ChartMetadata struct {
 	// The name of the chart
@@ -98,6 +108,13 @@ type ResourceNode struct {
 	CreatedAt       string                  `json:"createdAt,omitempty"`
 	IsHook          bool                    `json:"isHook,omitempty"`
 	HookType        string                  `json:"hookType,omitempty"`
+	// UpdateRevision is used when a pod's owner is a StatefulSet for identifying if the pod is new or old
+	UpdateRevision string `json:"updateRevision,omitempty"`
+	// DeploymentPodHash is the podHash in deployment manifest and is used to compare replicaSet's podHash for identifying new vs old pod
+	DeploymentPodHash        string `json:"deploymentPodHash,omitempty"`
+	DeploymentCollisionCount *int32 `json:"deploymentCollisionCount,omitempty"`
+	// RolloutCurrentPodHash is the podHash in rollout manifest and is used to compare replicaSet's podHash for identifying new vs old pod
+	RolloutCurrentPodHash string `json:"rolloutCurrentPodHash,omitempty"`
 }
 
 // ResourceRef includes fields which unique identify resource
@@ -186,37 +203,38 @@ type DesiredOrLiveManifest struct {
 	LiveManifestFetchErrorCode int32                      `json:"liveManifestFetchErrorCode"`
 }
 
+// use value field as generic type
 // InfoItem contains arbitrary, human readable information about an application
 type InfoItem struct {
 	// Name is a human readable title for this piece of information.
 	Name string `json:"name,omitempty"`
 	// Value is human readable content.
-	Value string `json:"value,omitempty"`
+	Value interface{} `json:"value,omitempty"`
+}
+
+type EphemeralContainerInfo struct {
+	Name    string
+	Command []string
+}
+
+type EphemeralContainerStatusesInfo struct {
+	Name  string
+	State v1.ContainerState
 }
 
 type ClusterInfo struct {
-	ClusterId             int    `json:"clusterId"`
-	ClusterName           string `json:"clusterName"`
-	BearerToken           string `json:"bearerToken"`
-	ServerUrl             string `json:"serverUrl"`
-	InsecureSkipTLSVerify bool   `json:"insecureSkipTLSVerify"`
-	KeyData               string `json:"-"`
-	CertData              string `json:"-"`
-	CAData                string `json:"-"`
-}
-
-func (cluster *ClusterInfo) GetClusterConfig() *k8sUtils.ClusterConfig {
-	clusterConfig := &k8sUtils.ClusterConfig{}
-	if cluster != nil {
-		clusterConfig = &k8sUtils.ClusterConfig{
-			Host:                  cluster.ServerUrl,
-			BearerToken:           cluster.BearerToken,
-			ClusterName:           cluster.ClusterName,
-			InsecureSkipTLSVerify: cluster.InsecureSkipTLSVerify,
-			KeyData:               cluster.KeyData,
-			CertData:              cluster.CertData,
-			CAData:                cluster.CAData,
-		}
-	}
-	return clusterConfig
+	ClusterId              int    `json:"clusterId"`
+	ClusterName            string `json:"clusterName"`
+	BearerToken            string `json:"bearerToken"`
+	ServerUrl              string `json:"serverUrl"`
+	InsecureSkipTLSVerify  bool   `json:"insecureSkipTLSVerify"`
+	KeyData                string `json:"-"`
+	CertData               string `json:"-"`
+	CAData                 string `json:"-"`
+	ProxyUrl               string `json:"proxyUrl"`
+	ToConnectWithSSHTunnel bool   `json:"toConnectWithSSHTunnel'"`
+	SSHTunnelUser          string `json:"sshTunnelUser"`
+	SSHTunnelPassword      string `json:"sshTunnelPassword"`
+	SSHTunnelAuthKey       string `json:"sshTunnelAuthKey"`
+	SSHTunnelServerAddress string `json:"sshTunnelServerAddress"`
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/devtron-labs/kubelink/bean"
 	"github.com/devtron-labs/kubelink/grpc"
-	"github.com/devtron-labs/kubelink/internal/lock"
+	"github.com/devtron-labs/kubelink/internals/lock"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
@@ -405,7 +405,14 @@ func (impl *ApplicationServiceServerImpl) AppDetailAdaptor(req *bean.AppDetail) 
 func (impl *ApplicationServiceServerImpl) buildInfoItems(infoItemBeans []bean.InfoItem) []*client.InfoItem {
 	infoItems := make([]*client.InfoItem, 0, len(infoItemBeans))
 	for _, infoItemBean := range infoItemBeans {
-		infoItems = append(infoItems, &client.InfoItem{Name: infoItemBean.Name, Value: infoItemBean.Value})
+		switch infoItemBean.Value.(type) {
+		case string:
+			infoItems = append(infoItems, &client.InfoItem{Name: infoItemBean.Name, Value: infoItemBean.Value.(string)})
+		default:
+			// skip other types
+			impl.Logger.Debugw("ignoring other info item value types", "infoItem", infoItemBean.Value)
+		}
+
 	}
 	return infoItems
 }
