@@ -844,6 +844,7 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 		CreateNamespace:  true,
 		DryRun:           dryRun,
 		RegistryClient:   registryClient,
+		SkipCRDs:         request.SkipCRDs,
 	}
 
 	impl.logger.Debugw("Installing release", "name", releaseIdentifier.ReleaseName, "namespace", releaseIdentifier.ReleaseNamespace, "dry-run", dryRun)
