@@ -13,6 +13,12 @@ message ClusterConfig {
   string keyData = 6;
   string certData = 7;
   string caData = 8;
+  string proxyUrl = 9;
+  bool toConnectWithSSHTunnel = 10;
+  string sshTunnelUser = 11;
+  string sshTunnelPassword = 12;
+  string sshTunnelAuthKey = 13;
+  string sshTunnelServerAddress = 14;
 }
 
 message AppListRequest {
@@ -144,6 +150,8 @@ message ResourceNode {
   repeated InfoItem info = 13;
   string createdAt = 14;
   repeated int64 port = 15;
+  bool isHook = 16;
+  string hookType = 17;
 }
 
 message InfoItem {

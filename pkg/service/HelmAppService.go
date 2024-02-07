@@ -11,8 +11,8 @@ import (
 	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
-	"github.com/devtron-labs/common-lib/utils/k8s/health"
 	k8sObjectUtils "github.com/devtron-labs/common-lib/utils/k8sObjectsUtil"
+	"github.com/devtron-labs/kubelink/converter"
 	"github.com/devtron-labs/kubelink/pkg/cache"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -21,6 +21,7 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"path"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -46,11 +47,8 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
 	"io/ioutil"
-	appsV1 "k8s.io/api/apps/v1"
-	coreV1 "k8s.io/api/core/v1"
 	errors2 "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -60,7 +58,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 )
 
 const (
@@ -125,15 +122,16 @@ type HelmAppServiceImpl struct {
 	randSource        rand.Source
 	K8sInformer       k8sInformer.K8sInformer
 	helmReleaseConfig *HelmReleaseConfig
-	k8sUtil           *k8sUtils.K8sUtil
+	k8sUtil           k8sUtils.K8sService
 	pubsubClient      *pubsub_lib.PubSubClientServiceImpl
 	clusterRepository repository.ClusterRepository
 	clusterCache      cache.ClusterCache
+	converter         converter.ClusterBeanConverter
 }
 
 func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 	k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig,
-	k8sUtil *k8sUtils.K8sUtil,
+	k8sUtil k8sUtils.K8sService, converter converter.ClusterBeanConverter,
 	clusterRepository repository.ClusterRepository,
 	clusterCache cache.ClusterCache) *HelmAppServiceImpl {
 
@@ -151,6 +149,7 @@ func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 		k8sUtil:           k8sUtil,
 		clusterRepository: clusterRepository,
 		clusterCache:      clusterCache,
+		converter:         converter,
 	}
 	err := os.MkdirAll(chartWorkingDirectory, os.ModePerm)
 	if err != nil {
@@ -181,7 +180,7 @@ func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.Clus
 		impl.logger.Infow("Fetching helm release using Cache")
 		deployedApps = impl.K8sInformer.GetAllReleaseByClusterId(int(config.GetClusterId()))
 	} else {
-		k8sClusterConfig := GetClusterConfigFromClientBean(config)
+		k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(config)
 		restConfig, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 		if err != nil {
 			impl.logger.Errorw("Error in building rest config ", "clusterId", config.ClusterId, "err", err)
@@ -233,7 +232,7 @@ func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.Clus
 }
 
 func (impl HelmAppServiceImpl) GetResourceTreeForExternalResources(req *client.ExternalResourceTreeRequest) (*bean.ResourceTreeResponse, error) {
-	k8sClusterConfig := GetClusterConfigFromClientBean(req.ClusterConfig)
+	k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(req.ClusterConfig)
 	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		impl.logger.Errorw("error in getting restConfig", "err", err)
@@ -264,7 +263,7 @@ func (impl HelmAppServiceImpl) GetResourceTreeForExternalResources(req *client.E
 		return nil, err
 	}
 	// build pods metadata
-	podsMetadata, err := buildPodMetadata(nodes)
+	podsMetadata, err := impl.buildPodMetadata(nodes, restConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -287,15 +286,21 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 		return nil, err
 	}
 	resourceTreeResponse, err := impl.buildResourceTreeFromClusterCache(req.ClusterConfig, helmRelease)
-	if err != nil {
-		impl.logger.Errorw("error in getting resourceTree from cluster cache, or cluster cache not synced for this cluster", "clusterName", req.ClusterConfig.ClusterName, "releaseName", helmRelease.Name, "err", err)
+	if err != nil && !strings.Contains(err.Error(), cache.CacheNotSyncError) {
+		impl.logger.Errorw("error in getting resourceTree from cluster cache", "clusterName", req.ClusterConfig.ClusterName, "releaseName", helmRelease.Name, "err", err)
+		//not returning from here, will try to build resource tree from api server in case error occurs while building app detail from caching
 	}
+	//if err is cache.CacheNotSyncError that means resourceTreeResponse is nil
 	if resourceTreeResponse == nil {
+		impl.logger.Infow("cluster cache not synced for this cluster, fetching resource tree from API server", "clusterName", req.ClusterConfig.ClusterName, "releaseName", helmRelease.Name)
 		resourceTreeResponse, err = impl.buildResourceTree(req, helmRelease)
 		if err != nil {
 			impl.logger.Errorw("error in building resource tree ", "err", err)
 			return nil, err
 		}
+		impl.logger.Infow("resource tree successfully built", "clusterName", req.ClusterConfig.ClusterName, "helmReleaseName", helmRelease.Name)
+	} else {
+		impl.logger.Infow("resource tree successfully built from cluster cache", "clusterName", req.ClusterConfig.ClusterName, "helmReleaseName", helmRelease.Name)
 	}
 
 	appDetail := &bean.AppDetail{
@@ -351,6 +356,10 @@ func (impl *HelmAppServiceImpl) addHookResourcesInManifest(helmRelease *release.
 
 func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig *client.ClusterConfig, helmRelease *release.Release) (*bean.ResourceTreeResponse, error) {
 	impl.logger.Infow("building resource tree from cluster cache", "clusterName", clusterConfig.ClusterName, "helmReleaseName", helmRelease.Name)
+	conf, err := impl.getRestConfigForClusterConfig(clusterConfig)
+	if err != nil {
+		return nil, err
+	}
 	clusterCache, err := impl.clusterCache.GetClusterCacheByClusterId(int(clusterConfig.ClusterId))
 	if err != nil {
 		impl.logger.Infow("cluster cache not synced for this cluster", "clusterName", clusterConfig.ClusterName, "clusterId", clusterConfig.ClusterId, "err", err)
@@ -380,8 +389,9 @@ func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig 
 			nodes = append(nodes, getNodeInfoFromHierarchy(node, resourceHierarchy.UidToResourceRefMapping))
 		}
 	}
+	updateHookInfoForChildNodes(nodes)
 
-	podsMetadata, err := buildPodMetadata(nodes)
+	podsMetadata, err := impl.buildPodMetadata(nodes, conf)
 	if err != nil {
 		return nil, err
 	}
@@ -450,7 +460,7 @@ func (impl *HelmAppServiceImpl) getLiveManifests(config *rest.Config, helmReleas
 }
 
 func (impl *HelmAppServiceImpl) getRestConfigForClusterConfig(clusterConfig *client.ClusterConfig) (*rest.Config, error) {
-	k8sClusterConfig := GetClusterConfigFromClientBean(clusterConfig)
+	k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(clusterConfig)
 	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		impl.logger.Errorw("error in getting rest config by cluster", "clusterName", k8sClusterConfig.ClusterName)
@@ -536,7 +546,7 @@ func (impl HelmAppServiceImpl) GetHelmAppValues(req *client.AppDetailRequest) (*
 
 func (impl HelmAppServiceImpl) ScaleObjects(ctx context.Context, clusterConfig *client.ClusterConfig, objects []*client.ObjectIdentifier, scaleDown bool) (*client.HibernateResponse, error) {
 	response := &client.HibernateResponse{}
-	k8sClusterConfig := GetClusterConfigFromClientBean(clusterConfig)
+	k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(clusterConfig)
 	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		impl.logger.Errorw("Error in getting rest config ", "err", err)
@@ -644,7 +654,6 @@ func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest
 			return nil, err
 		}
 		deploymentDetail := &client.HelmAppDeploymentDetail{
-			DeployedAt: timestamppb.New(helmRelease.Info.LastDeployed.Time),
 			ChartMetadata: &client.ChartMetadata{
 				ChartName:    chartMetadata.Name,
 				ChartVersion: chartMetadata.Version,
@@ -654,6 +663,10 @@ func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest
 			},
 			DockerImages: dockerImages,
 			Version:      int32(helmRelease.Version),
+		}
+		if helmRelease.Info != nil {
+			deploymentDetail.DeployedAt = timestamppb.New(helmRelease.Info.LastDeployed.Time)
+			deploymentDetail.Status = string(helmRelease.Info.Status)
 		}
 		helmAppDeployments = append(helmAppDeployments, deploymentDetail)
 	}
@@ -1170,7 +1183,6 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 	}
 
 	var chartName, repoURL string
-
 	switch request.IsOCIRepo {
 	case true:
 		if request.RegistryCredential != nil && !request.RegistryCredential.IsPublic {
@@ -1221,7 +1233,7 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 
 func (impl HelmAppServiceImpl) getHelmRelease(clusterConfig *client.ClusterConfig, namespace string, releaseName string) (*release.Release, error) {
 
-	k8sClusterConfig := GetClusterConfigFromClientBean(clusterConfig)
+	k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(clusterConfig)
 	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		return nil, err
@@ -1244,7 +1256,7 @@ func (impl HelmAppServiceImpl) getHelmRelease(clusterConfig *client.ClusterConfi
 }
 
 func (impl HelmAppServiceImpl) getHelmReleaseHistory(clusterConfig *client.ClusterConfig, releaseNamespace string, releaseName string, countOfHelmReleaseHistory int) ([]*release.Release, error) {
-	k8sClusterConfig := GetClusterConfigFromClientBean(clusterConfig)
+	k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(clusterConfig)
 	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		return nil, err
@@ -1309,7 +1321,7 @@ func buildReleaseInfoBasicData(helmRelease *release.Release) (*client.ReleaseInf
 }
 
 func (impl *HelmAppServiceImpl) getNodes(appDetailRequest *client.AppDetailRequest, release *release.Release) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
-	k8sClusterConfig := GetClusterConfigFromClientBean(appDetailRequest.ClusterConfig)
+	k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(appDetailRequest.ClusterConfig)
 	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		return nil, nil, err
@@ -1345,6 +1357,7 @@ func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDet
 	if err != nil {
 		return nil, err
 	}
+	updateHookInfoForChildNodes(nodes)
 
 	// filter nodes based on ResourceTreeFilter
 	resourceTreeFilter := appDetailRequest.ResourceTreeFilter
@@ -1353,7 +1366,7 @@ func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDet
 	}
 
 	// build pods metadata
-	podsMetadata, err := buildPodMetadata(nodes)
+	podsMetadata, err := impl.buildPodMetadata(nodes, conf)
 	if err != nil {
 		return nil, err
 	}
@@ -1364,6 +1377,26 @@ func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDet
 		PodMetadata: podsMetadata,
 	}
 	return resourceTreeResponse, nil
+}
+
+func updateHookInfoForChildNodes(nodes []*bean.ResourceNode) {
+	hookUidToHookTypeMap := make(map[string]string)
+	for _, node := range nodes {
+		if node.IsHook {
+			hookUidToHookTypeMap[node.UID] = node.HookType
+		}
+	}
+	//if node's parentRef is a hook then add hook info in child node also
+	if len(hookUidToHookTypeMap) > 0 {
+		for _, node := range nodes {
+			if node.ParentRefs != nil && len(node.ParentRefs) > 0 {
+				if hookType, ok := hookUidToHookTypeMap[node.ParentRefs[0].UID]; ok {
+					node.IsHook = true
+					node.HookType = hookType
+				}
+			}
+		}
+	}
 }
 
 func (impl HelmAppServiceImpl) filterNodes(resourceTreeFilter *client.ResourceTreeFilter, nodes []*bean.ResourceNode) []*bean.ResourceNode {
@@ -1477,58 +1510,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 		if _namespace == "" {
 			_namespace = releaseNamespace
 		}
-		ports := make([]int64, 0)
-		if k8sUtils.IsService(gvk) || gvk.Kind == "Service" {
-			if manifest.Object["spec"] != nil {
-				spec := manifest.Object["spec"].(map[string]interface{})
-				if spec["ports"] != nil {
-					portList := spec["ports"].([]interface{})
-					for _, portItem := range portList {
-						if portItem.(map[string]interface{}) != nil {
-							_portNumber := portItem.(map[string]interface{})["port"]
-							portNumber := _portNumber.(int64)
-							if portNumber != 0 {
-								ports = append(ports, portNumber)
-							} else {
-								impl.logger.Errorw("there is no port", "err", portNumber)
-							}
-						} else {
-							impl.logger.Errorw("there are no port list availabe", "err", portItem)
-						}
-					}
-				}
-			}
-		}
-		if manifest.Object["kind"] == "EndpointSlice" {
-			if manifest.Object["ports"] != nil {
-				endPointsSlicePorts := manifest.Object["ports"].([]interface{})
-				for _, val := range endPointsSlicePorts {
-					_portNumber := val.(map[string]interface{})["port"]
-					portNumber := _portNumber.(int64)
-					if portNumber != 0 {
-						ports = append(ports, portNumber)
-					}
-				}
-			}
-		}
-		if gvk.Kind == "Endpoints" {
-			if manifest.Object["subsets"] != nil {
-				subsets := manifest.Object["subsets"].([]interface{})
-				for _, subset := range subsets {
-					subsetObj := subset.(map[string]interface{})
-					if subsetObj != nil {
-						portsIfs := subsetObj["ports"].([]interface{})
-						for _, portsIf := range portsIfs {
-							portsIfObj := portsIf.(map[string]interface{})
-							if portsIfObj != nil {
-								port := portsIfObj["port"].(int64)
-								ports = append(ports, port)
-							}
-						}
-					}
-				}
-			}
-		}
+		ports := util.GetPorts(manifest, gvk)
 		resourceRef := buildResourceRef(gvk, *manifest, _namespace)
 
 		if impl.k8sService.CanHaveChild(gvk) {
@@ -1567,6 +1549,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 			CreatedAt: creationTimeStamp,
 			Port:      ports,
 		}
+		node.IsHook, node.HookType = util.GetHookMetadata(manifest)
 
 		if parentResourceRef != nil {
 			node.ParentRefs = append(make([]*bean.ResourceRef, 0), parentResourceRef)
@@ -1586,49 +1569,14 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 				}
 			}
 		} else {
-			//TODO: verify
-			if k8sUtils.IsService(gvk) && node.Name == k8sUtils.DEVTRON_SERVICE_NAME && k8sUtils.IsDevtronApp(node.NetworkingInfo.Labels) {
-
-				node.Health = &bean.HealthStatus{
-					Status: bean.HealthStatusHealthy,
-				}
-			} else {
-				if healthCheck := health.GetHealthCheckFunc(gvk); healthCheck != nil {
-					health, err := healthCheck(manifest)
-					if err != nil {
-						node.Health = &bean.HealthStatus{
-							Status:  bean.HealthStatusUnknown,
-							Message: err.Error(),
-						}
-					} else if health != nil {
-						node.Health = &bean.HealthStatus{
-							Status:  string(health.Status),
-							Message: health.Message,
-						}
-					}
-				}
-			}
+			cache.SetHealthStatusForNode(node, manifest, gvk)
 		}
 
 		// hibernate set starts
 		if parentResourceRef == nil {
 
 			// set CanBeHibernated
-			replicas, found, _ := unstructured.NestedInt64(node.Manifest.UnstructuredContent(), "spec", "replicas")
-			if found {
-				node.CanBeHibernated = true
-			}
-
-			// set IsHibernated
-			annotations := node.Manifest.GetAnnotations()
-			if annotations != nil {
-				if val, ok := annotations[hibernateReplicaAnnotation]; ok {
-					if val != "0" && replicas == 0 {
-						node.IsHibernated = true
-					}
-				}
-			}
-
+			cache.SetHibernationRules(node, &node.Manifest)
 		}
 		// hibernate set ends
 
@@ -1636,6 +1584,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 			infoItems, _ := argo.PopulatePodInfo(manifest)
 			node.Info = infoItems
 		}
+		util.AddSelectiveInfoInResourceNode(node, gvk, manifest.Object)
 
 		nodes = append(nodes, node)
 		healthStatusArray = append(healthStatusArray, node.Health)
@@ -1657,142 +1606,202 @@ func buildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstruc
 	return resourceRef
 }
 
-func buildPodMetadata(nodes []*bean.ResourceNode) ([]*bean.PodMetadata, error) {
-
+func getExtraNodeInfoMappings(nodes []*bean.ResourceNode) (map[string]string, map[string]*util.ExtraNodeInfo, map[string]*util.ExtraNodeInfo) {
 	deploymentPodHashMap := make(map[string]string)
-	deploymentMap := make(map[string]*v1beta1.Deployment)
-	rolloutMap := make(map[string]map[string]interface{})
-	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
+	rolloutNameVsExtraNodeInfoMapping := make(map[string]*util.ExtraNodeInfo)
+	uidVsExtraNodeInfoMapping := make(map[string]*util.ExtraNodeInfo)
 	for _, node := range nodes {
 		if node.Kind == k8sCommonBean.DeploymentKind {
-			deployment, err := util.ConvertToV1Deployment(node)
-			if err != nil {
-				return nil, err
-			}
-			deploymentMap[node.Name] = deployment
-			deploymentPodHash := util.ComputePodHash(&deployment.Spec.Template, deployment.Status.CollisionCount)
-			deploymentPodHashMap[node.Name] = deploymentPodHash
+			deploymentPodHashMap[node.Name] = node.DeploymentPodHash
 		} else if node.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
-			rolloutIf := node.Manifest.UnstructuredContent()
-			rolloutMap[node.Name] = rolloutIf
+			rolloutNameVsExtraNodeInfoMapping[node.Name] = &util.ExtraNodeInfo{
+				RolloutCurrentPodHash: node.RolloutCurrentPodHash,
+			}
+		} else if node.Kind == k8sCommonBean.StatefulSetKind || node.Kind == k8sCommonBean.DaemonSetKind {
+			if _, ok := uidVsExtraNodeInfoMapping[node.UID]; !ok {
+				uidVsExtraNodeInfoMapping[node.UID] = &util.ExtraNodeInfo{UpdateRevision: node.UpdateRevision, ResourceNetworkingInfo: node.NetworkingInfo}
+			}
+		}
+	}
+	return deploymentPodHashMap, rolloutNameVsExtraNodeInfoMapping, uidVsExtraNodeInfoMapping
+}
+
+func (impl HelmAppServiceImpl) getReplicaSetObject(restConfig *rest.Config, replicaSetNode *bean.ResourceNode) (*v1beta1.ReplicaSet, error) {
+	gvk := &schema.GroupVersionKind{
+		Group:   replicaSetNode.Group,
+		Version: replicaSetNode.Version,
+		Kind:    replicaSetNode.Kind,
+	}
+	var replicaSetNodeObj map[string]interface{}
+	var err error
+	if replicaSetNode.Manifest.Object == nil {
+		replicaSetNodeManifest, _, err := impl.k8sService.GetLiveManifest(restConfig, replicaSetNode.Namespace, gvk, replicaSetNode.Name)
+		if err != nil {
+			impl.logger.Errorw("error in getting replicaSet live manifest", "clusterName", restConfig.ServerName, "replicaSetName", replicaSetNode.Name)
+			return nil, err
+		}
+		if replicaSetNodeManifest != nil {
+			replicaSetNodeObj = replicaSetNodeManifest.Object
+		}
+	} else {
+		replicaSetNodeObj = replicaSetNode.Manifest.Object
+	}
+
+	replicaSetObj, err := util.ConvertToV1ReplicaSet(replicaSetNodeObj)
+	if err != nil {
+		impl.logger.Errorw("error in converting replicaSet unstructured object to replicaSet object", "clusterName", restConfig.ServerName, "replicaSetName", replicaSetNode.Name)
+		return nil, err
+	}
+	return replicaSetObj, nil
+}
+
+func (impl HelmAppServiceImpl) getDeploymentCollisionCount(restConfig *rest.Config, deploymentInfo *bean.ResourceRef) (*int32, error) {
+	parentGvk := &schema.GroupVersionKind{
+		Group:   deploymentInfo.Group,
+		Version: deploymentInfo.Version,
+		Kind:    deploymentInfo.Kind,
+	}
+	var deploymentNodeObj map[string]interface{}
+	var err error
+	if deploymentInfo.Manifest.Object == nil {
+		deploymentLiveManifest, _, err := impl.k8sService.GetLiveManifest(restConfig, deploymentInfo.Namespace, parentGvk, deploymentInfo.Name)
+		if err != nil {
+			impl.logger.Errorw("error in getting parent deployment live manifest", "clusterName", restConfig.ServerName, "deploymentName", deploymentInfo.Name)
+			return nil, err
+		}
+		if deploymentLiveManifest != nil {
+			deploymentNodeObj = deploymentLiveManifest.Object
+		}
+	} else {
+		deploymentNodeObj = deploymentInfo.Manifest.Object
+	}
+
+	deploymentObj, err := util.ConvertToV1Deployment(deploymentNodeObj)
+	if err != nil {
+		impl.logger.Errorw("error in converting parent deployment unstructured object to replicaSet object", "clusterName", restConfig.ServerName, "deploymentName", deploymentInfo.Name)
+		return nil, err
+	}
+	return deploymentObj.Status.CollisionCount, nil
+}
+
+func (impl HelmAppServiceImpl) isPodNew(nodes []*bean.ResourceNode, node *bean.ResourceNode, deploymentPodHashMap map[string]string, rolloutMap map[string]*util.ExtraNodeInfo,
+	uidVsExtraNodeInfoMap map[string]*util.ExtraNodeInfo, restConfig *rest.Config) (bool, error) {
+
+	isNew := false
+	parentRef := node.ParentRefs[0]
+	parentKind := parentRef.Kind
+
+	// if parent is StatefulSet - then pod label controller-revision-hash should match StatefulSet's update revision
+	if parentKind == k8sCommonBean.StatefulSetKind && node.NetworkingInfo != nil {
+		isNew = uidVsExtraNodeInfoMap[parentRef.UID].UpdateRevision == node.NetworkingInfo.Labels["controller-revision-hash"]
+	}
+
+	// if parent is Job - then pod label controller-revision-hash should match StatefulSet's update revision
+	if parentKind == k8sCommonBean.JobKind {
+		//TODO - new or old logic not built in orchestrator for Job's pods. hence not implementing here. as don't know the logic :)
+		isNew = true
+	}
+
+	// if parent kind is replica set then
+	if parentKind == k8sCommonBean.ReplicaSetKind {
+		replicaSetNode := getMatchingNode(nodes, parentKind, parentRef.Name)
+
+		// if parent of replicaset is deployment, compare label pod-template-hash
+		if replicaSetParent := replicaSetNode.ParentRefs[0]; replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetParent.Kind == k8sCommonBean.DeploymentKind {
+			deploymentPodHash := deploymentPodHashMap[replicaSetParent.Name]
+			replicaSetObj, err := impl.getReplicaSetObject(restConfig, replicaSetNode)
+			if err != nil {
+				return isNew, err
+			}
+			deploymentNode := getMatchingNode(nodes, replicaSetParent.Kind, replicaSetParent.Name)
+			// TODO: why do we need deployment object for collisionCount ??
+			var deploymentCollisionCount *int32
+			if deploymentNode != nil && deploymentNode.DeploymentCollisionCount != nil {
+				deploymentCollisionCount = deploymentNode.DeploymentCollisionCount
+			} else {
+				deploymentCollisionCount, err = impl.getDeploymentCollisionCount(restConfig, replicaSetParent)
+				if err != nil {
+					return isNew, err
+				}
+			}
+			replicaSetPodHash := util.GetReplicaSetPodHash(replicaSetObj, deploymentCollisionCount)
+			isNew = replicaSetPodHash == deploymentPodHash
+		} else if replicaSetParent.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
+
+			rolloutExtraInfo := rolloutMap[replicaSetParent.Name]
+			rolloutPodHash := rolloutExtraInfo.RolloutCurrentPodHash
+			replicasetPodHash := util.GetRolloutPodTemplateHash(replicaSetNode)
+
+			isNew = rolloutPodHash == replicasetPodHash
+
 		}
 	}
 
+	// if parent kind is DaemonSet then compare DaemonSet's Child ControllerRevision's label controller-revision-hash with pod label controller-revision-hash
+	if parentKind == k8sCommonBean.DaemonSetKind {
+		controllerRevisionNodes := getMatchingNodes(nodes, "ControllerRevision")
+		for _, controllerRevisionNode := range controllerRevisionNodes {
+			if len(controllerRevisionNode.ParentRefs) > 0 && controllerRevisionNode.ParentRefs[0].Kind == parentKind &&
+				controllerRevisionNode.ParentRefs[0].Name == parentRef.Name && uidVsExtraNodeInfoMap[parentRef.UID].ResourceNetworkingInfo != nil &&
+				node.NetworkingInfo != nil {
+
+				isNew = uidVsExtraNodeInfoMap[parentRef.UID].ResourceNetworkingInfo.Labels["controller-revision-hash"] == node.NetworkingInfo.Labels["controller-revision-hash"]
+			}
+		}
+	}
+	return isNew, nil
+}
+
+func (impl HelmAppServiceImpl) buildPodMetadata(nodes []*bean.ResourceNode, restConfig *rest.Config) ([]*bean.PodMetadata, error) {
+	deploymentPodHashMap, rolloutMap, uidVsExtraNodeInfoMap := getExtraNodeInfoMappings(nodes)
+	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
 	for _, node := range nodes {
 
 		if node.Kind != k8sCommonBean.PodKind {
 			continue
 		}
-
-		var pod coreV1.Pod
-		err := runtime.DefaultUnstructuredConverter.FromUnstructured(node.Manifest.UnstructuredContent(), &pod)
-		if err != nil {
-			return nil, err
-		}
-
 		// check if pod is new
-		isNew := true
+		var isNew bool
+		var err error
 		if len(node.ParentRefs) > 0 {
-			parentRef := node.ParentRefs[0]
-			parentKind := parentRef.Kind
-
-			// if parent is StatefulSet - then pod label controller-revision-hash should match StatefulSet's update revision
-			if parentKind == k8sCommonBean.StatefulSetKind {
-				var statefulSet appsV1.StatefulSet
-				err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &statefulSet)
-				if err != nil {
-					return nil, err
-				}
-				isNew = statefulSet.Status.UpdateRevision == pod.GetLabels()["controller-revision-hash"]
-			}
-
-			// if parent is Job - then pod label controller-revision-hash should match StatefulSet's update revision
-			if parentKind == k8sCommonBean.JobKind {
-				//TODO - new or old logic not built in orchestrator for Job's pods. hence not implementing here. as don't know the logic :)
-				isNew = true
-			}
-
-			// if parent kind is replica set then
-			if parentKind == k8sCommonBean.ReplicaSetKind {
-				var replicaSet appsV1.ReplicaSet
-				err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &replicaSet)
-				if err != nil {
-					return nil, err
-				}
-				replicaSetNode := getMatchingNode(nodes, parentKind, replicaSet.Name)
-
-				// if parent of replicaset is deployment, compare label pod-template-hash
-				if replicaSetParent := replicaSetNode.ParentRefs[0]; replicaSetNode != nil && len(replicaSetNode.ParentRefs) > 0 && replicaSetParent.Kind == k8sCommonBean.DeploymentKind {
-					deploymentPodHash := deploymentPodHashMap[replicaSetParent.Name]
-					deployment := deploymentMap[replicaSetParent.Name]
-					replicasetObj, err := util.ConvertToV1ReplicaSet(replicaSetNode)
-					if err != nil {
-						return nil, err
-					}
-					replicaSetPodHash := util.GetReplicaSetPodHash(replicasetObj, deployment)
-					isNew = replicaSetPodHash == deploymentPodHash
-				} else if replicaSetParent.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
-
-					rolloutIf := rolloutMap[replicaSetParent.Name]
-					replicasetObj, err := util.ConvertToV1ReplicaSet(replicaSetNode)
-					if err != nil {
-						return nil, err
-					}
-
-					rolloutPodHash := util.GetRolloutPodHash(rolloutIf)
-					replicasetPodHash := util.GetRolloutPodTemplateHash(replicasetObj)
-
-					isNew = rolloutPodHash == replicasetPodHash
-
-				}
-			}
-
-			// if parent kind is DaemonSet then compare DaemonSet's Child ControllerRevision's label controller-revision-hash with pod label controller-revision-hash
-			if parentKind == k8sCommonBean.DaemonSetKind {
-				var daemonSet appsV1.DaemonSet
-				err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &daemonSet)
-				if err != nil {
-					return nil, err
-				}
-
-				controllerRevisionNodes := getMatchingNodes(nodes, "ControllerRevision")
-				for _, controllerRevisionNode := range controllerRevisionNodes {
-					if len(controllerRevisionNode.ParentRefs) > 0 && controllerRevisionNode.ParentRefs[0].Kind == parentKind &&
-						controllerRevisionNode.ParentRefs[0].Name == daemonSet.Name {
-
-						var controlRevision appsV1.ControllerRevision
-						err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentRef.Manifest.UnstructuredContent(), &controlRevision)
-						if err != nil {
-							return nil, err
-						}
-						isNew = controlRevision.GetLabels()["controller-revision-hash"] == pod.GetLabels()["controller-revision-hash"]
-					}
-				}
+			isNew, err = impl.isPodNew(nodes, node, deploymentPodHashMap, rolloutMap, uidVsExtraNodeInfoMap, restConfig)
+			if err != nil {
+				return podsMetadata, err
 			}
 		}
 
 		// set containers,initContainers and ephemeral container names
-		containerNames := make([]string, 0, len(pod.Spec.Containers))
-		initContainerNames := make([]string, 0, len(pod.Spec.InitContainers))
-		ephemeralContainers := make([]*bean.EphemeralContainerData, 0, len(pod.Spec.EphemeralContainers))
-		for _, container := range pod.Spec.Containers {
-			containerNames = append(containerNames, container.Name)
-		}
-		for _, initContainer := range pod.Spec.InitContainers {
-			initContainerNames = append(initContainerNames, initContainer.Name)
+		var containerNames []string
+		var initContainerNames []string
+		var ephemeralContainersInfo []bean.EphemeralContainerInfo
+		var ephemeralContainerStatus []bean.EphemeralContainerStatusesInfo
+
+		for _, nodeInfo := range node.Info {
+			switch nodeInfo.Name {
+			case bean.ContainersNamesType:
+				containerNames = nodeInfo.Value.([]string)
+			case bean.InitContainersNamesType:
+				initContainerNames = nodeInfo.Value.([]string)
+			case bean.EphemeralContainersInfoType:
+				ephemeralContainersInfo = nodeInfo.Value.([]bean.EphemeralContainerInfo)
+			case bean.EphemeralContainersStatusType:
+				ephemeralContainerStatus = nodeInfo.Value.([]bean.EphemeralContainerStatusesInfo)
+			default:
+				continue
+			}
 		}
 
 		ephemeralContainerStatusMap := make(map[string]bool)
-		for _, c := range pod.Status.EphemeralContainerStatuses {
+		for _, c := range ephemeralContainerStatus {
 			//c.state contains three states running,waiting and terminated
 			// at any point of time only one state will be there
 			if c.State.Running != nil {
 				ephemeralContainerStatusMap[c.Name] = true
 			}
 		}
-
+		ephemeralContainers := make([]*bean.EphemeralContainerData, 0, len(ephemeralContainersInfo))
 		//sending only running ephemeral containers in the list
-		for _, ec := range pod.Spec.EphemeralContainers {
+		for _, ec := range ephemeralContainersInfo {
 			if _, ok := ephemeralContainerStatusMap[ec.Name]; ok {
 				containerData := &bean.EphemeralContainerData{
 					Name:       ec.Name,
@@ -1837,7 +1846,7 @@ func getMatchingNodes(nodes []*bean.ResourceNode, kind string) []*bean.ResourceN
 }
 
 func (impl HelmAppServiceImpl) getHelmClient(clusterConfig *client.ClusterConfig, releaseNamespace string) (helmClient.Client, error) {
-	k8sClusterConfig := GetClusterConfigFromClientBean(clusterConfig)
+	k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(clusterConfig)
 	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		impl.logger.Errorw("Error in getting rest config ", "err", err)
@@ -2170,21 +2179,4 @@ func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallSuccess(helmInstallMe
 		return string(data), err
 	}
 	return string(data), nil
-}
-func GetClusterConfigFromClientBean(config *client.ClusterConfig) *k8sUtils.ClusterConfig {
-	clusterConfig := &k8sUtils.ClusterConfig{}
-	if config != nil {
-		clusterConfig = &k8sUtils.ClusterConfig{
-			ClusterName:           config.ClusterName,
-			Host:                  config.ApiServerUrl,
-			BearerToken:           config.Token,
-			InsecureSkipTLSVerify: config.InsecureSkipTLSVerify,
-		}
-		if config.InsecureSkipTLSVerify == false {
-			clusterConfig.KeyData = config.GetKeyData()
-			clusterConfig.CertData = config.GetCertData()
-			clusterConfig.CAData = config.GetCaData()
-		}
-	}
-	return clusterConfig
 }
