@@ -95,6 +95,16 @@ func (impl *ApplicationServiceServerImpl) GetAppDetail(ctxt context.Context, req
 	return res, nil
 }
 
+func (impl *ApplicationServiceServerImpl) GetResourceTreeForExternalResources(ctx context.Context, req *client.ExternalResourceTreeRequest) (*client.ResourceTreeResponse, error) {
+	resourceTree, err := impl.HelmAppService.GetResourceTreeForExternalResources(req)
+	if err != nil {
+		impl.Logger.Errorw("error in getting resource tree for external resources", "err", err)
+		return nil, err
+	}
+	resourceTreeResponse := impl.ResourceTreeAdapter(resourceTree)
+	return resourceTreeResponse, nil
+}
+
 func (impl *ApplicationServiceServerImpl) GetAppStatus(ctx context.Context, req *client.AppDetailRequest) (*client.AppStatus, error) {
 	impl.Logger.Infow("App detail request", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
 		"namespace", req.Namespace)
@@ -321,6 +331,64 @@ func resourceRefResult(resourceRefs []*bean.ResourceRef) (resourceRefResults []*
 		resourceRefResults = append(resourceRefResults, resourceRefResult)
 	}
 	return resourceRefResults
+}
+
+func (impl *ApplicationServiceServerImpl) ResourceTreeAdapter(req *bean.ResourceTreeResponse) *client.ResourceTreeResponse {
+	var resourceNodes []*client.ResourceNode
+	for _, node := range req.Nodes {
+		var healthStatus *client.HealthStatus
+		if node.Health != nil {
+			healthStatus = &client.HealthStatus{
+				Status:  node.Health.Status,
+				Message: node.Health.Message,
+			}
+		}
+		resourceNode := &client.ResourceNode{
+			Group:      node.Group,
+			Version:    node.Version,
+			Kind:       node.Kind,
+			Namespace:  node.Namespace,
+			Name:       node.Name,
+			Uid:        node.UID,
+			Port:       node.Port,
+			ParentRefs: resourceRefResult(node.ParentRefs),
+			NetworkingInfo: &client.ResourceNetworkingInfo{
+				Labels: node.NetworkingInfo.Labels,
+			},
+			ResourceVersion: node.ResourceVersion,
+			Health:          healthStatus,
+			IsHibernated:    node.IsHibernated,
+			CanBeHibernated: node.CanBeHibernated,
+			Info:            impl.buildInfoItems(node.Info),
+			CreatedAt:       node.CreatedAt,
+		}
+		resourceNodes = append(resourceNodes, resourceNode)
+	}
+
+	podMetadatas := make([]*client.PodMetadata, 0, len(req.PodMetadata))
+	for _, pm := range req.PodMetadata {
+		ephemeralContainers := make([]*client.EphemeralContainerData, 0, len(pm.EphemeralContainers))
+		for _, ec := range pm.EphemeralContainers {
+			ephemeralContainers = append(ephemeralContainers, &client.EphemeralContainerData{
+				Name:       ec.Name,
+				IsExternal: ec.IsExternal,
+			})
+		}
+		podMetadata := &client.PodMetadata{
+			Name:                pm.Name,
+			Uid:                 pm.UID,
+			Containers:          pm.Containers,
+			InitContainers:      pm.InitContainers,
+			EphemeralContainers: ephemeralContainers,
+			IsNew:               pm.IsNew,
+		}
+		podMetadatas = append(podMetadatas, podMetadata)
+	}
+	resourceTreeResponse := &client.ResourceTreeResponse{
+		Nodes:       resourceNodes,
+		PodMetadata: podMetadatas,
+	}
+	return resourceTreeResponse
 }
 
 func (impl *ApplicationServiceServerImpl) AppDetailAdaptor(req *bean.AppDetail) *client.AppDetail {

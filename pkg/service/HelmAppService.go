@@ -100,6 +100,7 @@ type HelmAppService interface {
 	OCIRegistryLogin(client *registry.Client, registryCredential *client.RegistryCredential) error
 	// PushHelmChartToOCIRegistryRepo Pushes the helm chart to the OCI registry and returns the generated digest and pushedUrl
 	PushHelmChartToOCIRegistryRepo(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error)
+	GetResourceTreeForExternalResources(req *client.ExternalResourceTreeRequest) (*bean.ResourceTreeResponse, error)
 }
 
 type HelmReleaseConfig struct {
@@ -228,6 +229,51 @@ func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.Clus
 
 	deployedApp.DeployedAppDetail = deployedApps
 	return deployedApp
+}
+
+func (impl HelmAppServiceImpl) GetResourceTreeForExternalResources(req *client.ExternalResourceTreeRequest) (*bean.ResourceTreeResponse, error) {
+	k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(req.ClusterConfig)
+	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
+	if err != nil {
+		impl.logger.Errorw("error in getting restConfig", "err", err)
+		return nil, err
+	}
+
+	var manifests []*bean.DesiredOrLiveManifest
+	for _, resource := range req.ExternalResourceDetail {
+		gvk := &schema.GroupVersionKind{
+			Group:   resource.GetGroup(),
+			Version: resource.GetVersion(),
+			Kind:    resource.GetKind(),
+		}
+		manifest, _, err := impl.k8sService.GetLiveManifest(restConfig, resource.GetNamespace(), gvk, resource.GetName())
+		if err != nil {
+			impl.logger.Errorw("Error in getting live manifest", "err", err)
+			return nil, err
+		} else {
+			manifests = append(manifests, &bean.DesiredOrLiveManifest{
+				Manifest: manifest,
+			})
+		}
+	}
+	// build resource nodes
+	nodes, _, err := impl.buildNodes(restConfig, manifests, "", nil)
+	if err != nil {
+		impl.logger.Errorw("error in building nodes", "err", err)
+		return nil, err
+	}
+	// build pods metadata
+	podsMetadata, err := impl.buildPodMetadata(nodes, restConfig)
+	if err != nil {
+		return nil, err
+	}
+	resourceTreeResponse := &bean.ResourceTreeResponse{
+		ApplicationTree: &bean.ApplicationTree{
+			Nodes: nodes,
+		},
+		PodMetadata: podsMetadata,
+	}
+	return resourceTreeResponse, nil
 }
 
 func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error) {
