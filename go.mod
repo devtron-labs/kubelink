@@ -33,7 +33,7 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.1
-	github.com/devtron-labs/authenticator v0.4.31
+	github.com/devtron-labs/authenticator v0.4.34-0.20240208084114-6e2552488da8
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.1
 	sigs.k8s.io/kustomize/kyaml v0.13.9
 )
@@ -127,6 +127,7 @@ require (
 	github.com/nats-io/nats.go v1.28.0 // indirect
 	github.com/nats-io/nkeys v0.4.6 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
+	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc5 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
