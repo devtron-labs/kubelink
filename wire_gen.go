@@ -26,7 +26,11 @@ import (
 func InitializeApp() (*App, error) {
 	sugaredLogger := logger.NewSugaredLogger()
 	chartRepositoryLocker := lock.NewChartRepositoryLocker(sugaredLogger)
-	k8sServiceImpl := service.NewK8sServiceImpl(sugaredLogger)
+	helmReleaseConfig, err := service.GetHelmReleaseConfig()
+	if err != nil {
+		return nil, err
+	}
+	k8sServiceImpl := service.NewK8sServiceImpl(sugaredLogger, helmReleaseConfig)
 	config, err := sql.GetConfig()
 	if err != nil {
 		return nil, err
@@ -36,7 +40,7 @@ func InitializeApp() (*App, error) {
 		return nil, err
 	}
 	clusterRepositoryImpl := repository.NewClusterRepositoryImpl(db, sugaredLogger)
-	helmReleaseConfig, err := k8sInformer.GetHelmReleaseConfig()
+	k8sInformerHelmReleaseConfig, err := k8sInformer.GetHelmReleaseConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -46,17 +50,13 @@ func InitializeApp() (*App, error) {
 	}
 	k8sK8sServiceImpl := k8s.NewK8sUtil(sugaredLogger, runtimeConfig)
 	clusterBeanConverterImpl := converter.NewConverterImpl()
-	k8sInformerImpl := k8sInformer.Newk8sInformerImpl(sugaredLogger, clusterRepositoryImpl, helmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl)
-	serviceHelmReleaseConfig, err := service.GetHelmReleaseConfig()
-	if err != nil {
-		return nil, err
-	}
+	k8sInformerImpl := k8sInformer.Newk8sInformerImpl(sugaredLogger, clusterRepositoryImpl, k8sInformerHelmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl)
 	clusterCacheConfig, err := cache.GetClusterCacheConfig()
 	if err != nil {
 		return nil, err
 	}
 	clusterCacheImpl := cache.NewClusterCacheImpl(sugaredLogger, clusterCacheConfig, clusterRepositoryImpl, k8sK8sServiceImpl, k8sInformerImpl, clusterBeanConverterImpl)
-	helmAppServiceImpl := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, serviceHelmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl, clusterRepositoryImpl, clusterCacheImpl)
+	helmAppServiceImpl := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, helmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl, clusterRepositoryImpl, clusterCacheImpl)
 	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(sugaredLogger, chartRepositoryLocker, helmAppServiceImpl)
 	monitoringRouter := monitoring.NewMonitoringRouter(sugaredLogger)
 	routerImpl := router.NewRouter(sugaredLogger, monitoringRouter)

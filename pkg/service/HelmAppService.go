@@ -30,7 +30,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/ecr"
 	"sync"
 
-	"github.com/caarlos0/env"
 	"github.com/devtron-labs/common-lib/pubsub-lib"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/common-lib/utils/yaml"
@@ -101,19 +100,6 @@ type HelmAppService interface {
 	// PushHelmChartToOCIRegistryRepo Pushes the helm chart to the OCI registry and returns the generated digest and pushedUrl
 	PushHelmChartToOCIRegistryRepo(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error)
 	GetResourceTreeForExternalResources(req *client.ExternalResourceTreeRequest) (*bean.ResourceTreeResponse, error)
-}
-
-type HelmReleaseConfig struct {
-	EnableHelmReleaseCache    bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
-	MaxCountForHelmRelease    int  `env:"MAX_COUNT_FOR_HELM_RELEASE" envDefault:"20"`
-	ManifestFetchBatchSize    int  `env:"MANIFEST_FETCH_BATCH_SIZE" envDefault:"2"`
-	RunHelmInstallInAsyncMode bool `env:"RUN_HELM_INSTALL_IN_ASYNC_MODE" envDefault:"false"`
-}
-
-func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
-	cfg := &HelmReleaseConfig{}
-	err := env.Parse(cfg)
-	return cfg, err
 }
 
 type HelmAppServiceImpl struct {
