@@ -73,20 +73,6 @@ func NewK8sServiceImpl(logger *zap.SugaredLogger, helmReleaseConfig *HelmRelease
 	return k8sServiceImpl
 }
 
-type ParentChildGvkMapping struct {
-	Group        string         `json:"group"`
-	Version      string         `json:"version"`
-	Kind         string         `json:"kind"`
-	ChildObjects []ChildObjects `json:"childObjects"`
-}
-
-type ChildObjects struct {
-	Group    string             `json:"group"`
-	Version  string             `json:"version"`
-	Resource string             `json:"resource"`
-	Scope    meta.RESTScopeName `json:"scope"`
-}
-
 func (impl K8sServiceImpl) populateParentChildGvkMapping(gvkVsChildGvrAndScope map[schema.GroupVersionKind][]k8sCommonBean.GvrAndScope) error {
 	var gvkChildMappings []ParentChildGvkMapping
 	parentChildGvkMapping := impl.helmReleaseConfig.ParentChildGvkMapping
