@@ -98,7 +98,6 @@ func (impl K8sServiceImpl) GetChildGvrFromParentGvk(parentGvk schema.GroupVersio
 	var ok bool
 	//if parent child gvk mapping found from CM override it over local hardcoded gvk mapping
 	if len(impl.helmReleaseConfig.ParentChildGvkMapping) > 0 && len(impl.gvkVsChildGvrAndScope) > 0 {
-		impl.logger.Infow("fetching child gvr and scope from cache")
 		gvrAndScopes, ok = impl.gvkVsChildGvrAndScope[parentGvk]
 	} else {
 		gvrAndScopes, ok = k8sCommonBean.GetGvkVsChildGvrAndScope()[parentGvk]
