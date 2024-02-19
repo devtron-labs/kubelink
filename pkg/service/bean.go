@@ -35,8 +35,8 @@ type ChildObjects struct {
 	Scope    meta.RESTScopeName `json:"scope"`
 }
 
-func (r ChildObjects) GetGvrAndScopeForChildObject() commonBean.GvrAndScope {
-	return commonBean.GvrAndScope{
+func (r ChildObjects) GetGvrAndScopeForChildObject() *commonBean.GvrAndScope {
+	return &commonBean.GvrAndScope{
 		Gvr: schema.GroupVersionResource{
 			Group:    r.Group,
 			Version:  r.Version,
