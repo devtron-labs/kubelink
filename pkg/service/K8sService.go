@@ -53,54 +53,43 @@ func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
 type K8sServiceImpl struct {
 	logger                *zap.SugaredLogger
 	helmReleaseConfig     *HelmReleaseConfig
-	gvkVsChildGvrAndScope map[schema.GroupVersionKind][]k8sCommonBean.GvrAndScope
+	gvkVsChildGvrAndScope map[schema.GroupVersionKind]*[]k8sCommonBean.GvrAndScope
 }
 
 func NewK8sServiceImpl(logger *zap.SugaredLogger, helmReleaseConfig *HelmReleaseConfig) *K8sServiceImpl {
 
-	gvkVsChildGvrAndScope := make(map[schema.GroupVersionKind][]k8sCommonBean.GvrAndScope)
+	gvkVsChildGvrAndScope := make(map[schema.GroupVersionKind]*[]k8sCommonBean.GvrAndScope)
 	k8sServiceImpl := &K8sServiceImpl{
 		logger:                logger,
 		helmReleaseConfig:     helmReleaseConfig,
 		gvkVsChildGvrAndScope: gvkVsChildGvrAndScope,
 	}
 	if len(helmReleaseConfig.ParentChildGvkMapping) > 0 {
-		err := k8sServiceImpl.populateParentChildGvkMapping(gvkVsChildGvrAndScope)
+		_, err := k8sServiceImpl.cacheParentChildGvkMapping(gvkVsChildGvrAndScope)
 		if err != nil {
+			k8sServiceImpl.logger.Errorw("error in caching parent gvk to child gvr and scope mapping", "err", err)
 			return nil
 		}
 	}
 	return k8sServiceImpl
 }
 
-func (impl K8sServiceImpl) populateParentChildGvkMapping(gvkVsChildGvrAndScope map[schema.GroupVersionKind][]k8sCommonBean.GvrAndScope) error {
+func (impl K8sServiceImpl) cacheParentChildGvkMapping(gvkVsChildGvrAndScope map[schema.GroupVersionKind]*[]k8sCommonBean.GvrAndScope) (map[schema.GroupVersionKind]*[]k8sCommonBean.GvrAndScope, error) {
 	var gvkChildMappings []ParentChildGvkMapping
 	parentChildGvkMapping := impl.helmReleaseConfig.ParentChildGvkMapping
 	err := json.Unmarshal([]byte(parentChildGvkMapping), &gvkChildMappings)
 	if err != nil {
 		impl.logger.Errorw("error in unmarshalling ParentChildGvkMapping", "parentChildGvkMapping", parentChildGvkMapping, "err", err)
-		return err
+		return gvkVsChildGvrAndScope, err
 	}
 	for _, parent := range gvkChildMappings {
-		childGvrAndScopes := make([]k8sCommonBean.GvrAndScope, 0)
-		for _, childObj := range parent.ChildObjects {
-			childGvrAndScopes = append(childGvrAndScopes, k8sCommonBean.GvrAndScope{
-				Gvr: schema.GroupVersionResource{
-					Group:    childObj.Group,
-					Version:  childObj.Version,
-					Resource: childObj.Resource,
-				},
-				Scope: childObj.Scope,
-			})
+		childGvrAndScopes := make([]k8sCommonBean.GvrAndScope, len(parent.ChildObjects))
+		for i, childObj := range parent.ChildObjects {
+			childGvrAndScopes[i] = childObj.GetGvrAndScopeForChildObject()
 		}
-		parentGVK := schema.GroupVersionKind{
-			Group:   parent.Group,
-			Version: parent.Version,
-			Kind:    parent.Kind,
-		}
-		gvkVsChildGvrAndScope[parentGVK] = childGvrAndScopes
+		gvkVsChildGvrAndScope[parent.GetParentGvk()] = &childGvrAndScopes
 	}
-	return nil
+	return gvkVsChildGvrAndScope, nil
 }
 
 func (impl K8sServiceImpl) GetChildGvrFromParentGvk(parentGvk schema.GroupVersionKind) ([]k8sCommonBean.GvrAndScope, bool) {
@@ -108,7 +97,10 @@ func (impl K8sServiceImpl) GetChildGvrFromParentGvk(parentGvk schema.GroupVersio
 	var ok bool
 	//if parent child gvk mapping found from CM override it over local hardcoded gvk mapping
 	if len(impl.helmReleaseConfig.ParentChildGvkMapping) > 0 && len(impl.gvkVsChildGvrAndScope) > 0 {
-		gvrAndScopes, ok = impl.gvkVsChildGvrAndScope[parentGvk]
+		var childrenGvr *[]k8sCommonBean.GvrAndScope
+		if childrenGvr, ok = impl.gvkVsChildGvrAndScope[parentGvk]; childrenGvr != nil {
+			gvrAndScopes = *childrenGvr
+		}
 	} else {
 		gvrAndScopes, ok = k8sCommonBean.GetGvkVsChildGvrAndScope()[parentGvk]
 	}
