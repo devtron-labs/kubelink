@@ -65,6 +65,7 @@ func NewK8sServiceImpl(logger *zap.SugaredLogger, helmReleaseConfig *HelmRelease
 		gvkVsChildGvrAndScope: gvkVsChildGvrAndScope,
 	}
 	if len(helmReleaseConfig.ParentChildGvkMapping) > 0 {
+		k8sServiceImpl.logger.Infow("caching parent gvk to child gvr and scope mapping")
 		_, err := k8sServiceImpl.cacheParentChildGvkMapping(gvkVsChildGvrAndScope)
 		if err != nil {
 			k8sServiceImpl.logger.Errorw("error in caching parent gvk to child gvr and scope mapping", "err", err)
@@ -97,6 +98,7 @@ func (impl K8sServiceImpl) GetChildGvrFromParentGvk(parentGvk schema.GroupVersio
 	var ok bool
 	//if parent child gvk mapping found from CM override it over local hardcoded gvk mapping
 	if len(impl.helmReleaseConfig.ParentChildGvkMapping) > 0 && len(impl.gvkVsChildGvrAndScope) > 0 {
+		impl.logger.Infow("fetching child gvr and scope from cache")
 		gvrAndScopes, ok = impl.gvkVsChildGvrAndScope[parentGvk]
 	} else {
 		gvrAndScopes, ok = k8sCommonBean.GetGvkVsChildGvrAndScope()[parentGvk]
