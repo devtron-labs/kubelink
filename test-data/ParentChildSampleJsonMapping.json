@@ -1,0 +1,225 @@
+[
+  {
+    "group": "apps",
+    "version": "v1",
+    "kind": "Deployment",
+    "childObjects": [
+      {
+        "Group": "apps",
+        "Version": "v1",
+        "Resource": "replicasets",
+        "Scope": "namespace"
+      }
+    ]
+  },
+  {
+    "group": "argoproj.io",
+    "version": "v1alpha1",
+    "kind": "Rollout",
+    "childObjects": [
+      {
+        "Group": "apps",
+        "Version": "v1",
+        "Resource": "replicasets",
+        "Scope": "namespace"
+      }
+    ]
+  },
+  {
+    "group": "apps",
+    "version": "v1",
+    "kind": "ReplicaSet",
+    "childObjects": [
+      {
+        "Group": "",
+        "Version": "v1",
+        "Resource": "pods",
+        "Scope": "namespace"
+      }
+    ]
+  },
+  {
+    "group": "batch",
+    "version": "v1",
+    "kind": "CronJob",
+    "childObjects": [
+      {
+        "Group": "batch",
+        "Version": "v1",
+        "Resource": "jobs",
+        "Scope": "namespace"
+      }
+    ]
+  },
+  {
+    "group": "batch",
+    "version": "v1",
+    "kind": "Job",
+    "childObjects": [
+      {
+        "Group": "",
+        "Version": "v1",
+        "Resource": "pods",
+        "Scope": "namespace"
+      }
+    ]
+  },
+  {
+    "group":"apps",
+    "version":"v1",
+    "kind":"StatefulSet",
+    "childObjects": [
+      {
+        "Group":"",
+        "Version":"v1",
+        "Resource":"pods",
+        "Scope":"namespace"
+      },
+      {
+        "Group": "",
+        "Version": "v1",
+        "Resource": "persistentvolumeclaims",
+        "Scope": "namespace"
+      },
+      {
+        "Group": "apps",
+        "Version": "v1",
+        "Resource": "statefulsets",
+        "Scope": "namespace"
+      }
+    ]
+  },
+  {
+    "group": "apps",
+    "version": "v1",
+    "kind": "DaemonSet",
+    "childObjects": [
+      {
+        "Group": "",
+        "Version": "v1",
+        "Resource": "pods",
+        "Scope": "namespace"
+      }
+    ]
+  },
+  {
+    "group": "",
+    "version": "v1",
+    "kind": "Service",
+    "childObjects": [
+      {
+        "Group": "",
+        "Version": "v1",
+        "Resource": "endpoints",
+        "Scope": "namespace"
+      },
+      {
+        "Group": "discovery.k8s.io",
+        "Version": "v1beta1",
+        "Resource": "endpointslices",
+        "Scope": "namespace"
+      },
+      {
+        "Group": "discovery.k8s.io",
+        "Version": "v1",
+        "Resource": "endpointslices",
+        "Scope": "namespace"
+      },
+      {
+        "Group": "kyverno.io",
+        "Version": "v2",
+        "Resource": "admissionreports",
+        "Scope": "namespace"
+      }
+    ]
+  },
+  {
+    "group": "monitoring.coreos.com",
+    "version": "v1",
+    "kind": "Prometheus",
+    "childObjects": [
+      {
+        "Group": "apps",
+        "Version": "v1",
+        "Resource": "statefulsets",
+        "Scope": "namespace"
+      },
+      {
+        "Group": "",
+        "Version": "v1",
+        "Resource": "configmaps",
+        "Scope": "namespace"
+      }
+    ]
+  },
+  {
+    "group": "monitoring.coreos.com",
+    "version": "v1",
+    "kind": "Alertmanager",
+    "childObjects": [
+      {
+        "Group": "apps",
+        "Version": "v1",
+        "Resource": "statefulsets",
+        "Scope": "namespace"
+      },
+      {
+        "Group": "",
+        "Version": "v1",
+        "Resource": "configmaps",
+        "Scope": "namespace"
+      }
+    ]
+  },
+  {
+    "group": "keda.sh",
+    "version": "v1alpha1",
+    "kind": "ScaledObject",
+    "childObjects": [
+      {
+        "Group": "autoscaling",
+        "Version": "v2",
+        "Resource": "horizontalpodautoscalers",
+        "Scope": "namespace"
+      }
+    ]
+  },
+  {
+    "group": "autoscaling",
+    "version": "v2",
+    "kind": "HorizontalPodAutoscaler",
+    "childObjects": [
+      {
+        "Group": "",
+        "Version": "v1",
+        "Resource": "pods",
+        "Scope": "namespace"
+      }
+    ]
+  },
+  {
+    "group": "flagger.app",
+    "version": "v1beta1",
+    "kind": "Canary",
+    "childObjects": [
+      {
+        "Group": "apps",
+        "Version": "v1",
+        "Resource": "deployments",
+        "Scope": "namespace"
+      },
+      {
+        "Group": "",
+        "Version": "v1",
+        "Resource": "services",
+        "Scope": "namespace"
+      },
+      {
+        "Group": "apps",
+        "Version": "v1",
+        "Resource": "daemonsets",
+        "Scope": "namespace"
+      }
+    ]
+  }
+]
