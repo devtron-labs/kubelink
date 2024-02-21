@@ -56,7 +56,7 @@ type K8sServiceImpl struct {
 	gvkVsChildGvrAndScope map[schema.GroupVersionKind][]*k8sCommonBean.GvrAndScope
 }
 
-func NewK8sServiceImpl(logger *zap.SugaredLogger, helmReleaseConfig *HelmReleaseConfig) *K8sServiceImpl {
+func NewK8sServiceImpl(logger *zap.SugaredLogger, helmReleaseConfig *HelmReleaseConfig) (*K8sServiceImpl, error) {
 
 	gvkVsChildGvrAndScope := make(map[schema.GroupVersionKind][]*k8sCommonBean.GvrAndScope)
 	k8sServiceImpl := &K8sServiceImpl{
@@ -69,10 +69,10 @@ func NewK8sServiceImpl(logger *zap.SugaredLogger, helmReleaseConfig *HelmRelease
 		_, err := k8sServiceImpl.cacheParentChildGvkMapping(gvkVsChildGvrAndScope)
 		if err != nil {
 			k8sServiceImpl.logger.Errorw("error in caching parent gvk to child gvr and scope mapping", "err", err)
-			return nil
+			return nil, err
 		}
 	}
-	return k8sServiceImpl
+	return k8sServiceImpl, nil
 }
 
 func (impl K8sServiceImpl) cacheParentChildGvkMapping(gvkVsChildGvrAndScope map[schema.GroupVersionKind][]*k8sCommonBean.GvrAndScope) (map[schema.GroupVersionKind][]*k8sCommonBean.GvrAndScope, error) {

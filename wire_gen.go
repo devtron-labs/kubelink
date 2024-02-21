@@ -30,7 +30,10 @@ func InitializeApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	k8sServiceImpl := service.NewK8sServiceImpl(sugaredLogger, helmReleaseConfig)
+	k8sServiceImpl, err := service.NewK8sServiceImpl(sugaredLogger, helmReleaseConfig)
+	if err != nil {
+		return nil, err
+	}
 	config, err := sql.GetConfig()
 	if err != nil {
 		return nil, err
