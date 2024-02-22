@@ -73,7 +73,7 @@ const (
 )
 
 type HelmAppService interface {
-	GetNewRegistryClient(OCIRegistryRequest *client.RegistryCredential) (*registry.Client, *client.RegistryCredential, error)
+	GetNewRegistryClient(registryCredential *client.RegistryCredential) (*registry.Client, *client.RegistryCredential, error)
 	GetApplicationListForCluster(config *client.ClusterConfig) *client.DeployedAppList
 	BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error)
 	FetchApplicationStatus(req *client.AppDetailRequest) (*client.AppStatus, error)
@@ -155,6 +155,14 @@ func (impl HelmAppServiceImpl) GetRandomString() string {
 	/* #nosec */
 	r1 := rand.New(impl.RandSource).Int63()
 	return strconv.FormatInt(r1, 10)
+}
+
+func (impl HelmAppServiceImpl) GetNewRegistryClient(registryCredential *client.RegistryCredential) (*registry.Client, *client.RegistryCredential, error) {
+	registryClient, err := registry.NewClient()
+	if err != nil {
+		return nil, nil, err
+	}
+	return registryClient, registryCredential, err
 }
 
 func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.ClusterConfig) *client.DeployedAppList {
@@ -827,7 +835,9 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 	}
 
 	//oci registry client
-	registryClient, err := registry.NewClient()
+	var registryClient *registry.Client
+	registryClient, request.RegistryCredential, err = impl.GetNewRegistryClient(request.RegistryCredential)
+
 	if err != nil {
 		impl.Logger.Errorw(HELM_CLIENT_ERROR, "err", err)
 		return nil, err
@@ -992,7 +1002,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		// Updating registry credentials
 		request.RegistryCredential.Username = username
 		request.RegistryCredential.Password = password
-		registryClient, err = registry.NewClient()
+		registryClient, request.RegistryCredential, err = impl.GetNewRegistryClient(request.RegistryCredential)
 		if err != nil {
 			impl.Logger.Errorw(HELM_CLIENT_ERROR, "err", err)
 			return nil, err
@@ -1163,7 +1173,8 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 		impl.Logger.Errorw("error in getting helm app client")
 	}
 
-	registryClient, err := registry.NewClient()
+	var registryClient *registry.Client
+	registryClient, request.RegistryCredential, err = impl.GetNewRegistryClient(request.RegistryCredential)
 	if err != nil {
 		impl.Logger.Errorw(HELM_CLIENT_ERROR, "err", err)
 		return "", err
@@ -2057,16 +2068,8 @@ func (impl HelmAppServiceImpl) OCIRegistryLogin(client *registry.Client, registr
 	return nil
 }
 
-func (impl HelmAppServiceImpl) GetNewRegistryClient(OCIRegistryRequest *client.RegistryCredential) (*registry.Client, *client.RegistryCredential, error) {
-	registryClient, err := registry.NewClient()
-	if err != nil {
-		return nil, nil, err
-	}
-	return registryClient, OCIRegistryRequest, err
-}
-
 func (impl HelmAppServiceImpl) ValidateOCIRegistryLogin(ctx context.Context, OCIRegistryRequest *client.RegistryCredential) (*client.OCIRegistryResponse, error) {
-	helmClient, err := registry.NewClient()
+	helmClient, OCIRegistryRequest, err := impl.GetNewRegistryClient(OCIRegistryRequest)
 	if err != nil {
 		impl.Logger.Errorw(HELM_CLIENT_ERROR, "err", err)
 		return nil, err
@@ -2082,8 +2085,10 @@ func (impl HelmAppServiceImpl) ValidateOCIRegistryLogin(ctx context.Context, OCI
 
 func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error) {
 	// Login to OCI registry
+	var helmClient *registry.Client
+	var err error
 	registryPushResponse := &client.OCIRegistryResponse{}
-	helmClient, err := registry.NewClient()
+	helmClient, OCIRegistryRequest.RegistryCredential, err = impl.GetNewRegistryClient(OCIRegistryRequest.RegistryCredential)
 	if err != nil {
 		impl.Logger.Errorw(HELM_CLIENT_ERROR, "err", err)
 		return nil, err
