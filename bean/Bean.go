@@ -1,6 +1,7 @@
 package bean
 
 import (
+	"github.com/devtron-labs/common-lib/utils/serverConnection/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -223,18 +224,13 @@ type EphemeralContainerStatusesInfo struct {
 }
 
 type ClusterInfo struct {
-	ClusterId              int    `json:"clusterId"`
-	ClusterName            string `json:"clusterName"`
-	BearerToken            string `json:"bearerToken"`
-	ServerUrl              string `json:"serverUrl"`
-	InsecureSkipTLSVerify  bool   `json:"insecureSkipTLSVerify"`
-	KeyData                string `json:"-"`
-	CertData               string `json:"-"`
-	CAData                 string `json:"-"`
-	ProxyUrl               string `json:"proxyUrl"`
-	ToConnectWithSSHTunnel bool   `json:"toConnectWithSSHTunnel'"`
-	SSHTunnelUser          string `json:"sshTunnelUser"`
-	SSHTunnelPassword      string `json:"sshTunnelPassword"`
-	SSHTunnelAuthKey       string `json:"sshTunnelAuthKey"`
-	SSHTunnelServerAddress string `json:"sshTunnelServerAddress"`
+	ClusterId               int                              `json:"clusterId"`
+	ClusterName             string                           `json:"clusterName"`
+	BearerToken             string                           `json:"bearerToken"`
+	ServerUrl               string                           `json:"serverUrl"`
+	InsecureSkipTLSVerify   bool                             `json:"insecureSkipTLSVerify"`
+	KeyData                 string                           `json:"-"`
+	CertData                string                           `json:"-"`
+	CAData                  string                           `json:"-"`
+	ClusterConnectionConfig *bean.ServerConnectionConfigBean `json:"clusterConnectionConfig"`
 }
