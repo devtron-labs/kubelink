@@ -73,6 +73,7 @@ const (
 )
 
 type HelmAppService interface {
+	GetNewRegistryClient() (*registry.Client, error)
 	GetApplicationListForCluster(config *client.ClusterConfig) *client.DeployedAppList
 	BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error)
 	FetchApplicationStatus(req *client.AppDetailRequest) (*client.AppStatus, error)
@@ -2054,6 +2055,14 @@ func (impl HelmAppServiceImpl) OCIRegistryLogin(client *registry.Client, registr
 		return err
 	}
 	return nil
+}
+
+func (impl HelmAppServiceImpl) GetNewRegistryClient() (*registry.Client, error) {
+	registryClient, err := registry.NewClient()
+	if err != nil {
+		return nil, err
+	}
+	return registryClient, err
 }
 
 func (impl HelmAppServiceImpl) ValidateOCIRegistryLogin(ctx context.Context, OCIRegistryRequest *client.RegistryCredential) (*client.OCIRegistryResponse, error) {
