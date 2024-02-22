@@ -48,9 +48,9 @@ func TestHelmAppServiceImpl_HelmInstallCustom(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			impl := HelmAppServiceImpl{
-				logger:     tt.fields.logger,
-				k8sService: tt.fields.k8sService,
-				randSource: tt.fields.randSource,
+				Logger:     tt.fields.logger,
+				K8sService: tt.fields.k8sService,
+				RandSource: tt.fields.randSource,
 			}
 			got, err := impl.InstallReleaseWithCustomChart(context.Background(), tt.args.request)
 			if (err != nil) != tt.wantErr {
@@ -89,9 +89,9 @@ func TestHelmAppServiceImpl_GetDeploymentHistory(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			impl := HelmAppServiceImpl{
-				logger:     tt.fields.logger,
-				k8sService: tt.fields.k8sService,
-				randSource: tt.fields.randSource,
+				Logger:     tt.fields.logger,
+				K8sService: tt.fields.k8sService,
+				RandSource: tt.fields.randSource,
 			}
 			got, err := impl.GetDeploymentHistory(tt.args.req)
 			if (err != nil) != tt.wantErr {
@@ -239,9 +239,9 @@ WARNING: You did not provide a custom web application. Apache will be deployed w
 		t.Run(tt.name, func(t *testing.T) {
 
 			impl := HelmAppServiceImpl{
-				logger:     tt.fields.logger,
-				k8sService: tt.fields.k8sService,
-				randSource: tt.fields.randSource,
+				Logger:     tt.fields.logger,
+				K8sService: tt.fields.k8sService,
+				RandSource: tt.fields.randSource,
 			}
 			got, err := impl.GetNotes(tt.args.ctx, tt.args.installReleaseRequest)
 			if err != nil {
@@ -389,9 +389,9 @@ WARNING: You did not provide a custom web application. Apache will be deployed w
 		t.Run(tt.name, func(t *testing.T) {
 
 			impl := HelmAppServiceImpl{
-				logger:     tt.fields.logger,
-				k8sService: tt.fields.k8sService,
-				randSource: tt.fields.randSource,
+				Logger:     tt.fields.logger,
+				K8sService: tt.fields.k8sService,
+				RandSource: tt.fields.randSource,
 			}
 			got, err := impl.GetNotes(tt.args.ctx, tt.args.request)
 			if err != nil {
@@ -495,9 +495,9 @@ func TestHelmAppServiceImpl_HelmInstall(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			impl := HelmAppServiceImpl{
-				logger:     tt.fields.logger,
-				k8sService: tt.fields.k8sService,
-				randSource: tt.fields.randSource,
+				Logger:     tt.fields.logger,
+				K8sService: tt.fields.k8sService,
+				RandSource: tt.fields.randSource,
 			}
 			got, err := impl.InstallRelease(tt.args.ctx, tt.args.request)
 			if (err != nil) != tt.wantErr {
@@ -606,9 +606,9 @@ func TestHelmAppServiceImpl_HelmTemplate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			impl := HelmAppServiceImpl{
-				logger:     tt.fields.logger,
-				k8sService: tt.fields.k8sService,
-				randSource: tt.fields.randSource,
+				Logger:     tt.fields.logger,
+				K8sService: tt.fields.k8sService,
+				RandSource: tt.fields.randSource,
 			}
 			manifest, err := impl.TemplateChart(tt.args.ctx, tt.args.request)
 			lenManifest := len(manifest)
@@ -660,9 +660,9 @@ func TestHelmAppServiceImpl_UpgradeReleaseWithChartInfo(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			impl := HelmAppServiceImpl{
-				logger:     tt.fields.logger,
-				k8sService: tt.fields.k8sService,
-				randSource: tt.fields.randSource,
+				Logger:     tt.fields.logger,
+				K8sService: tt.fields.k8sService,
+				RandSource: tt.fields.randSource,
 			}
 			got, err := impl.UpgradeReleaseWithChartInfo(tt.args.ctx, tt.args.request)
 			if (err != nil) != tt.wantErr {
