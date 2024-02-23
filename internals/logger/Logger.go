@@ -18,6 +18,7 @@ package logger
 
 import (
 	"github.com/caarlos0/env"
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -41,4 +42,22 @@ func NewSugaredLogger() *zap.SugaredLogger {
 		panic("failed to create the logger: " + err.Error())
 	}
 	return log.Sugar()
+}
+
+func NewOtelSugaredLogger() *otelzap.SugaredLogger {
+	logConfig := &LogConfig{}
+	err := env.Parse(logConfig)
+	if err != nil {
+		panic("failed to parse env config: " + err.Error())
+	}
+
+	config := zap.NewProductionConfig()
+	config.Level = zap.NewAtomicLevelAt(zapcore.Level(logConfig.Level))
+
+	log, err := config.Build()
+	if err != nil {
+		panic("failed to create the logger: " + err.Error())
+	}
+	logger := otelzap.New(log, otelzap.WithTraceIDField(true))
+	return logger.Sugar()
 }

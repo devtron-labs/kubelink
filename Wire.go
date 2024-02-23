@@ -40,6 +40,7 @@ func InitializeApp() (*App, error) {
 		NewApp,
 		sql.PgSqlWireSet,
 		logger.NewSugaredLogger,
+		logger.NewOtelSugaredLogger,
 		client.GetRuntimeConfig,
 		k8s.NewK8sUtil,
 		wire.Bind(new(k8s.K8sService), new(*k8s.K8sServiceImpl)),

@@ -25,6 +25,7 @@ import (
 
 func InitializeApp() (*App, error) {
 	sugaredLogger := logger.NewSugaredLogger()
+	otelzapSugaredLogger := logger.NewOtelSugaredLogger()
 	chartRepositoryLocker := lock.NewChartRepositoryLocker(sugaredLogger)
 	helmReleaseConfig, err := service.GetHelmReleaseConfig()
 	if err != nil {
@@ -60,7 +61,7 @@ func InitializeApp() (*App, error) {
 	}
 	clusterCacheImpl := cache.NewClusterCacheImpl(sugaredLogger, clusterCacheConfig, clusterRepositoryImpl, k8sK8sServiceImpl, k8sInformerImpl, clusterBeanConverterImpl)
 	helmAppServiceImpl := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, helmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl, clusterRepositoryImpl, clusterCacheImpl)
-	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(sugaredLogger, chartRepositoryLocker, helmAppServiceImpl)
+	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(otelzapSugaredLogger, chartRepositoryLocker, helmAppServiceImpl)
 	monitoringRouter := monitoring.NewMonitoringRouter(sugaredLogger)
 	routerImpl := router.NewRouter(sugaredLogger, monitoringRouter)
 	app := NewApp(sugaredLogger, applicationServiceServerImpl, routerImpl, k8sInformerImpl)
