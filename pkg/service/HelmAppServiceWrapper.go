@@ -7,6 +7,7 @@ import (
 	"github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/internals/lock"
 	"github.com/uptrace/opentelemetry-go-extra/otelzap"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -80,7 +81,8 @@ func (impl *ApplicationServiceServerImpl) ListApplications(req *client.AppListRe
 func (impl *ApplicationServiceServerImpl) GetAppDetail(ctx context.Context, req *client.AppDetailRequest) (*client.AppDetail, error) {
 	impl.Logger.Ctx(ctx).Infow("App detail request", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
 		"namespace", req.Namespace)
-
+	span := trace.SpanFromContext(ctx)
+	fmt.Println("SPAN" + span.SpanContext().TraceID().String())
 	helmAppDetail, err := impl.HelmAppService.BuildAppDetail(req)
 	if err != nil {
 		if helmAppDetail != nil && !helmAppDetail.ReleaseExists {
