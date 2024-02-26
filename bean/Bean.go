@@ -232,5 +232,11 @@ type ClusterInfo struct {
 	KeyData                 string                           `json:"-"`
 	CertData                string                           `json:"-"`
 	CAData                  string                           `json:"-"`
+	ProxyUrl                string                           `json:"proxyUrl"`
+	ToConnectWithSSHTunnel  bool                             `json:"toConnectWithSSHTunnel'"`
+	SSHTunnelUser           string                           `json:"sshTunnelUser"`
+	SSHTunnelPassword       string                           `json:"sshTunnelPassword"`
+	SSHTunnelAuthKey        string                           `json:"sshTunnelAuthKey"`
+	SSHTunnelServerAddress  string                           `json:"sshTunnelServerAddress"`
 	ClusterConnectionConfig *bean.ServerConnectionConfigBean `json:"clusterConnectionConfig"`
 }

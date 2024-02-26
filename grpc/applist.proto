@@ -13,7 +13,13 @@ message ClusterConfig {
   string keyData = 6;
   string certData = 7;
   string caData = 8;
-  ServerConnectionConfig ClusterConnectionConfig = 9;
+  string proxyUrl = 9;
+  bool toConnectWithSSHTunnel = 10;
+  string sshTunnelUser = 11;
+  string sshTunnelPassword = 12;
+  string sshTunnelAuthKey = 13;
+  string sshTunnelServerAddress = 14;
+  ServerConnectionConfig ClusterConnectionConfig = 15;
 }
 
 message AppListRequest {

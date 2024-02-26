@@ -8,8 +8,6 @@ import (
 )
 
 type ServerConnectionRepository interface {
-	Save(model *ServerConnectionConfig) error
-	Update(model *ServerConnectionConfig) error
 	GetById(id int) (*ServerConnectionConfig, error)
 	MarkServerConnectionConfigDeleted(deleteReq *ServerConnectionConfig, tx *pg.Tx) error
 }
@@ -37,14 +35,6 @@ type ServerConnectionConfig struct {
 	SSHAuthKey       string                      `sql:"ssh_auth_key"`
 	Deleted          bool                        `sql:"deleted,notnull"`
 	sql.AuditLog
-}
-
-func (repo *ServerConnectionRepositoryImpl) Save(model *ServerConnectionConfig) error {
-	return repo.dbConnection.Insert(model)
-}
-
-func (repo *ServerConnectionRepositoryImpl) Update(model *ServerConnectionConfig) error {
-	return repo.dbConnection.Update(model)
 }
 
 func (repo *ServerConnectionRepositoryImpl) GetById(id int) (*ServerConnectionConfig, error) {
