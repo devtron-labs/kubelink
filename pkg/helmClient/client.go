@@ -5,6 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	error2 "github.com/devtron-labs/kubelink/error"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -306,10 +309,12 @@ func (c *HelmClient) upgradeWithChartInfo(ctx context.Context, spec *ChartSpec) 
 	}
 
 	release, err := client.RunWithContext(ctx, spec.ReleaseName, helmChart, values)
-	if err != nil {
-		return nil, err
+	if error2.IsValidationError(err) {
+		return nil, error2.Wrap(err, error2.CodeValidating, "validation error while releasing in helm")
+	} else if err != nil {
+		// only doing this posses challenges
+		return nil, error2.Wrap(err, "", "error while releasing in helm")
 	}
-
 	return release, nil
 }
 
@@ -388,6 +393,10 @@ func getValuesMap(spec *ChartSpec) (map[string]interface{}, error) {
 
 	err := yaml.Unmarshal([]byte(spec.ValuesYaml), &values)
 	if err != nil {
+		if error2.IsValidationError(err) {
+			err = status.New(codes.InvalidArgument, err.Error()).Err()
+			return nil, err
+		}
 		return nil, err
 	}
 
@@ -649,6 +658,8 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 func (c *HelmClient) getChartFromHelm(spec *ChartSpec, client *action.Install, helmChart *chart.Chart, chartPath string, err error) (*chart.Chart, error) {
 	client.ChartPathOptions.RepoURL = spec.RepoURL
 	client.ChartPathOptions.Version = spec.Version
+	c.Settings.RepositoryCache = "/tmp" + c.Settings.RepositoryCache
+	c.Settings.RepositoryConfig = "/tmp" + c.Settings.RepositoryConfig
 	helmChart, chartPath, err = c.getChart(spec.ChartName, &client.ChartPathOptions)
 	if err != nil {
 		fmt.Errorf("error in getting helm chart and chart path for chart %q and repo Url %q",
