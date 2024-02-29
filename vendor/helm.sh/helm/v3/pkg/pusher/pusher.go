@@ -27,12 +27,7 @@ import (
 //
 // Pushers may or may not ignore these parameters as they are passed in.
 type options struct {
-	registryClient        *registry.Client
-	certFile              string
-	keyFile               string
-	caFile                string
-	insecureSkipTLSverify bool
-	plainHTTP             bool
+	registryClient *registry.Client
 }
 
 // Option allows specifying various settings configurable by the user for overriding the defaults
@@ -43,28 +38,6 @@ type Option func(*options)
 func WithRegistryClient(client *registry.Client) Option {
 	return func(opts *options) {
 		opts.registryClient = client
-	}
-}
-
-// WithTLSClientConfig sets the client auth with the provided credentials.
-func WithTLSClientConfig(certFile, keyFile, caFile string) Option {
-	return func(opts *options) {
-		opts.certFile = certFile
-		opts.keyFile = keyFile
-		opts.caFile = caFile
-	}
-}
-
-// WithInsecureSkipTLSVerify determines if a TLS Certificate will be checked
-func WithInsecureSkipTLSVerify(insecureSkipTLSVerify bool) Option {
-	return func(opts *options) {
-		opts.insecureSkipTLSverify = insecureSkipTLSVerify
-	}
-}
-
-func WithPlainHTTP(plainHTTP bool) Option {
-	return func(opts *options) {
-		opts.plainHTTP = plainHTTP
 	}
 }
 
@@ -116,7 +89,7 @@ var ociProvider = Provider{
 
 // All finds all of the registered pushers as a list of Provider instances.
 // Currently, just the built-in pushers are collected.
-func All(_ *cli.EnvSettings) Providers {
+func All(settings *cli.EnvSettings) Providers {
 	result := Providers{ociProvider}
 	return result
 }

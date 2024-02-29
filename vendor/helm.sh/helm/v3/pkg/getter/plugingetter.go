@@ -17,7 +17,6 @@ package getter
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -63,13 +62,6 @@ type pluginGetter struct {
 	opts     options
 }
 
-func (p *pluginGetter) setupOptionsEnv(env []string) []string {
-	env = append(env, fmt.Sprintf("HELM_PLUGIN_USERNAME=%s", p.opts.username))
-	env = append(env, fmt.Sprintf("HELM_PLUGIN_PASSWORD=%s", p.opts.password))
-	env = append(env, fmt.Sprintf("HELM_PLUGIN_PASS_CREDENTIALS_ALL=%t", p.opts.passCredentialsAll))
-	return env
-}
-
 // Get runs downloader plugin command
 func (p *pluginGetter) Get(href string, options ...Option) (*bytes.Buffer, error) {
 	for _, opt := range options {
@@ -79,7 +71,7 @@ func (p *pluginGetter) Get(href string, options ...Option) (*bytes.Buffer, error
 	argv := append(commands[1:], p.opts.certFile, p.opts.keyFile, p.opts.caFile, href)
 	prog := exec.Command(filepath.Join(p.base, commands[0]), argv...)
 	plugin.SetupPluginEnv(p.settings, p.name, p.base)
-	prog.Env = p.setupOptionsEnv(os.Environ())
+	prog.Env = os.Environ()
 	buf := bytes.NewBuffer(nil)
 	prog.Stdout = buf
 	prog.Stderr = os.Stderr

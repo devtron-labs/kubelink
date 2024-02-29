@@ -19,6 +19,7 @@ package action
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"syscall"
 
@@ -54,7 +55,7 @@ func NewPackage() *Package {
 }
 
 // Run executes 'helm package' against the given chart and returns the path to the packaged chart.
-func (p *Package) Run(path string, _ map[string]interface{}) (string, error) {
+func (p *Package) Run(path string, vals map[string]interface{}) (string, error) {
 	ch, err := loader.LoadDir(path)
 	if err != nil {
 		return "", err
@@ -136,7 +137,7 @@ func (p *Package) Clearsign(filename string) error {
 		return err
 	}
 
-	return os.WriteFile(filename+".prov", []byte(sig), 0644)
+	return ioutil.WriteFile(filename+".prov", []byte(sig), 0644)
 }
 
 // promptUser implements provenance.PassphraseFetcher

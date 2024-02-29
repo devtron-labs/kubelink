@@ -365,12 +365,6 @@ github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery
 # github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 ## explicit
 github.com/grpc-ecosystem/go-grpc-prometheus
-# github.com/hashicorp/errwrap v1.1.0
-## explicit
-github.com/hashicorp/errwrap
-# github.com/hashicorp/go-multierror v1.1.1
-## explicit; go 1.13
-github.com/hashicorp/go-multierror
 # github.com/huandu/xstrings v1.4.0
 ## explicit; go 1.12
 github.com/huandu/xstrings
@@ -796,9 +790,10 @@ gopkg.in/yaml.v2
 gopkg.in/yaml.v3
 # gotest.tools/v3 v3.5.1
 ## explicit; go 1.17
-# helm.sh/helm/v3 v3.14.2
-## explicit; go 1.21
+# helm.sh/helm/v3 v3.11.1
+## explicit; go 1.17
 helm.sh/helm/v3/internal/fileutil
+helm.sh/helm/v3/internal/ignore
 helm.sh/helm/v3/internal/resolver
 helm.sh/helm/v3/internal/sympath
 helm.sh/helm/v3/internal/third_party/dep/fs
@@ -816,7 +811,6 @@ helm.sh/helm/v3/pkg/engine
 helm.sh/helm/v3/pkg/getter
 helm.sh/helm/v3/pkg/helmpath
 helm.sh/helm/v3/pkg/helmpath/xdg
-helm.sh/helm/v3/pkg/ignore
 helm.sh/helm/v3/pkg/kube
 helm.sh/helm/v3/pkg/kube/fake
 helm.sh/helm/v3/pkg/lint
