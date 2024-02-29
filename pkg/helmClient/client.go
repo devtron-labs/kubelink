@@ -309,11 +309,8 @@ func (c *HelmClient) upgradeWithChartInfo(ctx context.Context, spec *ChartSpec) 
 	}
 
 	release, err := client.RunWithContext(ctx, spec.ReleaseName, helmChart, values)
-	if error2.IsValidationError(err) {
-		return nil, error2.Wrap(err, error2.CodeValidating, "validation error while releasing in helm")
-	} else if err != nil {
-		// only doing this posses challenges
-		return nil, error2.Wrap(err, "", "error while releasing in helm")
+	if err != nil {
+		return nil, err
 	}
 	return release, nil
 }
