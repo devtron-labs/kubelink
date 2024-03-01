@@ -8,12 +8,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
-	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	k8sObjectUtils "github.com/devtron-labs/common-lib/utils/k8sObjectsUtil"
 	"github.com/devtron-labs/kubelink/converter"
-	"github.com/devtron-labs/kubelink/pkg/cache"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
@@ -112,15 +109,13 @@ type HelmAppServiceImpl struct {
 	K8sUtil           k8sUtils.K8sService
 	PubsubClient      *pubsub_lib.PubSubClientServiceImpl
 	ClusterRepository repository.ClusterRepository
-	ClusterCache      cache.ClusterCache
 	Converter         converter.ClusterBeanConverter
 }
 
 func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 	k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig,
 	k8sUtil k8sUtils.K8sService, converter converter.ClusterBeanConverter,
-	clusterRepository repository.ClusterRepository,
-	clusterCache cache.ClusterCache) *HelmAppServiceImpl {
+	clusterRepository repository.ClusterRepository) *HelmAppServiceImpl {
 
 	var pubsubClient *pubsub_lib.PubSubClientServiceImpl
 	if helmReleaseConfig.RunHelmInstallInAsyncMode {
@@ -135,7 +130,6 @@ func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 		PubsubClient:      pubsubClient,
 		K8sUtil:           k8sUtil,
 		ClusterRepository: clusterRepository,
-		ClusterCache:      clusterCache,
 		Converter:         converter,
 	}
 	err := os.MkdirAll(chartWorkingDirectory, os.ModePerm)
@@ -280,23 +274,13 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 		impl.Logger.Errorw("Error in getting helm release ", "err", err)
 		return nil, err
 	}
-	resourceTreeResponse, err := impl.buildResourceTreeFromClusterCache(req.ClusterConfig, helmRelease)
-	if err != nil && !strings.Contains(err.Error(), cache.CacheNotSyncError) {
-		impl.Logger.Errorw("error in getting resourceTree from cluster cache", "clusterName", req.ClusterConfig.ClusterName, "releaseName", helmRelease.Name, "err", err)
-		//not returning from here, will try to build resource tree from api server in case error occurs while building app detail from caching
+
+	resourceTreeResponse, err := impl.buildResourceTree(req, helmRelease)
+	if err != nil {
+		impl.Logger.Errorw("error in building resource tree ", "err", err)
+		return nil, err
 	}
-	//if err is cache.CacheNotSyncError that means resourceTreeResponse is nil
-	if resourceTreeResponse == nil {
-		impl.Logger.Infow("cluster cache not synced for this cluster, fetching resource tree from API server", "clusterName", req.ClusterConfig.ClusterName, "releaseName", helmRelease.Name)
-		resourceTreeResponse, err = impl.buildResourceTree(req, helmRelease)
-		if err != nil {
-			impl.Logger.Errorw("error in building resource tree ", "err", err)
-			return nil, err
-		}
-		impl.Logger.Infow("resource tree successfully built", "clusterName", req.ClusterConfig.ClusterName, "helmReleaseName", helmRelease.Name)
-	} else {
-		impl.Logger.Infow("resource tree successfully built from cluster cache", "clusterName", req.ClusterConfig.ClusterName, "helmReleaseName", helmRelease.Name)
-	}
+	impl.Logger.Infow("resource tree successfully built", "clusterName", req.ClusterConfig.ClusterName, "helmReleaseName", helmRelease.Name)
 
 	appDetail := &bean.AppDetail{
 		ResourceTreeResponse: resourceTreeResponse,
@@ -323,19 +307,6 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 	return appDetail, nil
 }
 
-type Resource struct {
-	CacheResources          []*clustercache.Resource
-	UidToResourceRefMapping map[string]*bean.ResourceRef
-}
-
-func (k *Resource) action(resource *clustercache.Resource, _ map[kube.ResourceKey]*clustercache.Resource) bool {
-	if resourceNode, ok := resource.Info.(*bean.ResourceNode); ok {
-		k.UidToResourceRefMapping[resourceNode.UID] = resourceNode.ResourceRef
-	}
-	k.CacheResources = append(k.CacheResources, resource)
-	return true
-}
-
 func (impl *HelmAppServiceImpl) addHookResourcesInManifest(helmRelease *release.Release, manifests []unstructured.Unstructured) []unstructured.Unstructured {
 	for _, helmHook := range helmRelease.Hooks {
 		var hook unstructured.Unstructured
@@ -347,99 +318,6 @@ func (impl *HelmAppServiceImpl) addHookResourcesInManifest(helmRelease *release.
 		manifests = append(manifests, hook)
 	}
 	return manifests
-}
-
-func (impl *HelmAppServiceImpl) buildResourceTreeFromClusterCache(clusterConfig *client.ClusterConfig, helmRelease *release.Release) (*bean.ResourceTreeResponse, error) {
-	impl.Logger.Infow("building resource tree from cluster cache", "clusterName", clusterConfig.ClusterName, "helmReleaseName", helmRelease.Name)
-	conf, err := impl.getRestConfigForClusterConfig(clusterConfig)
-	if err != nil {
-		return nil, err
-	}
-	clusterCache, err := impl.ClusterCache.GetClusterCacheByClusterId(int(clusterConfig.ClusterId))
-	if err != nil {
-		impl.Logger.Infow("cluster cache not synced for this cluster", "clusterName", clusterConfig.ClusterName, "clusterId", clusterConfig.ClusterId, "err", err)
-		return nil, err
-	}
-	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
-
-	manifests = impl.addHookResourcesInManifest(helmRelease, manifests)
-
-	resourceHierarchy := &Resource{
-		CacheResources:          make([]*clustercache.Resource, 0),
-		UidToResourceRefMapping: make(map[string]*bean.ResourceRef),
-	}
-
-	for _, manifest := range manifests {
-		gvk := manifest.GroupVersionKind()
-		resourceKey := kube.NewResourceKey(gvk.Group, gvk.Kind, helmRelease.Namespace, manifest.GetName())
-		clusterCache.IterateHierarchy(resourceKey, resourceHierarchy.action)
-	}
-	//special handling for CRDs
-	addCRDsInResourceHierarchy(resourceHierarchy, manifests)
-
-	nodes := make([]*bean.ResourceNode, 0, len(resourceHierarchy.CacheResources))
-	//convert cache.Resource type into bean.ResourceNode type
-	for _, node := range resourceHierarchy.CacheResources {
-		if node.Info != nil {
-			nodes = append(nodes, getNodeInfoFromHierarchy(node, resourceHierarchy.UidToResourceRefMapping))
-		}
-	}
-	updateHookInfoForChildNodes(nodes)
-
-	podsMetadata, err := impl.buildPodMetadata(nodes, conf)
-	if err != nil {
-		return nil, err
-	}
-	resourceTreeResponse := &bean.ResourceTreeResponse{
-		ApplicationTree: &bean.ApplicationTree{
-			Nodes: nodes,
-		},
-		PodMetadata: podsMetadata,
-	}
-	return resourceTreeResponse, nil
-}
-
-func addCRDsInResourceHierarchy(resourceHierarchy *Resource, manifests []unstructured.Unstructured) {
-	kindMapping := make(map[string]bool)
-	for _, resource := range resourceHierarchy.CacheResources {
-		if _, ok := kindMapping[resource.Ref.Kind]; !ok {
-			kindMapping[resource.Ref.Kind] = true
-		}
-	}
-
-	for _, manifest := range manifests {
-		if _, ok := kindMapping[manifest.GetKind()]; !ok {
-			createCRDsCacheResourceObject(resourceHierarchy, manifest)
-		}
-	}
-}
-
-func createCRDsCacheResourceObject(resourceHierarchy *Resource, manifest unstructured.Unstructured) {
-	createdAt := manifest.GetCreationTimestamp()
-	gvk := manifest.GroupVersionKind()
-	crdNode := &clustercache.Resource{
-		ResourceVersion:   manifest.GetResourceVersion(),
-		Ref:               kube.GetObjectRef(&manifest),
-		CreationTimestamp: &createdAt,
-		Info: &bean.ResourceNode{
-			NetworkingInfo: &bean.ResourceNetworkingInfo{
-				Labels: manifest.GetLabels(),
-			},
-			ResourceVersion: manifest.GetResourceVersion(),
-			Port:            util.GetPorts(&manifest, gvk),
-			CreatedAt:       createdAt.String(),
-			ResourceRef: &bean.ResourceRef{
-				Group:     gvk.Group,
-				Version:   gvk.Version,
-				Kind:      gvk.Kind,
-				Namespace: manifest.GetNamespace(),
-				Name:      manifest.GetName(),
-				UID:       string(manifest.GetUID()),
-				Manifest:  manifest,
-			},
-		},
-	}
-	resourceHierarchy.CacheResources = append(resourceHierarchy.CacheResources, crdNode)
 }
 
 func (impl *HelmAppServiceImpl) getLiveManifests(config *rest.Config, helmRelease *release.Release) ([]*bean.DesiredOrLiveManifest, error) {
@@ -462,21 +340,6 @@ func (impl *HelmAppServiceImpl) getRestConfigForClusterConfig(clusterConfig *cli
 		return nil, err
 	}
 	return conf, nil
-}
-
-func getNodeInfoFromHierarchy(node *clustercache.Resource, uidToResourceRefMapping map[string]*bean.ResourceRef) *bean.ResourceNode {
-	resourceNode := &bean.ResourceNode{}
-	var ok bool
-	if resourceNode, ok = node.Info.(*bean.ResourceNode); ok {
-		if node.OwnerRefs != nil {
-			parentRefs := make([]*bean.ResourceRef, 0)
-			for _, ownerRef := range node.OwnerRefs {
-				parentRefs = append(parentRefs, uidToResourceRefMapping[string(ownerRef.UID)])
-			}
-			resourceNode.ParentRefs = parentRefs
-		}
-	}
-	return resourceNode
 }
 
 func (impl *HelmAppServiceImpl) FetchApplicationStatus(req *client.AppDetailRequest) (*client.AppStatus, error) {
@@ -1566,17 +1429,7 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 					Message: "Resource state unknown as error while fetching live manifest",
 				}
 			}
-		} else {
-			cache.SetHealthStatusForNode(node, manifest, gvk)
 		}
-
-		// hibernate set starts
-		if parentResourceRef == nil {
-
-			// set CanBeHibernated
-			cache.SetHibernationRules(node, &node.Manifest)
-		}
-		// hibernate set ends
 
 		if k8sUtils.IsPod(gvk) {
 			infoItems, _ := argo.PopulatePodInfo(manifest)
