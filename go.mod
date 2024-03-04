@@ -36,6 +36,8 @@ require (
 	github.com/devtron-labs/authenticator v0.4.31
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.1
 	github.com/uptrace/opentelemetry-go-extra/otelzap v0.2.3
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.45.0
+	go.opentelemetry.io/otel/trace v1.19.0
 	sigs.k8s.io/kustomize/kyaml v0.13.9
 )
 
@@ -152,7 +154,6 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.45.0 // indirect
 	go.opentelemetry.io/otel v1.19.0 // indirect
 	go.opentelemetry.io/otel/metric v1.19.0 // indirect
-	go.opentelemetry.io/otel/trace v1.19.0 // indirect
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.17.0 // indirect

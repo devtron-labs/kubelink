@@ -10,6 +10,7 @@ import (
 	"github.com/devtron-labs/kubelink/pkg/service"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -60,9 +61,11 @@ func (app *App) Start() {
 			MaxConnectionAge: 10 * time.Second,
 		}),
 		grpc.ChainStreamInterceptor(
+			otelgrpc.StreamServerInterceptor(),
 			grpc_prometheus.StreamServerInterceptor,
 			recovery.StreamServerInterceptor(recoveryOption)), // panic interceptor, should be at last
 		grpc.ChainUnaryInterceptor(
+			otelgrpc.UnaryServerInterceptor(),
 			grpc_prometheus.UnaryServerInterceptor,
 			recovery.UnaryServerInterceptor(recoveryOption)), // panic interceptor, should be at last
 	}

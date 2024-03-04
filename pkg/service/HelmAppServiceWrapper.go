@@ -82,7 +82,7 @@ func (impl *ApplicationServiceServerImpl) GetAppDetail(ctx context.Context, req 
 	impl.Logger.Ctx(ctx).Infow("App detail request", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
 		"namespace", req.Namespace)
 	span := trace.SpanFromContext(ctx)
-	fmt.Println("SPAN" + span.SpanContext().TraceID().String())
+	fmt.Println("SPAN: " + span.SpanContext().TraceID().String())
 	helmAppDetail, err := impl.HelmAppService.BuildAppDetail(req)
 	if err != nil {
 		if helmAppDetail != nil && !helmAppDetail.ReleaseExists {
