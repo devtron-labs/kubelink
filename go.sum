@@ -143,6 +143,8 @@ github.com/devtron-labs/common-lib v0.0.16-0.20240304111921-d42c8f18e716 h1:TpRo
 github.com/devtron-labs/common-lib v0.0.16-0.20240304111921-d42c8f18e716/go.mod h1:95/DizzVXu1kHap/VwEvdxwgd+BvPVYc0bJzt8yqGDU=
 github.com/devtron-labs/common-lib v0.0.16-0.20240304120733-8a3080bc5941 h1:uZXcauc7D+wAtB5LGZ8F31ABCuuIS20bWM9mDhsw0EE=
 github.com/devtron-labs/common-lib v0.0.16-0.20240304120733-8a3080bc5941/go.mod h1:95/DizzVXu1kHap/VwEvdxwgd+BvPVYc0bJzt8yqGDU=
+github.com/devtron-labs/common-lib v0.0.16-0.20240304121720-165aedb633c1 h1:xL/vi+srBiGUl+IP/YHTAk4ig+9UYg8d7AVXkZSWqP8=
+github.com/devtron-labs/common-lib v0.0.16-0.20240304121720-165aedb633c1/go.mod h1:95/DizzVXu1kHap/VwEvdxwgd+BvPVYc0bJzt8yqGDU=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
 github.com/distribution/distribution/v3 v3.0.0-20221208165359-362910506bc2 h1:aBfCb7iqHmDEIp6fBvC/hQUddQfg+3qdYjwzaiP9Hnc=
