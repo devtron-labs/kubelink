@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/devtron-labs/common-lib/constants"
 	"github.com/devtron-labs/common-lib/middlewares"
@@ -11,6 +12,11 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	stdout "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -19,6 +25,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"runtime/debug"
 	"time"
 )
@@ -56,6 +63,24 @@ func (app *App) Start() {
 		return status.Errorf(codes.Internal, "%s", p)
 	}
 	recoveryOption := recovery.WithRecoveryHandler(grpcPanicRecoveryHandler)
+
+	//OTEL
+	// Set up OTLP tracing (stdout for debug).
+	exporter, err := stdout.New(stdout.WithPrettyPrint())
+	if err != nil {
+		panic(err)
+		os.Exit(1)
+	}
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithBatcher(exporter),
+	)
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+	defer func() { _ = exporter.Shutdown(context.Background()) }()
+
+	//OTEL
+
 	opts := []grpc.ServerOption{
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionAge: 10 * time.Second,
