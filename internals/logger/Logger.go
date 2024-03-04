@@ -58,6 +58,6 @@ func NewOtelSugaredLogger() *otelzap.SugaredLogger {
 	if err != nil {
 		panic("failed to create the logger: " + err.Error())
 	}
-	logger := otelzap.New(log, otelzap.WithTraceIDField(true))
+	logger := otelzap.New(log, otelzap.WithTraceIDField(true), otelzap.WithMinLevel(zapcore.Level(logConfig.Level)))
 	return logger.Sugar()
 }

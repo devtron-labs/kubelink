@@ -60,6 +60,8 @@ func (impl *ApplicationServiceServerImpl) InstallReleaseWithCustomChart(ctx cont
 func (impl *ApplicationServiceServerImpl) ListApplications(req *client.AppListRequest, res client.ApplicationService_ListApplicationsServer) error {
 	ctx := res.Context()
 	impl.Logger.Ctx(ctx).Infow("List Application Request")
+	span := trace.SpanFromContext(ctx)
+	fmt.Println("SPAN: " + span.SpanContext().TraceID().String())
 	clusterConfigs := req.GetClusters()
 	eg := new(errgroup.Group)
 	for _, config := range clusterConfigs {
