@@ -13,12 +13,6 @@ message ClusterConfig {
   string keyData = 6;
   string certData = 7;
   string caData = 8;
-  string proxyUrl = 9;
-  bool toConnectWithSSHTunnel = 10;
-  string sshTunnelUser = 11;
-  string sshTunnelPassword = 12;
-  string sshTunnelAuthKey = 13;
-  string sshTunnelServerAddress = 14;
   ServerConnectionConfig ClusterConnectionConfig = 15;
 }
 
@@ -376,7 +370,7 @@ message RegistryCredential {
   string RegistryType = 7;
   string RepoName = 8;
   bool IsPublic = 9;
-  ServerConnectionConfig RegistryConnectionConfig = 10;
+  ServerConnectionConfig ServerConnectionConfig = 10;
   string RegistryId = 11;
 }
 

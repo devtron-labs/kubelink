@@ -9,7 +9,6 @@ import (
 
 type ServerConnectionRepository interface {
 	GetById(id int) (*ServerConnectionConfig, error)
-	MarkServerConnectionConfigDeleted(deleteReq *ServerConnectionConfig, tx *pg.Tx) error
 }
 
 type ServerConnectionRepositoryImpl struct {
@@ -48,9 +47,4 @@ func (repo *ServerConnectionRepositoryImpl) GetById(id int) (*ServerConnectionCo
 		return nil, err
 	}
 	return model, nil
-}
-
-func (repo *ServerConnectionRepositoryImpl) MarkServerConnectionConfigDeleted(deleteReq *ServerConnectionConfig, tx *pg.Tx) error {
-	deleteReq.Deleted = true
-	return tx.Update(deleteReq)
 }
