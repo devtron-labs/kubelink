@@ -77,6 +77,8 @@ func ExtractAllDockerImages(manifests []unstructured.Unstructured) ([]string, er
 				return nil, err
 			}
 			dockerImages = append(dockerImages, extractImagesFromRolloutTemplate(rolloutSpec)...)
+		default:
+			dockerImages = make([]string, 1)
 		}
 	}
 
