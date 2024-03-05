@@ -224,19 +224,13 @@ type EphemeralContainerStatusesInfo struct {
 }
 
 type ClusterInfo struct {
-	ClusterId               int                              `json:"clusterId"`
-	ClusterName             string                           `json:"clusterName"`
-	BearerToken             string                           `json:"bearerToken"`
-	ServerUrl               string                           `json:"serverUrl"`
-	InsecureSkipTLSVerify   bool                             `json:"insecureSkipTLSVerify"`
-	KeyData                 string                           `json:"-"`
-	CertData                string                           `json:"-"`
-	CAData                  string                           `json:"-"`
-	ProxyUrl                string                           `json:"proxyUrl"`
-	ToConnectWithSSHTunnel  bool                             `json:"toConnectWithSSHTunnel'"`
-	SSHTunnelUser           string                           `json:"sshTunnelUser"`
-	SSHTunnelPassword       string                           `json:"sshTunnelPassword"`
-	SSHTunnelAuthKey        string                           `json:"sshTunnelAuthKey"`
-	SSHTunnelServerAddress  string                           `json:"sshTunnelServerAddress"`
-	ClusterConnectionConfig *bean.ServerConnectionConfigBean `json:"clusterConnectionConfig"`
+	ClusterId              int                              `json:"clusterId"`
+	ClusterName            string                           `json:"clusterName"`
+	BearerToken            string                           `json:"bearerToken"`
+	ServerUrl              string                           `json:"serverUrl"`
+	InsecureSkipTLSVerify  bool                             `json:"insecureSkipTLSVerify"`
+	KeyData                string                           `json:"-"`
+	CertData               string                           `json:"-"`
+	CAData                 string                           `json:"-"`
+	ServerConnectionConfig *bean.ServerConnectionConfigBean `json:"serverConnectionConfig"`
 }
