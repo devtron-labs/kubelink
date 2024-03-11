@@ -203,6 +203,7 @@ func (impl *ApplicationServiceServerImpl) UpgradeRelease(ctx context.Context, in
 	impl.Logger.Infow("Upgrade release request", "clusterName", releaseIdentifier.ClusterConfig.ClusterName, "releaseName", releaseIdentifier.ReleaseName,
 		"namespace", releaseIdentifier.ReleaseNamespace)
 
+	impl.Logger.Infow("upgrade request values.yaml", in.ValuesYaml, "chart content", string(in.ChartContent.Content))
 	res, err := impl.HelmAppService.UpgradeRelease(ctx, in)
 	if err != nil {
 		impl.Logger.Errorw("Error in Upgrade release request", "err", err)
