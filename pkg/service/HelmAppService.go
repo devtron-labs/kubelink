@@ -732,6 +732,10 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 		helmRelease, err := impl.getHelmRelease(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName)
 		if err != nil {
 			impl.logger.Errorw("Error in getting helm release ", "err", err)
+			internalErr := error2.ConvertHelmErrorToInternalError(err)
+			if internalErr != nil {
+				err = internalErr
+			}
 			return nil, err
 		}
 
@@ -1976,6 +1980,10 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 				_, err := helmClientObj.InstallChart(ctx, installChartSpec)
 				if err != nil {
 					impl.logger.Errorw("Error in install release ", "err", err)
+					internalErr := error2.ConvertHelmErrorToInternalError(err)
+					if internalErr != nil {
+						err = internalErr
+					}
 					return false, err
 				}
 
@@ -1986,8 +1994,11 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 			}
 		}
 	} else if err != nil {
-
 		impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
+		internalErr := error2.ConvertHelmErrorToInternalError(err)
+		if internalErr != nil {
+			err = internalErr
+		}
 		return false, err
 
 	}
