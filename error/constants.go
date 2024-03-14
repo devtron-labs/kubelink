@@ -1,5 +1,7 @@
 package error
 
+import "google.golang.org/grpc/codes"
+
 // list of errors from helm
 const (
 	YAMLToJSONConversionError   = "error converting YAML to JSON"
@@ -20,3 +22,12 @@ const (
 	InternalInvalidValueErrorMsg        = "invalid value in manifest"
 	InternalOperationInProgressErrorMsg = "another operation (install/upgrade/rollback) is in progress"
 )
+
+var helmErrorInternalErrorMap = map[string]map[string]codes.Code{
+	ClusterUnreachableErrorMsg:  {InternalClusterUnreachableErrorMsg: codes.DeadlineExceeded},
+	CrdPreconditionErrorMsg:     {InternalCrdPreconditionErrorMsg: codes.FailedPrecondition},
+	NamespaceNotFoundErrorMsg:   {InternalNamespaceNotFoundErrorMsg: codes.Unknown},
+	ArrayStringMismatchErrorMsg: {InternalArrayStringMismatchErrorMsg: codes.Unknown},
+	InvalidValueErrorMsg:        {InternalInvalidValueErrorMsg: codes.Unknown},
+	OperationInProgressErrorMsg: {InternalOperationInProgressErrorMsg: codes.FailedPrecondition},
+}
