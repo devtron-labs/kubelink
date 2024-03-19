@@ -59,6 +59,10 @@ func (app *App) Start() {
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionAge: 10 * time.Second,
 		}),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             2 * time.Second,
+			PermitWithoutStream: false,
+		}),
 		grpc.ChainStreamInterceptor(
 			grpc_prometheus.StreamServerInterceptor,
 			recovery.StreamServerInterceptor(recoveryOption)), // panic interceptor, should be at last
