@@ -22,7 +22,7 @@ require (
 	golang.org/x/sync v0.3.0
 	google.golang.org/grpc v1.58.3
 	google.golang.org/protobuf v1.33.0
-	helm.sh/helm/v3 v3.14.2
+	helm.sh/helm/v3 v3.14.3
 	k8s.io/api v0.29.0
 	k8s.io/apimachinery v0.29.0
 	k8s.io/cli-runtime v0.29.0
@@ -57,7 +57,7 @@ require (
 	github.com/caarlos0/env/v6 v6.7.2 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
-	github.com/containerd/containerd v1.7.11 // indirect
+	github.com/containerd/containerd v1.7.12 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/coreos/go-oidc v2.2.1+incompatible // indirect
 	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
