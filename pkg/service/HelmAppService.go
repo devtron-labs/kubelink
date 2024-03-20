@@ -13,6 +13,7 @@ import (
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	k8sObjectUtils "github.com/devtron-labs/common-lib/utils/k8sObjectsUtil"
 	"github.com/devtron-labs/kubelink/converter"
+	error2 "github.com/devtron-labs/kubelink/error"
 	"github.com/devtron-labs/kubelink/pkg/cache"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -731,6 +732,10 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 		helmRelease, err := impl.getHelmRelease(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName)
 		if err != nil {
 			impl.logger.Errorw("Error in getting helm release ", "err", err)
+			internalErr := error2.ConvertHelmErrorToInternalError(err)
+			if internalErr != nil {
+				err = internalErr
+			}
 			return nil, err
 		}
 
@@ -746,6 +751,10 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 		_, err = helmClientObj.UpgradeRelease(context.Background(), helmRelease.Chart, updateChartSpec)
 		if err != nil {
 			impl.logger.Errorw("Error in upgrade release ", "err", err)
+			internalErr := error2.ConvertHelmErrorToInternalError(err)
+			if internalErr != nil {
+				err = internalErr
+			}
 			return nil, err
 		}
 
@@ -1902,6 +1911,10 @@ func (impl HelmAppServiceImpl) InstallReleaseWithCustomChart(ctx context.Context
 	_, err = helmClientObj.InstallChart(ctx, chartSpec)
 	if err != nil {
 		impl.logger.Errorw("Error in install chart", "err", err)
+		internalErr := error2.ConvertHelmErrorToInternalError(err)
+		if internalErr != nil {
+			err = internalErr
+		}
 		return false, err
 	}
 	// Install release ends
@@ -1967,6 +1980,10 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 				_, err := helmClientObj.InstallChart(ctx, installChartSpec)
 				if err != nil {
 					impl.logger.Errorw("Error in install release ", "err", err)
+					internalErr := error2.ConvertHelmErrorToInternalError(err)
+					if internalErr != nil {
+						err = internalErr
+					}
 					return false, err
 				}
 
@@ -1977,8 +1994,11 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 			}
 		}
 	} else if err != nil {
-
 		impl.logger.Errorw("Error in upgrade release with chart info", "err", err)
+		internalErr := error2.ConvertHelmErrorToInternalError(err)
+		if internalErr != nil {
+			err = internalErr
+		}
 		return false, err
 
 	}

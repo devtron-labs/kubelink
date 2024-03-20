@@ -5,6 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	error2 "github.com/devtron-labs/kubelink/error"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -309,7 +312,6 @@ func (c *HelmClient) upgradeWithChartInfo(ctx context.Context, spec *ChartSpec) 
 	if err != nil {
 		return nil, err
 	}
-
 	return release, nil
 }
 
@@ -388,6 +390,10 @@ func getValuesMap(spec *ChartSpec) (map[string]interface{}, error) {
 
 	err := yaml.Unmarshal([]byte(spec.ValuesYaml), &values)
 	if err != nil {
+		if error2.IsValidationError(err) {
+			err = status.New(codes.InvalidArgument, err.Error()).Err()
+			return nil, err
+		}
 		return nil, err
 	}
 
