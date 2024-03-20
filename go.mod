@@ -2,8 +2,6 @@ module github.com/devtron-labs/kubelink
 
 go 1.21
 
-toolchain go1.21.1
-
 require (
 	//github.com/argoproj/gitops-engine v0.7.1-0.20231013183858-f15cf615b814
 	github.com/aws/aws-sdk-go v1.44.285
