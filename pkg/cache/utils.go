@@ -3,13 +3,10 @@ package cache
 import (
 	"errors"
 	"fmt"
-	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/common-lib/utils/k8s/health"
 	"github.com/devtron-labs/kubelink/bean"
 	"github.com/devtron-labs/kubelink/pkg/util"
-	"github.com/devtron-labs/kubelink/pkg/util/argo"
-	"golang.org/x/sync/semaphore"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -115,31 +112,6 @@ func isTransientNetworkErr(err error) bool {
 		return true
 	}
 	return false
-}
-
-func getClusterCacheOptions(clusterCacheConfig *ClusterCacheConfig) []clustercache.UpdateSettingsFunc {
-	clusterCacheOpts := []clustercache.UpdateSettingsFunc{
-		clustercache.SetListSemaphore(semaphore.NewWeighted(clusterCacheConfig.ClusterCacheListSemaphoreSize)),
-		clustercache.SetListPageSize(clusterCacheConfig.ClusterCacheListPageSize),
-		clustercache.SetListPageBufferSize(clusterCacheListPageBufferSize),
-		clustercache.SetWatchResyncTimeout(clusterCacheWatchResyncDuration),
-		clustercache.SetClusterSyncRetryTimeout(clusterSyncRetryTimeoutDuration),
-		clustercache.SetResyncTimeout(clusterCacheResyncDuration),
-		clustercache.SetRetryOptions(clusterCacheAttemptLimit, clusterCacheRetryUseBackoff, isRetryableError),
-		clustercache.SetPopulateResourceInfoHandler(func(un *unstructured.Unstructured, isRoot bool) (interface{}, bool) {
-			gvk := un.GroupVersionKind()
-			res := getResourceNodeFromManifest(un, gvk)
-			SetHealthStatusForNode(res, un, gvk)
-
-			if k8sUtils.IsPod(gvk) {
-				infoItems, _ := argo.PopulatePodInfo(un)
-				res.Info = infoItems
-			}
-			SetHibernationRules(res, un)
-			return res, false
-		}),
-	}
-	return clusterCacheOpts
 }
 
 func getResourceNodeFromManifest(un *unstructured.Unstructured, gvk schema.GroupVersionKind) *bean.ResourceNode {

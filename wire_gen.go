@@ -14,7 +14,6 @@ import (
 	"github.com/devtron-labs/kubelink/converter"
 	"github.com/devtron-labs/kubelink/internals/lock"
 	"github.com/devtron-labs/kubelink/internals/logger"
-	"github.com/devtron-labs/kubelink/pkg/cache"
 	"github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
@@ -54,12 +53,7 @@ func InitializeApp() (*App, error) {
 	k8sK8sServiceImpl := k8s.NewK8sUtil(sugaredLogger, runtimeConfig)
 	clusterBeanConverterImpl := converter.NewConverterImpl()
 	k8sInformerImpl := k8sInformer.Newk8sInformerImpl(sugaredLogger, clusterRepositoryImpl, k8sInformerHelmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl)
-	clusterCacheConfig, err := cache.GetClusterCacheConfig()
-	if err != nil {
-		return nil, err
-	}
-	clusterCacheImpl := cache.NewClusterCacheImpl(sugaredLogger, clusterCacheConfig, clusterRepositoryImpl, k8sK8sServiceImpl, k8sInformerImpl, clusterBeanConverterImpl)
-	helmAppServiceImpl := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, helmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl, clusterRepositoryImpl, clusterCacheImpl)
+	helmAppServiceImpl := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, helmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl, clusterRepositoryImpl)
 	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(sugaredLogger, chartRepositoryLocker, helmAppServiceImpl)
 	monitoringRouter := monitoring.NewMonitoringRouter(sugaredLogger)
 	routerImpl := router.NewRouter(sugaredLogger, monitoringRouter)
