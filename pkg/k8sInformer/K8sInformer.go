@@ -418,7 +418,7 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 				}
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
-				impl.HelmListClusterMap[clusterId][releaseDTO.Name+string(rune(clusterModel.Id))] = appDetail
+				impl.HelmListClusterMap[clusterId][releaseDTO.Name+releaseDTO.Namespace+string(rune(clusterModel.Id))] = appDetail
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
@@ -446,7 +446,7 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
 				// adding cluster id with release name because there can be case when two cluster have release with same name
-				impl.HelmListClusterMap[clusterId][releaseDTO.Name+string(rune(clusterModel.Id))] = appDetail
+				impl.HelmListClusterMap[clusterId][releaseDTO.Name+releaseDTO.Namespace+string(rune(clusterModel.Id))] = appDetail
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -461,7 +461,7 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 				}
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
-				delete(impl.HelmListClusterMap[clusterId], releaseDTO.Name+string(rune(clusterModel.Id)))
+				delete(impl.HelmListClusterMap[clusterId], releaseDTO.Name+releaseDTO.Namespace+string(rune(clusterModel.Id)))
 			}
 		},
 	})
