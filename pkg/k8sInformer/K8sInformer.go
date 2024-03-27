@@ -46,7 +46,7 @@ type K8sInformer interface {
 	stopInformer(clusterName string, clusterId int)
 	startInformerAndPopulateCache(clusterId int) error
 	GetAllReleaseByClusterId(clusterId int) []*client.DeployedAppDetail
-	CheckReleaseExists(clusterId int32, releaseName string) bool
+	CheckReleaseExists(clusterId int32, releaseIdentifier string) bool
 	GetClusterClientSet(clusterInfo bean.ClusterInfo) (*kubernetes.Clientset, error)
 	RegisterListener(listener ClusterSecretUpdateListener)
 }
@@ -418,7 +418,7 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 				}
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
-				impl.HelmListClusterMap[clusterId][releaseDTO.Name+releaseDTO.Namespace+string(rune(clusterModel.Id))] = appDetail
+				impl.HelmListClusterMap[clusterId][impl.getUniqueReleaseKey(&ReleaseDto{releaseDTO}, clusterModel.Id)] = appDetail
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
@@ -445,8 +445,8 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 				}
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
-				// adding cluster id with release name because there can be case when two cluster have release with same name
-				impl.HelmListClusterMap[clusterId][releaseDTO.Name+releaseDTO.Namespace+string(rune(clusterModel.Id))] = appDetail
+				// adding cluster id with release name and namespace because there can be case when two cluster or two namespaces have release with same name
+				impl.HelmListClusterMap[clusterId][impl.getUniqueReleaseKey(&ReleaseDto{releaseDTO}, clusterModel.Id)] = appDetail
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -461,7 +461,7 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 				}
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
-				delete(impl.HelmListClusterMap[clusterId], releaseDTO.Name+releaseDTO.Namespace+string(rune(clusterModel.Id)))
+				delete(impl.HelmListClusterMap[clusterId], impl.getUniqueReleaseKey(&ReleaseDto{releaseDTO}, clusterModel.Id))
 			}
 		},
 	})
@@ -469,6 +469,10 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 	impl.logger.Info("informer started for cluster: ", "cluster_id", clusterModel.Id, "cluster_name", clusterModel.ClusterName)
 	impl.informerStopper[clusterId] = stopper
 	return nil
+}
+
+func (impl *K8sInformerImpl) getUniqueReleaseKey(release *ReleaseDto, clusterId int) string {
+	return release.getUniqueReleaseIdentifier() + "_" + strconv.Itoa(clusterId)
 }
 
 func (impl *K8sInformerImpl) GetAllReleaseByClusterId(clusterId int) []*client.DeployedAppDetail {
@@ -481,9 +485,9 @@ func (impl *K8sInformerImpl) GetAllReleaseByClusterId(clusterId int) []*client.D
 	return deployedAppDetailList
 }
 
-func (impl *K8sInformerImpl) CheckReleaseExists(clusterId int32, releaseName string) bool {
+func (impl *K8sInformerImpl) CheckReleaseExists(clusterId int32, releaseIdentifier string) bool {
 	releaseMap := impl.HelmListClusterMap[int(clusterId)]
-	_, ok := releaseMap[releaseName]
+	_, ok := releaseMap[releaseIdentifier]
 	if ok {
 		return true
 	}
