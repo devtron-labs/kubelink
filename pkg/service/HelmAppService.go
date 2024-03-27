@@ -1053,7 +1053,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
 		if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
 			if UpgradeErr != nil {
-				if UpgradeErr.Err == driver.ErrReleaseNotFound || UpgradeErr.Err == driver.ErrNoDeployedReleases {
+				if errors.Is(UpgradeErr.Err, driver.ErrReleaseNotFound) || errors.Is(UpgradeErr.Err, driver.ErrNoDeployedReleases) {
 					_, err := helmClientObj.InstallChart(context.Background(), chartSpec)
 					if err != nil {
 						impl.logger.Errorw("Error in install release ", "err", err)
@@ -1086,7 +1086,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 
 			if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
 				if UpgradeErr != nil {
-					if UpgradeErr.Err == driver.ErrReleaseNotFound {
+					if errors.Is(UpgradeErr.Err, driver.ErrReleaseNotFound) || errors.Is(UpgradeErr.Err, driver.ErrNoDeployedReleases) {
 						_, err := helmClientObj.InstallChart(context.Background(), chartSpec)
 						if err != nil {
 							HelmInstallFailureNatsMessage, _ = impl.GetNatsMessageForHelmInstallError(ctx, helmInstallMessage, releaseIdentifier, err)
@@ -1976,7 +1976,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 	impl.logger.Debugw("response form UpgradeReleaseWithChartInfo", "err", err)
 	if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
 		if UpgradeErr != nil {
-			if UpgradeErr.Err == driver.ErrNoDeployedReleases {
+			if errors.Is(UpgradeErr.Err, driver.ErrNoDeployedReleases) || errors.Is(UpgradeErr.Err, driver.ErrReleaseNotFound) {
 				_, err := helmClientObj.InstallChart(ctx, installChartSpec)
 				if err != nil {
 					impl.logger.Errorw("Error in install release ", "err", err)
