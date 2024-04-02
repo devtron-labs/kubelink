@@ -2,6 +2,7 @@ package util
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
@@ -10,6 +11,7 @@ import (
 	"hash"
 	"hash/fnv"
 	"helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v3/pkg/storage/driver"
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -234,4 +236,8 @@ func GetUpdateRevisionForStatefulSet(obj map[string]interface{}) string {
 		return updateRevisionFromManifest
 	}
 	return ""
+}
+
+func IsReleaseNotFoundError(err error) bool {
+	return errors.Is(err, driver.ErrReleaseNotFound) || errors.Is(err, driver.ErrNoDeployedReleases)
 }
