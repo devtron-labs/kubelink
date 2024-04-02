@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/devtron-labs/common-lib/constants"
 	"github.com/devtron-labs/common-lib/middlewares"
@@ -8,6 +9,7 @@ import (
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
+	"github.com/go-pg/pg"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"go.uber.org/zap"
@@ -27,15 +29,19 @@ type App struct {
 	ServerImpl  *service.ApplicationServiceServerImpl
 	router      *router.RouterImpl
 	k8sInformer k8sInformer.K8sInformer
+	db          *pg.DB
+	server      *http.Server
+	grpcServer  *grpc.Server
 }
 
 func NewApp(Logger *zap.SugaredLogger, ServerImpl *service.ApplicationServiceServerImpl,
-	router *router.RouterImpl, k8sInformer k8sInformer.K8sInformer) *App {
+	router *router.RouterImpl, k8sInformer k8sInformer.K8sInformer, db *pg.DB) *App {
 	return &App{
 		Logger:      Logger,
 		ServerImpl:  ServerImpl,
 		router:      router,
 		k8sInformer: k8sInformer,
+		db:          db,
 	}
 }
 
@@ -68,23 +74,48 @@ func (app *App) Start() {
 	}
 	app.router.InitRouter()
 	grpcServer := grpc.NewServer(opts...)
-
+	app.grpcServer = grpcServer
 	client.RegisterApplicationServiceServer(grpcServer, app.ServerImpl)
 	grpc_prometheus.EnableHandlingTimeHistogram()
 	grpc_prometheus.Register(grpcServer)
+	var server *http.Server
 	go func() {
-		server := &http.Server{Addr: fmt.Sprintf(":%d", httpPort), Handler: app.router.Router}
+		server = &http.Server{Addr: fmt.Sprintf(":%d", httpPort), Handler: app.router.Router}
 		app.router.Router.Use(middlewares.Recovery)
 		err := server.ListenAndServe()
 		if err != nil {
 			log.Fatal("error in starting http server", err)
 		}
 	}()
+	app.server = server
 	app.Logger.Infow("starting server on ", "port", port)
-
 	err = grpcServer.Serve(listener)
 	if err != nil {
 		app.Logger.Fatalw("failed to listen: %v", "err", err)
 	}
 
+}
+
+func (app *App) Stop() {
+	// Gracefully stop the HTTP server
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := app.server.Shutdown(ctx); err != nil {
+		app.Logger.Errorw("error shutting down HTTP server", "error", err)
+	} else {
+		app.Logger.Info("HTTP server stopped")
+	}
+
+	// Gracefully stop the gRPC server
+	app.Logger.Info("Stopping gRPC server...")
+	app.grpcServer.Stop()
+
+	app.Logger.Infow("closing db connection")
+	err := app.db.Close()
+	if err != nil {
+		app.Logger.Errorw("error in closing db connection", "err", err)
+	}
+
+	app.Logger.Info("Server stopped gracefully")
 }
