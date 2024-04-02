@@ -1,7 +1,7 @@
 package repository
 
 import (
-	repository "github.com/devtron-labs/kubelink/pkg/serverConnection"
+	repository "github.com/devtron-labs/kubelink/pkg/remoteConnection"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 	"github.com/go-pg/pg"
 	"go.uber.org/zap"
@@ -12,7 +12,7 @@ type Cluster struct {
 	Id                       int               `sql:"id,pk"`
 	ClusterName              string            `sql:"cluster_name"`
 	ServerUrl                string            `sql:"server_url"`
-	ServerConnectionConfigId int               `sql:"server_connection_config_id"`
+	RemoteConnectionConfigId int               `sql:"remote_connection_config_id"`
 	PrometheusEndpoint       string            `sql:"prometheus_endpoint"`
 	Active                   bool              `sql:"active,notnull"`
 	CdArgoSetup              bool              `sql:"cd_argo_setup,notnull"`
@@ -31,7 +31,7 @@ type Cluster struct {
 	SSHTunnelPassword        string            `sql:"ssh_tunnel_password"`
 	SSHTunnelAuthKey         string            `sql:"ssh_tunnel_auth_key"`
 	SSHTunnelServerAddress   string            `sql:"ssh_tunnel_server_address"`
-	ServerConnectionConfig   *repository.ServerConnectionConfig
+	RemoteConnectionConfig   *repository.RemoteConnectionConfig
 	sql.AuditLog
 }
 
