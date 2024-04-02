@@ -97,6 +97,9 @@ func (app *App) Start() {
 }
 
 func (app *App) Stop() {
+
+	app.Logger.Infow("kubelink shutdown initiating")
+
 	// Gracefully stop the HTTP server
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
