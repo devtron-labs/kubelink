@@ -109,7 +109,7 @@ func (app *App) Stop() {
 
 	// Gracefully stop the gRPC server
 	app.Logger.Info("Stopping gRPC server...")
-	app.grpcServer.Stop()
+	app.grpcServer.GracefulStop()
 
 	app.Logger.Infow("closing db connection")
 	err := app.db.Close()
@@ -117,5 +117,5 @@ func (app *App) Stop() {
 		app.Logger.Errorw("error in closing db connection", "err", err)
 	}
 
-	app.Logger.Info("Server stopped gracefully")
+	app.Logger.Infow("housekeeping done. exiting now")
 }
