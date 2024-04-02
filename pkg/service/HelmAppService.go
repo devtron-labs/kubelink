@@ -12,6 +12,7 @@ import (
 	k8sObjectUtils "github.com/devtron-labs/common-lib/utils/k8sObjectsUtil"
 	"github.com/devtron-labs/kubelink/converter"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
+	registry2 "github.com/devtron-labs/kubelink/pkg/registry"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -70,7 +71,6 @@ const (
 )
 
 type HelmAppService interface {
-	GetNewRegistryClient(registryCredential *client.RegistryCredential) (*registry.Client, *client.RegistryCredential, error)
 	GetApplicationListForCluster(config *client.ClusterConfig) *client.DeployedAppList
 	BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error)
 	FetchApplicationStatus(req *client.AppDetailRequest) (*client.AppStatus, error)
@@ -101,36 +101,39 @@ type HelmAppService interface {
 }
 
 type HelmAppServiceImpl struct {
-	Logger            *zap.SugaredLogger
-	K8sService        K8sService
-	RandSource        rand.Source
-	K8sInformer       k8sInformer.K8sInformer
-	HelmReleaseConfig *HelmReleaseConfig
-	K8sUtil           k8sUtils.K8sService
-	PubsubClient      *pubsub_lib.PubSubClientServiceImpl
-	ClusterRepository repository.ClusterRepository
-	Converter         converter.ClusterBeanConverter
+	Logger               *zap.SugaredLogger
+	K8sService           K8sService
+	RandSource           rand.Source
+	K8sInformer          k8sInformer.K8sInformer
+	HelmReleaseConfig    *HelmReleaseConfig
+	K8sUtil              k8sUtils.K8sService
+	PubsubClient         *pubsub_lib.PubSubClientServiceImpl
+	ClusterRepository    repository.ClusterRepository
+	Converter            converter.ClusterBeanConverter
+	registryClientGetter registry2.ClientGetter
 }
 
 func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 	k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig,
 	k8sUtil k8sUtils.K8sService, converter converter.ClusterBeanConverter,
-	clusterRepository repository.ClusterRepository) *HelmAppServiceImpl {
+	clusterRepository repository.ClusterRepository,
+	registryClientGetter registry2.ClientGetter) *HelmAppServiceImpl {
 
 	var pubsubClient *pubsub_lib.PubSubClientServiceImpl
 	if helmReleaseConfig.RunHelmInstallInAsyncMode {
 		pubsubClient = pubsub_lib.NewPubSubClientServiceImpl(logger)
 	}
 	helmAppServiceImpl := &HelmAppServiceImpl{
-		Logger:            logger,
-		K8sService:        k8sService,
-		RandSource:        rand.NewSource(time.Now().UnixNano()),
-		K8sInformer:       k8sInformer,
-		HelmReleaseConfig: helmReleaseConfig,
-		PubsubClient:      pubsubClient,
-		K8sUtil:           k8sUtil,
-		ClusterRepository: clusterRepository,
-		Converter:         converter,
+		Logger:               logger,
+		K8sService:           k8sService,
+		RandSource:           rand.NewSource(time.Now().UnixNano()),
+		K8sInformer:          k8sInformer,
+		HelmReleaseConfig:    helmReleaseConfig,
+		PubsubClient:         pubsubClient,
+		K8sUtil:              k8sUtil,
+		ClusterRepository:    clusterRepository,
+		Converter:            converter,
+		registryClientGetter: registryClientGetter,
 	}
 	err := os.MkdirAll(chartWorkingDirectory, os.ModePerm)
 	if err != nil {
@@ -149,14 +152,6 @@ func (impl HelmAppServiceImpl) GetRandomString() string {
 	/* #nosec */
 	r1 := rand.New(impl.RandSource).Int63()
 	return strconv.FormatInt(r1, 10)
-}
-
-func (impl HelmAppServiceImpl) GetNewRegistryClient(registryCredential *client.RegistryCredential) (*registry.Client, *client.RegistryCredential, error) {
-	registryClient, err := registry.NewClient()
-	if err != nil {
-		return nil, nil, err
-	}
-	return registryClient, registryCredential, err
 }
 
 func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.ClusterConfig) *client.DeployedAppList {
@@ -698,8 +693,19 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 	}
 
 	//oci registry client
-	var registryClient *registry.Client
-	registryClient, request.RegistryCredential, err = impl.GetNewRegistryClient(request.RegistryCredential)
+
+	registryClient, err := impl.registryClientGetter.GetRegistryClient(request.RegistryCredential)
+	if err != nil {
+		impl.Logger.Errorw("error in getting registry client", "chartName", request.ChartName, "err", err)
+		return nil, err
+	}
+
+	hostUrl, err := impl.registryClientGetter.GetRegistryHostURl(request.RegistryCredential)
+	if err != nil {
+		impl.Logger.Errorw("error in getting hostUrl", "chartName", request.ChartName, "err", err)
+		return nil, err
+	}
+	request.RegistryCredential.RegistryUrl = hostUrl
 
 	if err != nil {
 		impl.Logger.Errorw(HELM_CLIENT_ERROR, "err", err)
@@ -865,11 +871,20 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		// Updating registry credentials
 		request.RegistryCredential.Username = username
 		request.RegistryCredential.Password = password
-		registryClient, request.RegistryCredential, err = impl.GetNewRegistryClient(request.RegistryCredential)
+
+		registryClient, err := impl.registryClientGetter.GetRegistryClient(request.RegistryCredential)
 		if err != nil {
-			impl.Logger.Errorw(HELM_CLIENT_ERROR, "err", err)
+			impl.Logger.Errorw(HELM_CLIENT_ERROR, "chartName", request.ChartName, "err", err)
 			return nil, err
 		}
+
+		hostUrl, err := impl.registryClientGetter.GetRegistryHostURl(request.RegistryCredential)
+		if err != nil {
+			impl.Logger.Errorw("error in getting hostUrl", "chartName", request.ChartName, "err", err)
+			return nil, err
+		}
+		request.RegistryCredential.RegistryUrl = hostUrl
+
 		err = impl.OCIRegistryLogin(registryClient, request.RegistryCredential)
 		if err != nil {
 			return nil, err
@@ -1034,14 +1049,21 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	if err != nil {
 		impl.Logger.Errorw("error in getting helm app client")
-	}
-
-	var registryClient *registry.Client
-	registryClient, request.RegistryCredential, err = impl.GetNewRegistryClient(request.RegistryCredential)
-	if err != nil {
-		impl.Logger.Errorw(HELM_CLIENT_ERROR, "err", err)
 		return "", err
 	}
+
+	registryClient, err := impl.registryClientGetter.GetRegistryClient(request.RegistryCredential)
+	if err != nil {
+		impl.Logger.Errorw("error in getting registry client", "chartName", request.ChartName, "err", err)
+		return "", err
+	}
+
+	hostUrl, err := impl.registryClientGetter.GetRegistryHostURl(request.RegistryCredential)
+	if err != nil {
+		impl.Logger.Errorw("error in getting hostUrl", "chartName", request.ChartName, "err", err)
+		return "", err
+	}
+	request.RegistryCredential.RegistryUrl = hostUrl
 
 	var chartName, repoURL string
 	switch request.IsOCIRepo {
@@ -1922,12 +1944,19 @@ func (impl HelmAppServiceImpl) OCIRegistryLogin(client *registry.Client, registr
 }
 
 func (impl HelmAppServiceImpl) ValidateOCIRegistryLogin(ctx context.Context, OCIRegistryRequest *client.RegistryCredential) (*client.OCIRegistryResponse, error) {
-	helmClient, OCIRegistryRequest, err := impl.GetNewRegistryClient(OCIRegistryRequest)
+	registryClient, err := impl.registryClientGetter.GetRegistryClient(OCIRegistryRequest)
 	if err != nil {
-		impl.Logger.Errorw(HELM_CLIENT_ERROR, "err", err)
+		impl.Logger.Errorw("error in getting registry client", "registryUrl", OCIRegistryRequest.RegistryUrl, "err", err)
 		return nil, err
 	}
-	err = impl.OCIRegistryLogin(helmClient, OCIRegistryRequest)
+
+	hostUrl, err := impl.registryClientGetter.GetRegistryHostURl(OCIRegistryRequest)
+	if err != nil {
+		impl.Logger.Errorw("error in getting hostUrl", "chartName", OCIRegistryRequest.RegistryUrl, "err", err)
+		return nil, err
+	}
+	OCIRegistryRequest.RegistryUrl = hostUrl
+	err = impl.OCIRegistryLogin(registryClient, OCIRegistryRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -1938,15 +1967,23 @@ func (impl HelmAppServiceImpl) ValidateOCIRegistryLogin(ctx context.Context, OCI
 
 func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error) {
 	// Login to OCI registry
-	var helmClient *registry.Client
 	var err error
 	registryPushResponse := &client.OCIRegistryResponse{}
-	helmClient, OCIRegistryRequest.RegistryCredential, err = impl.GetNewRegistryClient(OCIRegistryRequest.RegistryCredential)
+
+	registryClient, err := impl.registryClientGetter.GetRegistryClient(OCIRegistryRequest.RegistryCredential)
 	if err != nil {
-		impl.Logger.Errorw(HELM_CLIENT_ERROR, "err", err)
+		impl.Logger.Errorw("error in getting registry client", "chartName", OCIRegistryRequest.ChartName, "err", err)
 		return nil, err
 	}
-	err = impl.OCIRegistryLogin(helmClient, OCIRegistryRequest.RegistryCredential)
+
+	hostUrl, err := impl.registryClientGetter.GetRegistryHostURl(OCIRegistryRequest.RegistryCredential)
+	if err != nil {
+		impl.Logger.Errorw("error in getting hostUrl", "chartName", OCIRegistryRequest.ChartName, "err", err)
+		return nil, err
+	}
+	OCIRegistryRequest.RegistryCredential.RegistryUrl = hostUrl
+
+	err = impl.OCIRegistryLogin(registryClient, OCIRegistryRequest.RegistryCredential)
 	if err != nil {
 		registryPushResponse.IsLoggedIn = false
 		return registryPushResponse, err
@@ -1989,7 +2026,7 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 			OCIRegistryRequest.ChartVersion)
 	}
 
-	pushResult, err := helmClient.Push(OCIRegistryRequest.Chart, ref, withStrictMode)
+	pushResult, err := registryClient.Push(OCIRegistryRequest.Chart, ref, withStrictMode)
 	if err != nil {
 		impl.Logger.Errorw("Error in pushing helm chart to OCI registry", "err", err)
 		return registryPushResponse, err

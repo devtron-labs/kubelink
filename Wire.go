@@ -29,6 +29,7 @@ import (
 	"github.com/devtron-labs/kubelink/internals/logger"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
+	"github.com/devtron-labs/kubelink/pkg/registry"
 	"github.com/devtron-labs/kubelink/pkg/service"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 	"github.com/google/wire"
@@ -58,6 +59,8 @@ func InitializeApp() (*App, error) {
 		service.GetHelmReleaseConfig,
 		k8sInformer.GetHelmReleaseConfig,
 		monitoring.NewMonitoringRouter,
+		registry.NewClientGetterImpl,
+		wire.Bind(new(registry.ClientGetter), new(*registry.ClientGetterImpl)),
 	)
 	return &App{}, nil
 }
