@@ -69,6 +69,8 @@ const (
 	JSON_KEY_USERNAME              string = "_json_key"
 	HELM_CLIENT_ERROR                     = "Error in creating Helm client"
 	RELEASE_INSTALLED                     = "Release Installed"
+	INSECURE_CONNETION_STRING             = "insecure"
+	SECURE_WITH_CERT_STRING               = "secure-with-cert"
 )
 
 type HelmAppService interface {
@@ -1950,6 +1952,21 @@ func (impl HelmAppServiceImpl) OCIRegistryLogin(client *registry.Client, registr
 	if err != nil {
 		return err
 	}
+	var loginOptions []registry.LoginOption
+	loginOptions = append(loginOptions, registry.LoginOptBasicAuth(username, pwd))
+	loginOptions = append(loginOptions, registry.LoginOptInsecure(registryCredential.Connection == INSECURE_CONNETION_STRING))
+	if registryCredential.Connection == SECURE_WITH_CERT_STRING {
+		certificateFilePath, err := createCertificateFile(registryCredential.RegistryName, registryCredential.RegistryCertificate)
+		if err != nil {
+			impl.Logger.Errorw("error in creating certificate file path for registry", "registryName", registryCredential.RegistryName, "err", err)
+			return err
+		}
+		loginOptions = append(loginOptions, registry.LoginOptTLSClientConfig("", "", certificateFilePath))
+	}
+
+	err = client.Login(registryCredential.RegistryUrl,
+		loginOptions...,
+	)
 	// helm registry login --username "" --password ""
 	err = client.Login(registryCredential.RegistryUrl,
 		registry.LoginOptBasicAuth(username, pwd), registry.LoginOptInsecure(false),
@@ -1958,6 +1975,36 @@ func (impl HelmAppServiceImpl) OCIRegistryLogin(client *registry.Client, registr
 		return err
 	}
 	return nil
+}
+
+func createCertificateFile(registryName, caString string) (certifactePath string, err error) {
+
+	registryFolderPath := fmt.Sprintf("%s/%s", registryCredentialBasePath, registryName)
+	certificateFilePath := fmt.Sprintf("%s/%s/ca.crt", registryCredentialBasePath, registryName)
+
+	if _, err = os.Stat(certificateFilePath); os.IsExist(err) {
+		// if file exists - remove file
+		err := os.Remove(certificateFilePath)
+		if err != nil {
+			return certifactePath, err
+		}
+	} else if _, err = os.Stat(registryFolderPath); os.IsNotExist(err) {
+		// create folder if not exist
+		err = os.MkdirAll(registryFolderPath, os.ModePerm)
+		if err != nil {
+			return certifactePath, err
+		}
+	}
+	f, err := os.Create(certificateFilePath)
+	if err != nil {
+		return certifactePath, err
+	}
+	defer f.Close()
+	_, err2 := f.WriteString(caString)
+	if err2 != nil {
+		return certifactePath, err
+	}
+	return certificateFilePath, nil
 }
 
 func (impl HelmAppServiceImpl) ValidateOCIRegistryLogin(ctx context.Context, OCIRegistryRequest *client.RegistryCredential) (*client.OCIRegistryResponse, error) {

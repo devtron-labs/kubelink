@@ -45,3 +45,7 @@ func (r ChildObjects) GetGvrAndScopeForChildObject() *commonBean.GvrAndScope {
 		Scope: r.Scope,
 	}
 }
+
+const (
+	registryCredentialBasePath = "registry-credentials"
+)
