@@ -18,6 +18,7 @@ import (
 	"helm.sh/helm/v3/pkg/storage/driver"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"net/url"
 	"path"
 	"time"
 
@@ -678,10 +679,14 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 
 }
 
-func (impl HelmAppServiceImpl) GetOCIChartName(registryUrl, repoName string) string {
+func parseOCIChartName(registryUrl, repoName string) (string, error) {
 	// helm package expects chart name to be in this format
-	chartName := fmt.Sprintf("%s://%s/%s", "oci", registryUrl, repoName)
-	return chartName
+	parsedUrl, err := url.Parse(registryUrl)
+	if err != nil {
+		return registryUrl, err
+	}
+	chartName := fmt.Sprintf("%s://%s/%s", "oci", parsedUrl.Host, repoName)
+	return chartName, nil
 }
 
 func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *client.InstallReleaseRequest, dryRun bool) (*release.Release, error) {
@@ -714,7 +719,11 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 	var chartName string
 	switch request.IsOCIRepo {
 	case true:
-		chartName = impl.GetOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+		chartName, err = parseOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+		if err != nil {
+			impl.Logger.Errorw("error in parsing oci chart name", "registryUrl", request.RegistryCredential.RegistryUrl, "repoName", request.RegistryCredential.RepoName, "err", err)
+			return nil, err
+		}
 		if request.RegistryCredential != nil && !request.RegistryCredential.IsPublic {
 			err = impl.OCIRegistryLogin(registryClient, request.RegistryCredential)
 			if err != nil {
@@ -889,7 +898,11 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		if err != nil {
 			return nil, err
 		}
-		chartName = fmt.Sprintf("%s://%s/%s", "oci", request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+		chartName, err = parseOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+		if err != nil {
+			impl.Logger.Errorw("error in parsing oci chart name", "registryUrl", request.RegistryCredential.RegistryUrl, "repoName", request.RegistryCredential.RepoName, "err", err)
+			return nil, err
+		}
 	case false:
 		chartRepoRequest := request.ChartRepository
 		chartRepoName := chartRepoRequest.Name
@@ -1074,7 +1087,11 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 				return "", err
 			}
 		}
-		chartName = impl.GetOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+		chartName, err = parseOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+		if err != nil {
+			impl.Logger.Errorw("error in parsing oci chart name", "registryUrl", request.RegistryCredential.RegistryUrl, "repoName", request.RegistryCredential.RepoName, "err", err)
+			return "", err
+		}
 	case false:
 		chartName = request.ChartName
 		repoURL = request.ChartRepository.Url
@@ -1935,9 +1952,9 @@ func (impl HelmAppServiceImpl) OCIRegistryLogin(client *registry.Client, registr
 	}
 	// helm registry login --username "" --password ""
 	err = client.Login(registryCredential.RegistryUrl,
-		registry.LoginOptBasicAuth(username, pwd), registry.LoginOptInsecure(false))
+		registry.LoginOptBasicAuth(username, pwd), registry.LoginOptInsecure(false),
+	)
 	if err != nil {
-		impl.Logger.Errorw("Failed to login to registry", "registryURL", registryCredential.RegistryUrl, "err", err)
 		return err
 	}
 	return nil
@@ -1958,6 +1975,7 @@ func (impl HelmAppServiceImpl) ValidateOCIRegistryLogin(ctx context.Context, OCI
 	OCIRegistryRequest.RegistryUrl = hostUrl
 	err = impl.OCIRegistryLogin(registryClient, OCIRegistryRequest)
 	if err != nil {
+		impl.Logger.Errorw("Failed to login to registry", "registryURL", OCIRegistryRequest.RegistryUrl, "err", err)
 		return nil, err
 	}
 	return &client.OCIRegistryResponse{

@@ -371,7 +371,7 @@ message RegistryCredential {
   string RepoName = 8;
   bool IsPublic = 9;
   RemoteConnectionConfig RemoteConnectionConfig = 10;
-  string RegistryId = 11;
+  string Connection = 12;
 }
 
 enum RemoteConnectionMethod {
