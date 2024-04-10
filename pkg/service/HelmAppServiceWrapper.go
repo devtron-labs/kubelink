@@ -91,7 +91,7 @@ func (impl *ApplicationServiceServerImpl) GetAppDetail(ctxt context.Context, req
 			"namespace", req.Namespace, "err", err)
 		return nil, err
 	}
-	time.Sleep(time.Minute * 1)
+	time.Sleep(time.Minute * 2)
 	res := impl.AppDetailAdaptor(helmAppDetail)
 	impl.Logger.Info("App Detail Request served")
 	return res, nil
