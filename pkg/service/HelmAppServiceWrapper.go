@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"time"
 )
 
 type ApplicationServiceServerImpl struct {
@@ -90,6 +91,7 @@ func (impl *ApplicationServiceServerImpl) GetAppDetail(ctxt context.Context, req
 			"namespace", req.Namespace, "err", err)
 		return nil, err
 	}
+	time.Sleep(time.Minute * 1)
 	res := impl.AppDetailAdaptor(helmAppDetail)
 	impl.Logger.Info("App Detail Request served")
 	return res, nil
