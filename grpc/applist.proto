@@ -301,6 +301,7 @@ message RollbackReleaseRequest {
 
 message TemplateChartResponse {
   string generatedManifest = 1;
+  repeated string dockerImages = 2;
 }
 
 message HelmInstallCustomRequest {

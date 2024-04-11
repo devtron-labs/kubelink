@@ -91,6 +91,10 @@ func extractImagesFromPodTemplate(podSpec coreV1.PodSpec) []string {
 	for _, initContainer := range podSpec.InitContainers {
 		dockerImages = append(dockerImages, initContainer.Image)
 	}
+	for _, ephContainer := range podSpec.EphemeralContainers {
+		dockerImages = append(dockerImages, ephContainer.Image)
+	}
+
 	return dockerImages
 }
 

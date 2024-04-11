@@ -3,9 +3,11 @@ package service
 import (
 	"context"
 	"fmt"
+	yamlUtil "github.com/devtron-labs/common-lib/utils/yaml"
 	"github.com/devtron-labs/kubelink/bean"
 	"github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/internals/lock"
+	"github.com/devtron-labs/kubelink/pkg/util"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
@@ -301,8 +303,17 @@ func (impl *ApplicationServiceServerImpl) TemplateChart(ctx context.Context, in 
 	}
 	impl.Logger.Info("Template chart request served")
 
+	dockerImages := make([]string, 0)
+	parsedManifests, err := yamlUtil.SplitYAMLs([]byte(manifest))
+	if err != nil {
+		impl.Logger.Errorw("Error in splitting manifest", "err", err)
+	} else {
+		dockerImages, _ = util.ExtractAllDockerImages(parsedManifests)
+	}
+
 	res := &client.TemplateChartResponse{
 		GeneratedManifest: manifest,
+		DockerImages:      dockerImages,
 	}
 
 	return res, err
