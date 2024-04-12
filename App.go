@@ -71,12 +71,12 @@ func (app *App) Start() {
 		grpc.ChainStreamInterceptor(
 			grpc_prometheus.StreamServerInterceptor,
 			logging.StreamServerInterceptor(middlewares.InterceptorLogger(app.LoggerConfig.EnableLogger, app.Logger),
-				logging.WithFieldsFromContextAndCallMeta(middlewares.GenerateLogFields), logging.WithLogOnEvents(logging.PayloadReceived)),
+				logging.WithLogOnEvents(logging.PayloadReceived)),
 			recovery.StreamServerInterceptor(recoveryOption)), // panic interceptor, should be at last
 		grpc.ChainUnaryInterceptor(
 			grpc_prometheus.UnaryServerInterceptor,
 			logging.UnaryServerInterceptor(middlewares.InterceptorLogger(app.LoggerConfig.EnableLogger, app.Logger),
-				logging.WithFieldsFromContextAndCallMeta(middlewares.GenerateLogFields), logging.WithLogOnEvents(logging.PayloadReceived)),
+				logging.WithLogOnEvents(logging.PayloadReceived)),
 			recovery.UnaryServerInterceptor(recoveryOption)), // panic interceptor, should be at last
 	}
 	app.router.InitRouter()
