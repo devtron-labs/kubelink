@@ -20,6 +20,7 @@ import (
 	"log"
 	"os"
 	"sigs.k8s.io/yaml"
+	"text/template"
 )
 
 var storage = repo.File{}
@@ -560,6 +561,12 @@ func (c *HelmClient) GetNotes(spec *ChartSpec, options *HelmTemplateOptions) ([]
 	out := new(bytes.Buffer)
 	rel, err := client.Run(helmChart, values)
 	if err != nil {
+		if _, isExecError := err.(template.ExecError); isExecError {
+			return nil, status.Errorf(
+				error2.InvalidYAMLTemplate,
+				fmt.Sprintf("invalid template, err %s", err),
+			)
+		}
 		fmt.Errorf("error in fetching release for helm chart %q and repo Url %q",
 			spec.ChartName,
 			spec.RepoURL,

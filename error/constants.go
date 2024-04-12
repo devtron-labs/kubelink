@@ -31,3 +31,7 @@ var helmErrorInternalErrorMap = map[string]map[string]codes.Code{
 	InvalidValueErrorMsg:        {InternalInvalidValueErrorMsg: codes.Unknown},
 	OperationInProgressErrorMsg: {InternalOperationInProgressErrorMsg: codes.FailedPrecondition},
 }
+
+const (
+	InvalidYAMLTemplate codes.Code = 999
+)
