@@ -83,6 +83,7 @@ func (app *App) Start() {
 		server = &http.Server{Addr: fmt.Sprintf(":%d", httpPort), Handler: app.router.Router}
 		app.router.Router.Use(middlewares.Recovery)
 		err := server.ListenAndServe()
+		app.server = server
 		if err != nil {
 			log.Fatal("error in starting http server", err)
 		}
