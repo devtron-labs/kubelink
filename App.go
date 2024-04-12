@@ -35,7 +35,7 @@ type App struct {
 }
 
 func NewApp(Logger *zap.SugaredLogger, ServerImpl *service.ApplicationServiceServerImpl,
-	router *router.RouterImpl, k8sInformer k8sInformer.K8sInformer, db *pg.DB) *App {
+	router *router.RouterImpl, k8sInformer k8sInformer.K8sInformer, db *pg.DB, server *http.Server) *App {
 	return &App{
 		Logger:      Logger,
 		ServerImpl:  ServerImpl,
@@ -83,11 +83,11 @@ func (app *App) Start() {
 		server = &http.Server{Addr: fmt.Sprintf(":%d", httpPort), Handler: app.router.Router}
 		app.router.Router.Use(middlewares.Recovery)
 		err := server.ListenAndServe()
+		app.server = server
 		if err != nil {
 			log.Fatal("error in starting http server", err)
 		}
 	}()
-	app.server = server
 	app.Logger.Infow("starting server on ", "port", port)
 	err = grpcServer.Serve(listener)
 	if err != nil {
