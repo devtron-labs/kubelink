@@ -35,7 +35,7 @@ type App struct {
 }
 
 func NewApp(Logger *zap.SugaredLogger, ServerImpl *service.ApplicationServiceServerImpl,
-	router *router.RouterImpl, k8sInformer k8sInformer.K8sInformer, db *pg.DB, server *http.Server) *App {
+	router *router.RouterImpl, k8sInformer k8sInformer.K8sInformer, db *pg.DB) *App {
 	return &App{
 		Logger:      Logger,
 		ServerImpl:  ServerImpl,
