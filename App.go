@@ -73,11 +73,10 @@ func (app *App) Start() {
 			recovery.UnaryServerInterceptor(recoveryOption)), // panic interceptor, should be at last
 	}
 	app.router.InitRouter()
-	grpcServer := grpc.NewServer(opts...)
-	app.grpcServer = grpcServer
-	client.RegisterApplicationServiceServer(grpcServer, app.ServerImpl)
+	app.grpcServer = grpc.NewServer(opts...)
+	client.RegisterApplicationServiceServer(app.grpcServer, app.ServerImpl)
 	grpc_prometheus.EnableHandlingTimeHistogram()
-	grpc_prometheus.Register(grpcServer)
+	grpc_prometheus.Register(app.grpcServer)
 	go func() {
 		app.server = &http.Server{Addr: fmt.Sprintf(":%d", httpPort), Handler: app.router.Router}
 		app.router.Router.Use(middlewares.Recovery)
@@ -87,7 +86,7 @@ func (app *App) Start() {
 		}
 	}()
 	app.Logger.Infow("starting server on ", "port", port)
-	err = grpcServer.Serve(listener)
+	err = app.grpcServer.Serve(listener)
 	if err != nil {
 		app.Logger.Fatalw("failed to listen: %v", "err", err)
 	}
