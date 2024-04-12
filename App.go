@@ -83,7 +83,6 @@ func (app *App) Start() {
 		server = &http.Server{Addr: fmt.Sprintf(":%d", httpPort), Handler: app.router.Router}
 		app.router.Router.Use(middlewares.Recovery)
 		err := server.ListenAndServe()
-		app.server = server
 		if err != nil {
 			log.Fatal("error in starting http server", err)
 		}
@@ -100,14 +99,11 @@ func (app *App) Stop() {
 
 	app.Logger.Infow("kubelink shutdown initiating")
 
-	// Gracefully stop the HTTP server
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := app.server.Shutdown(ctx); err != nil {
-		app.Logger.Errorw("error shutting down HTTP server", "error", err)
-	} else {
-		app.Logger.Info("HTTP server stopped")
+	timeoutContext, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	app.Logger.Infow("closing router")
+	err := app.server.Shutdown(timeoutContext)
+	if err != nil {
+		app.Logger.Errorw("error in mux router shutdown", "err", err)
 	}
 
 	// Gracefully stop the gRPC server
@@ -115,7 +111,7 @@ func (app *App) Stop() {
 	app.grpcServer.GracefulStop()
 
 	app.Logger.Infow("closing db connection")
-	err := app.db.Close()
+	err = app.db.Close()
 	if err != nil {
 		app.Logger.Errorw("error in closing db connection", "err", err)
 	}
