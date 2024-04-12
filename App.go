@@ -78,12 +78,10 @@ func (app *App) Start() {
 	client.RegisterApplicationServiceServer(grpcServer, app.ServerImpl)
 	grpc_prometheus.EnableHandlingTimeHistogram()
 	grpc_prometheus.Register(grpcServer)
-	var server *http.Server
 	go func() {
-		server = &http.Server{Addr: fmt.Sprintf(":%d", httpPort), Handler: app.router.Router}
+		app.server = &http.Server{Addr: fmt.Sprintf(":%d", httpPort), Handler: app.router.Router}
 		app.router.Router.Use(middlewares.Recovery)
-		err := server.ListenAndServe()
-		app.server = server
+		err := app.server.ListenAndServe()
 		if err != nil {
 			log.Fatal("error in starting http server", err)
 		}
