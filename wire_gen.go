@@ -57,6 +57,9 @@ func InitializeApp() (*App, error) {
 	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(sugaredLogger, chartRepositoryLocker, helmAppServiceImpl)
 	monitoringRouter := monitoring.NewMonitoringRouter(sugaredLogger)
 	routerImpl := router.NewRouter(sugaredLogger, monitoringRouter)
-	app := NewApp(sugaredLogger, applicationServiceServerImpl, routerImpl, k8sInformerImpl)
+	app, err := NewApp(sugaredLogger, applicationServiceServerImpl, routerImpl, k8sInformerImpl)
+	if err != nil {
+		return nil, err
+	}
 	return app, nil
 }
