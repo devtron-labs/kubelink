@@ -6,7 +6,7 @@ require (
 	github.com/argoproj/gitops-engine v0.7.1-0.20231013183858-f15cf615b814
 	github.com/aws/aws-sdk-go v1.44.285
 	github.com/caarlos0/env v3.5.0+incompatible
-	github.com/devtron-labs/common-lib v0.0.16-0.20240318063710-69cb957d019a
+	github.com/devtron-labs/common-lib v0.0.16-0.20240221120506-7bc523a23407
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/go-pg/pg v6.15.1+incompatible
@@ -19,7 +19,7 @@ require (
 	go.uber.org/zap v1.21.0
 	golang.org/x/sync v0.3.0
 	google.golang.org/grpc v1.58.3
-	google.golang.org/protobuf v1.33.0
+	google.golang.org/protobuf v1.31.0
 	helm.sh/helm/v3 v3.11.1
 	k8s.io/api v0.26.11
 	k8s.io/apimachinery v0.26.11
