@@ -81,6 +81,7 @@ func (impl *ApplicationServiceServerImpl) GetAppDetail(ctxt context.Context, req
 	impl.Logger.Infow("App detail request", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
 		"namespace", req.Namespace)
 
+	time.Sleep(50 * time.Second)
 	helmAppDetail, err := impl.HelmAppService.BuildAppDetail(req)
 	if err != nil {
 		if helmAppDetail != nil && !helmAppDetail.ReleaseExists {
@@ -91,7 +92,6 @@ func (impl *ApplicationServiceServerImpl) GetAppDetail(ctxt context.Context, req
 			"namespace", req.Namespace, "err", err)
 		return nil, err
 	}
-	time.Sleep(time.Second * 50)
 	res := impl.AppDetailAdaptor(helmAppDetail)
 	impl.Logger.Info("App Detail Request served")
 	return res, nil
