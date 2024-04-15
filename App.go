@@ -70,12 +70,12 @@ func (app *App) Start() {
 		}),
 		grpc.ChainStreamInterceptor(
 			grpc_prometheus.StreamServerInterceptor,
-			logging.StreamServerInterceptor(middlewares.InterceptorLogger(app.LoggerConfig.EnableLogger, app.Logger),
+			logging.StreamServerInterceptor(middlewares.InterceptorLogger(app.LoggerConfig.EnableLogger, app.LoggerConfig.RemoveReqFields, app.Logger),
 				logging.WithLogOnEvents(logging.PayloadReceived)),
 			recovery.StreamServerInterceptor(recoveryOption)), // panic interceptor, should be at last
 		grpc.ChainUnaryInterceptor(
 			grpc_prometheus.UnaryServerInterceptor,
-			logging.UnaryServerInterceptor(middlewares.InterceptorLogger(app.LoggerConfig.EnableLogger, app.Logger),
+			logging.UnaryServerInterceptor(middlewares.InterceptorLogger(app.LoggerConfig.EnableLogger, app.LoggerConfig.RemoveReqFields, app.Logger),
 				logging.WithLogOnEvents(logging.PayloadReceived)),
 			recovery.UnaryServerInterceptor(recoveryOption)), // panic interceptor, should be at last
 	}
@@ -103,7 +103,8 @@ func (app *App) Start() {
 }
 
 type LoggerConfig struct {
-	EnableLogger bool `env:"ENABLE_LOGGER" envDefault:"false"`
+	EnableLogger    bool     `env:"FEATURE_LOGGER_MIDDLEWARE_ENABLE" envDefault:"false"`
+	RemoveReqFields []string `env:"FEATURE_LOGGER_MIDDLEWARE_REMOVE_FIELDS" envSeparator:","`
 }
 
 func GetLoggerConfig() (*LoggerConfig, error) {

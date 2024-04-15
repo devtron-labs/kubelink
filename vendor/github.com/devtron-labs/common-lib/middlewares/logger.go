@@ -14,21 +14,13 @@ const (
 	MethodFieldKey  = "grpc.method"
 )
 
-type Method string
-
-const (
-	RunInCtx     Method = "RunInCtx"
-	ChartContent Method = "chartContent"
-	ValuesYaml   Method = "valuesYaml"
-)
-
 // InterceptorLogger adapts go-kit logger to interceptor logger.
-func InterceptorLogger(enableLogger bool, lg *zap.SugaredLogger) logging.Logger {
+func InterceptorLogger(enableLogger bool, removeFields []string, lg *zap.SugaredLogger) logging.Logger {
 	return logging.LoggerFunc(func(ctx context.Context, lvl logging.Level, msg string, fields ...any) {
 		if !enableLogger {
 			return
 		}
-		finalReq := extractRequestFromFields(fields)
+		finalReq := extractRequestFromFields(fields, removeFields)
 		index := getIndex(fields, MethodFieldKey)
 		message := fmt.Sprintf("AUDIT_LOG: requestMethod: %s, requestPayload: %s", fields[index+1], finalReq)
 		lg.Info(message)
@@ -38,14 +30,15 @@ func InterceptorLogger(enableLogger bool, lg *zap.SugaredLogger) logging.Logger 
 func getIndex(fields []any, fieldKey any) int {
 	return slices.Index(fields, fieldKey)
 }
-func extractRequestFromFields(fields []any) []byte {
+func extractRequestFromFields(fields []any, removeFields []string) []byte {
 	index := getIndex(fields, RequestFieldKey)
 	req := make(map[string]interface{})
 	marshal, _ := json.Marshal(fields[index+1])
 	json.Unmarshal(marshal, &req)
-	fieldsToRemove := []Method{RunInCtx, ChartContent, ValuesYaml}
-	for _, field := range fieldsToRemove {
-		delete(req, string(field))
+	if len(removeFields) > 0 {
+		for _, field := range removeFields {
+			delete(req, field)
+		}
 	}
 	finalReq, _ := json.Marshal(req)
 	return finalReq
