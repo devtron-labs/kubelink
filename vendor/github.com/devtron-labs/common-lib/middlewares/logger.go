@@ -22,23 +22,34 @@ func InterceptorLogger(enableLogger bool, removeFields []string, lg *zap.Sugared
 		}
 		finalReq := extractRequestFromFields(fields, removeFields)
 		index := getIndex(fields, MethodFieldKey)
+		if index == -1 {
+			return
+		}
 		message := fmt.Sprintf("AUDIT_LOG: requestMethod: %s, requestPayload: %s", fields[index+1], finalReq)
 		lg.Info(message)
 	})
 }
 
 func getIndex(fields []any, fieldKey any) int {
-	return slices.Index(fields, fieldKey)
+	index := slices.Index(fields, fieldKey)
+	if index == len(fields) {
+		return -1
+	}
+	return index
 }
 func extractRequestFromFields(fields []any, removeFields []string) []byte {
 	index := getIndex(fields, RequestFieldKey)
+	if index == -1 {
+		return []byte{}
+	}
 	req := make(map[string]interface{})
-	marshal, _ := json.Marshal(fields[index+1])
-	json.Unmarshal(marshal, &req)
-	if len(removeFields) > 0 {
-		for _, field := range removeFields {
-			delete(req, field)
-		}
+	marshalReq, _ := json.Marshal(fields[index+1])
+	if len(removeFields) == 0 {
+		return marshalReq
+	}
+	json.Unmarshal(marshalReq, &req)
+	for _, field := range removeFields {
+		delete(req, field)
 	}
 	finalReq, _ := json.Marshal(req)
 	return finalReq
