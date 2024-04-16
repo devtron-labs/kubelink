@@ -15,15 +15,14 @@ const (
 )
 
 // InterceptorLogger adapts go-kit logger to interceptor logger.
-func InterceptorLogger(enableLogger bool, removeFields []string, lg *zap.SugaredLogger) logging.Logger {
+func InterceptorLogger(enableLogger bool, lg *zap.SugaredLogger) logging.Logger {
 	return logging.LoggerFunc(func(ctx context.Context, lvl logging.Level, msg string, fields ...any) {
 		if !enableLogger {
 			return
 		}
-		req := extractFromFields(fields, RequestFieldKey)
-		finalReq := extractRequestAfterRemovingFields(req, removeFields)
-		methodName := extractFromFields(fields, MethodFieldKey)
-		message := fmt.Sprintf("AUDIT_LOG: requestMethod: %s, requestPayload: %s", methodName, finalReq)
+		reqPayload := extractFromFields(fields, RequestFieldKey)
+		reqMethodName := extractFromFields(fields, MethodFieldKey)
+		message := fmt.Sprintf("AUDIT_LOG: requestMethod: %s, requestPayload: %s", reqMethodName, reqPayload)
 		lg.Info(message)
 	})
 }
@@ -38,16 +37,4 @@ func extractFromFields(fields []any, key string) []byte {
 	}
 	marshalField, _ := json.Marshal(fields[index+1])
 	return marshalField
-}
-func extractRequestAfterRemovingFields(marshalReq []byte, removeFields []string) []byte {
-	if len(removeFields) == 0 {
-		return marshalReq
-	}
-	req := make(map[string]interface{})
-	json.Unmarshal(marshalReq, &req)
-	for _, field := range removeFields {
-		delete(req, field)
-	}
-	finalReq, _ := json.Marshal(req)
-	return finalReq
 }
