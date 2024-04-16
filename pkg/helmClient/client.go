@@ -11,6 +11,7 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/downloader"
 	"helm.sh/helm/v3/pkg/getter"
@@ -20,11 +21,14 @@ import (
 	"log"
 	"os"
 	"sigs.k8s.io/yaml"
+	"strconv"
+	"time"
 )
 
 var storage = repo.File{}
 
 const (
+	CHART_WORKING_DIR_PATH      = "/tmp/charts/"
 	defaultCachePath            = "/home/devtron/devtroncd/.helmcache"
 	defaultRepositoryConfigPath = "/home/devtron/devtroncd/.helmrepo"
 )
@@ -572,14 +576,15 @@ func (c *HelmClient) GetNotes(spec *ChartSpec, options *HelmTemplateOptions) ([]
 
 }
 
-func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions, chartData []byte) ([]byte, error) {
+func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions, chartData []byte, returnChartBytes bool) ([]byte, []byte, error) {
 	var helmChart *chart.Chart
 	var chartPath string
+	var chartBytes []byte
 	var err error
 	if chartData != nil {
 		helmChart, err = loader.LoadArchive(bytes.NewReader(chartData))
 		if err != nil {
-			return nil, err
+			return nil, chartBytes, err
 		}
 	}
 	c.ActionConfig.RegistryClient = spec.RegistryClient
@@ -601,7 +606,7 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 	// the ReleaseName if set or the generatedName as the first return value.
 	releaseName, _, err := client.NameAndChart([]string{spec.ChartName})
 	if err != nil {
-		return nil, err
+		return nil, chartBytes, err
 	}
 	client.ReleaseName = releaseName
 
@@ -613,13 +618,20 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 	if chartData == nil {
 		helmChart, err = c.getChartFromHelm(spec, client, helmChart, chartPath, err)
 		if err != nil {
-			return nil, err
+			return nil, chartBytes, err
+		}
+
+		if returnChartBytes {
+			chartBytes, err = getChartBytes(helmChart)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 	}
 
 	values, err := getValuesMap(spec)
 	if err != nil {
-		return nil, err
+		return nil, chartBytes, err
 	}
 
 	out := new(bytes.Buffer)
@@ -629,12 +641,12 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 			spec.ChartName,
 			spec.RepoURL,
 		)
-		return nil, err
+		return nil, chartBytes, err
 	}
 
 	// We ignore a potential error here because, when the --debug flag was specified,
 	// we always want to print the YAML, even if it is not valid. The error is still returned afterwards.
-	//if rel != nil {
+	// if rel != nil {
 	//	var manifests bytes.Buffer
 	//	fmt.Fprintln(&manifests, strings.TrimSpace(rel.Manifest))
 	//	if !client.DisableHooks {
@@ -646,10 +658,10 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 	//	// if we have a list of files to render, then check that each of the
 	//	// provided files exists in the chart.
 	//	fmt.Fprintf(out, "%s", manifests.String())
-	//}
+	// }
 	fmt.Fprintf(out, "%s", rel.Manifest)
 
-	return out.Bytes(), err
+	return out.Bytes(), chartBytes, err
 }
 
 func (c *HelmClient) getChartFromHelm(spec *ChartSpec, client *action.Install, helmChart *chart.Chart, chartPath string, err error) (*chart.Chart, error) {
@@ -731,4 +743,24 @@ func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPa
 		}
 	}
 	return helmChart, nil
+}
+
+func getChartBytes(helmChart *chart.Chart) ([]byte, error) {
+	dirPath := CHART_WORKING_DIR_PATH
+	outputChartPathDir := fmt.Sprintf("%s/%s", dirPath, strconv.FormatInt(time.Now().UnixNano(), 16))
+	err := os.MkdirAll(outputChartPathDir, os.ModePerm)
+	if err != nil {
+		return nil, err
+	}
+	absFilePath, err := chartutil.Save(helmChart, outputChartPathDir)
+	if err != nil {
+		fmt.Println("error in saving chartdata in the destination dir ", " dir : ", outputChartPathDir, " err : ", err)
+		return nil, err
+	}
+
+	chartBytes, err := os.ReadFile(absFilePath)
+	if err != nil {
+		fmt.Println("error in reading chartdata from the file ", " filePath : ", absFilePath, " err : ", err)
+	}
+	return chartBytes, nil
 }
