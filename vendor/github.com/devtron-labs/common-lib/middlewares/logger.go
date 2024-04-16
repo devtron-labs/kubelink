@@ -20,33 +20,30 @@ func InterceptorLogger(enableLogger bool, removeFields []string, lg *zap.Sugared
 		if !enableLogger {
 			return
 		}
-		finalReq := extractRequestFromFields(fields, removeFields)
-		index := getIndex(fields, MethodFieldKey)
-		if index == -1 {
-			return
-		}
-		message := fmt.Sprintf("AUDIT_LOG: requestMethod: %s, requestPayload: %s", fields[index+1], finalReq)
+		req := extractFromFields(fields, RequestFieldKey)
+		finalReq := extractRequestAfterRemovingFields(req, removeFields)
+		methodName := extractFromFields(fields, MethodFieldKey)
+		message := fmt.Sprintf("AUDIT_LOG: requestMethod: %s, requestPayload: %s", methodName, finalReq)
 		lg.Info(message)
 	})
 }
 
 func getIndex(fields []any, fieldKey any) int {
-	index := slices.Index(fields, fieldKey)
-	if index == len(fields) {
-		return -1
-	}
-	return index
+	return slices.Index(fields, fieldKey)
 }
-func extractRequestFromFields(fields []any, removeFields []string) []byte {
-	index := getIndex(fields, RequestFieldKey)
-	if index == -1 {
+func extractFromFields(fields []any, key string) []byte {
+	index := getIndex(fields, key)
+	if index == -1 || index == len(fields) {
 		return []byte{}
 	}
-	req := make(map[string]interface{})
-	marshalReq, _ := json.Marshal(fields[index+1])
+	marshalField, _ := json.Marshal(fields[index+1])
+	return marshalField
+}
+func extractRequestAfterRemovingFields(marshalReq []byte, removeFields []string) []byte {
 	if len(removeFields) == 0 {
 		return marshalReq
 	}
+	req := make(map[string]interface{})
 	json.Unmarshal(marshalReq, &req)
 	for _, field := range removeFields {
 		delete(req, field)
