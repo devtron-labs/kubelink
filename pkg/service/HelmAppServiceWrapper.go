@@ -313,7 +313,9 @@ func (impl *ApplicationServiceServerImpl) TemplateChart(ctx context.Context, in 
 
 	res := &client.TemplateChartResponse{
 		GeneratedManifest: manifest,
-		ChartBytes:        string(chartBytes),
+		ChartBytes: &client.ChartContent{
+			Content: chartBytes,
+		},
 	}
 
 	return res, err

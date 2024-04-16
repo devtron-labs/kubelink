@@ -622,7 +622,7 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 		}
 
 		if returnChartBytes {
-			chartBytes, err = getChartBytes(helmChart)
+			chartBytes, err = GetChartBytes(helmChart)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -745,13 +745,20 @@ func updateDependencies(helmChart *chart.Chart, chartPathOptions *action.ChartPa
 	return helmChart, nil
 }
 
-func getChartBytes(helmChart *chart.Chart) ([]byte, error) {
+func GetChartBytes(helmChart *chart.Chart) ([]byte, error) {
 	dirPath := CHART_WORKING_DIR_PATH
 	outputChartPathDir := fmt.Sprintf("%s/%s", dirPath, strconv.FormatInt(time.Now().UnixNano(), 16))
 	err := os.MkdirAll(outputChartPathDir, os.ModePerm)
 	if err != nil {
 		return nil, err
 	}
+
+	defer func() {
+		err := os.RemoveAll(outputChartPathDir)
+		if err != nil {
+			fmt.Println("error in deleting dir", " dir: ", outputChartPathDir, " err: ", err)
+		}
+	}()
 	absFilePath, err := chartutil.Save(helmChart, outputChartPathDir)
 	if err != nil {
 		fmt.Println("error in saving chartdata in the destination dir ", " dir : ", outputChartPathDir, " err : ", err)
@@ -762,5 +769,6 @@ func getChartBytes(helmChart *chart.Chart) ([]byte, error) {
 	if err != nil {
 		fmt.Println("error in reading chartdata from the file ", " filePath : ", absFilePath, " err : ", err)
 	}
+
 	return chartBytes, nil
 }
