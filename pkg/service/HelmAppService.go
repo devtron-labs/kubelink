@@ -1240,6 +1240,9 @@ func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDet
 	}
 	// build resource nodes
 	nodes, _, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
+	for _, node := range nodes {
+		impl.logger.Infow(node.Kind, "*****")
+	}
 	if err != nil {
 		return nil, err
 	}
