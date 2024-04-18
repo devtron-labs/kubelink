@@ -716,8 +716,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/devtron-labs/authenticator v0.4.31 h1:CEMLek3JnMuH9ULsC6BHNJr+NiyGzBd4lgdSxH2IGnc=
 github.com/devtron-labs/authenticator v0.4.31/go.mod h1:ozNfT8WcruiSgnUbyp48WVfc41++W6xYXhKFp67lNTU=
-github.com/devtron-labs/common-lib v0.0.16-0.20240416094654-bff0c937150f h1:ZItRLOFfw+ez7RmcwL5L/D0ZU5uOIoNfGMlfJuPtVFw=
-github.com/devtron-labs/common-lib v0.0.16-0.20240416094654-bff0c937150f/go.mod h1:1Zn+pXIj7ZOKHRe/AVfj2EdKjk+480wpSyYvu/v3ibY=
+github.com/devtron-labs/common-lib v0.0.16-0.20240418060324-b414ea7c74a3 h1:aVxyjK5ZhtF6Xt7EL5us01BNff4xbGs/Rxc7LVArGeI=
+github.com/devtron-labs/common-lib v0.0.16-0.20240418060324-b414ea7c74a3/go.mod h1:1Zn+pXIj7ZOKHRe/AVfj2EdKjk+480wpSyYvu/v3ibY=
 github.com/distribution/distribution/v3 v3.0.0-20221208165359-362910506bc2 h1:aBfCb7iqHmDEIp6fBvC/hQUddQfg+3qdYjwzaiP9Hnc=
 github.com/distribution/distribution/v3 v3.0.0-20221208165359-362910506bc2/go.mod h1:WHNsWjnIn2V1LYOrME7e8KxSeKunYHsxEm4am0BUtcI=
 github.com/docker/cli v24.0.6+incompatible h1:fF+XCQCgJjjQNIMjzaSmiKJSCcfcXb3TWTcc7GAneOY=

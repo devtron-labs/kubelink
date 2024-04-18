@@ -2,7 +2,6 @@ package middlewares
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"go.uber.org/zap"
@@ -30,11 +29,11 @@ func InterceptorLogger(enableLogger bool, lg *zap.SugaredLogger) logging.Logger 
 func getIndex(fields []any, fieldKey any) int {
 	return slices.Index(fields, fieldKey)
 }
-func extractFromFields(fields []any, key string) []byte {
+
+func extractFromFields(fields []any, key string) any {
 	index := getIndex(fields, key)
 	if index == -1 || index == len(fields) {
-		return []byte{}
+		return ""
 	}
-	marshalField, _ := json.Marshal(fields[index+1])
-	return marshalField
+	return fields[index+1]
 }
