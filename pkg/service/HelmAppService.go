@@ -945,14 +945,6 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 				}
 			}
 		}
-		//helmInstallMessage := HelmReleaseStatusConfig{
-		//	InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
-		//}
-		//helmInstallMessagedata, err := impl.GetNatsMessageForHelmInstallSuccess(helmInstallMessage)
-		//if err != nil {
-		//	impl.logger.Errorw("Error in parsing nats message for helm install success ", "err", err)
-		//}
-		//_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, helmInstallMessagedata)
 	case true:
 		go func() {
 			impl.logger.Debug("Upgrading release with chart info")
