@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
+	"github.com/caarlos0/env"
 	"github.com/devtron-labs/common-lib/constants"
 	"github.com/devtron-labs/common-lib/middlewares"
 	"github.com/devtron-labs/kubelink/api/router"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"go.uber.org/zap"
@@ -23,20 +25,27 @@ import (
 )
 
 type App struct {
-	Logger      *zap.SugaredLogger
-	ServerImpl  *service.ApplicationServiceServerImpl
-	router      *router.RouterImpl
-	k8sInformer k8sInformer.K8sInformer
+	Logger       *zap.SugaredLogger
+	ServerImpl   *service.ApplicationServiceServerImpl
+	router       *router.RouterImpl
+	k8sInformer  k8sInformer.K8sInformer
+	LoggerConfig *LoggerConfig
 }
 
 func NewApp(Logger *zap.SugaredLogger, ServerImpl *service.ApplicationServiceServerImpl,
-	router *router.RouterImpl, k8sInformer k8sInformer.K8sInformer) *App {
-	return &App{
+	router *router.RouterImpl, k8sInformer k8sInformer.K8sInformer) (*App, error) {
+	app := &App{
 		Logger:      Logger,
 		ServerImpl:  ServerImpl,
 		router:      router,
 		k8sInformer: k8sInformer,
 	}
+	cfg, err := GetLoggerConfig()
+	if err != nil {
+		return nil, err
+	}
+	app.LoggerConfig = cfg
+	return app, err
 }
 
 func (app *App) Start() {
@@ -61,9 +70,13 @@ func (app *App) Start() {
 		}),
 		grpc.ChainStreamInterceptor(
 			grpc_prometheus.StreamServerInterceptor,
+			logging.StreamServerInterceptor(middlewares.InterceptorLogger(app.LoggerConfig.EnableLogger, app.Logger),
+				logging.WithLogOnEvents(logging.PayloadReceived)),
 			recovery.StreamServerInterceptor(recoveryOption)), // panic interceptor, should be at last
 		grpc.ChainUnaryInterceptor(
 			grpc_prometheus.UnaryServerInterceptor,
+			logging.UnaryServerInterceptor(middlewares.InterceptorLogger(app.LoggerConfig.EnableLogger, app.Logger),
+				logging.WithLogOnEvents(logging.PayloadReceived)),
 			recovery.UnaryServerInterceptor(recoveryOption)), // panic interceptor, should be at last
 	}
 	app.router.InitRouter()
@@ -87,4 +100,14 @@ func (app *App) Start() {
 		app.Logger.Fatalw("failed to listen: %v", "err", err)
 	}
 
+}
+
+type LoggerConfig struct {
+	EnableLogger bool `env:"FEATURE_LOGGER_MIDDLEWARE_ENABLE" envDefault:"false"`
+}
+
+func GetLoggerConfig() (*LoggerConfig, error) {
+	cfg := &LoggerConfig{}
+	err := env.Parse(cfg)
+	return cfg, err
 }
