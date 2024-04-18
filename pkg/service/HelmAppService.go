@@ -786,15 +786,7 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 			impl.logger.Errorw("Error in install release ", "err", err)
 			return nil, err
 		}
-		//helmInstallMessage := HelmReleaseStatusConfig{
-		//	InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
-		//}
-		//helmInstallMessagedata, err := impl.GetNatsMessageForHelmInstallSuccess(helmInstallMessage)
-		//if err != nil {
-		//	impl.logger.Errorw("Error in parsing nats message for helm install success ", "err", err)
-		//}
-		//_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, helmInstallMessagedata)
-		// Install release ends
+
 		return rel, nil
 	case true:
 		go func() {
@@ -896,9 +888,11 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 			impl.logger.Errorw(HELM_CLIENT_ERROR, "err", err)
 			return nil, err
 		}
-		err = impl.OCIRegistryLogin(registryClient, request.RegistryCredential)
-		if err != nil {
-			return nil, err
+		if request.RegistryCredential != nil && !request.RegistryCredential.IsPublic {
+			err = impl.OCIRegistryLogin(registryClient, request.RegistryCredential)
+			if err != nil {
+				return nil, err
+			}
 		}
 		chartName = fmt.Sprintf("%s://%s/%s", "oci", request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
 	case false:
