@@ -876,13 +876,6 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 
 	switch request.IsOCIRepo {
 	case true:
-		username, password, err := impl.ExtractCredentialsForRegistry(request.RegistryCredential)
-		if err != nil {
-			return nil, err
-		}
-		// Updating registry credentials
-		request.RegistryCredential.Username = username
-		request.RegistryCredential.Password = password
 		registryClient, err = registry.NewClient()
 		if err != nil {
 			impl.logger.Errorw(HELM_CLIENT_ERROR, "err", err)
@@ -891,6 +884,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		if request.RegistryCredential != nil && !request.RegistryCredential.IsPublic {
 			err = impl.OCIRegistryLogin(registryClient, request.RegistryCredential)
 			if err != nil {
+				impl.logger.Errorw("error in oci registry login", "chartName", request.ChartName, "err", err)
 				return nil, err
 			}
 		}
