@@ -469,12 +469,6 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec) (*release.Rel
 
 	rel, err := client.RunWithContext(ctx, helmChart, values)
 	if err != nil {
-		if _, isExecError := err.(template.ExecError); isExecError {
-			return nil, status.Errorf(
-				codes.FailedPrecondition,
-				fmt.Sprintf("invalid template, err %s", err),
-			)
-		}
 		return rel, err
 	}
 
