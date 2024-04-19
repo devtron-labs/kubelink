@@ -221,23 +221,7 @@ func (impl HelmAppServiceImpl) GetResourceTreeForExternalResources(req *client.E
 		return nil, err
 	}
 
-	var manifests []*bean.DesiredOrLiveManifest
-	for _, resource := range req.ExternalResourceDetail {
-		gvk := &schema.GroupVersionKind{
-			Group:   resource.GetGroup(),
-			Version: resource.GetVersion(),
-			Kind:    resource.GetKind(),
-		}
-		manifest, _, err := impl.k8sService.GetLiveManifest(restConfig, resource.GetNamespace(), gvk, resource.GetName())
-		if err != nil {
-			impl.logger.Errorw("Error in getting live manifest", "err", err)
-			return nil, err
-		} else {
-			manifests = append(manifests, &bean.DesiredOrLiveManifest{
-				Manifest: manifest,
-			})
-		}
-	}
+	manifests := impl.getManifestsForExternalResources(restConfig, req.ExternalResourceDetail)
 	// build resource nodes
 	nodes, _, err := impl.buildNodes(restConfig, manifests, "", nil)
 	if err != nil {
@@ -256,6 +240,40 @@ func (impl HelmAppServiceImpl) GetResourceTreeForExternalResources(req *client.E
 		PodMetadata: podsMetadata,
 	}
 	return resourceTreeResponse, nil
+}
+
+func (impl HelmAppServiceImpl) getManifestsForExternalResources(restConfig *rest.Config, externalResourceDetails []*client.ExternalResourceDetail) []*bean.DesiredOrLiveManifest {
+	var manifests []*bean.DesiredOrLiveManifest
+	for _, resource := range externalResourceDetails {
+		gvk := &schema.GroupVersionKind{
+			Group:   resource.GetGroup(),
+			Version: resource.GetVersion(),
+			Kind:    resource.GetKind(),
+		}
+		manifest, _, err := impl.k8sService.GetLiveManifest(restConfig, resource.GetNamespace(), gvk, resource.GetName())
+		if err != nil {
+			impl.logger.Errorw("Error in getting live manifest", "err", err)
+			statusError, _ := err.(*errors2.StatusError)
+			desiredManifest := &unstructured.Unstructured{}
+			desiredManifest.SetGroupVersionKind(*gvk)
+			desiredManifest.SetName(resource.Name)
+			desiredManifest.SetNamespace(resource.Namespace)
+			desiredOrLiveManifest := &bean.DesiredOrLiveManifest{
+				Manifest: desiredManifest,
+				// using deep copy as it replaces item in manifest in loop
+				IsLiveManifestFetchError: true,
+			}
+			if statusError != nil {
+				desiredOrLiveManifest.LiveManifestFetchErrorCode = statusError.Status().Code
+			}
+			manifests = append(manifests, desiredOrLiveManifest)
+		} else {
+			manifests = append(manifests, &bean.DesiredOrLiveManifest{
+				Manifest: manifest,
+			})
+		}
+	}
+	return manifests
 }
 
 func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error) {
