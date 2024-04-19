@@ -469,6 +469,12 @@ func (c *HelmClient) install(ctx context.Context, spec *ChartSpec) (*release.Rel
 
 	rel, err := client.RunWithContext(ctx, helmChart, values)
 	if err != nil {
+		if _, isExecError := err.(template.ExecError); isExecError {
+			return nil, status.Errorf(
+				codes.FailedPrecondition,
+				fmt.Sprintf("invalid template, err %s", err),
+			)
+		}
 		return rel, err
 	}
 
@@ -563,7 +569,7 @@ func (c *HelmClient) GetNotes(spec *ChartSpec, options *HelmTemplateOptions) ([]
 	if err != nil {
 		if _, isExecError := err.(template.ExecError); isExecError {
 			return nil, status.Errorf(
-				error2.InvalidYAMLTemplate,
+				codes.FailedPrecondition,
 				fmt.Sprintf("invalid template, err %s", err),
 			)
 		}
@@ -634,7 +640,7 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 	if err != nil {
 		if _, isExecError := err.(template.ExecError); isExecError {
 			return nil, status.Errorf(
-				error2.InvalidYAMLTemplate,
+				codes.FailedPrecondition,
 				fmt.Sprintf("invalid template, err %s", err),
 			)
 		}
