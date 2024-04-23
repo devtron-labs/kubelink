@@ -296,7 +296,17 @@ func (impl *ApplicationServiceServerImpl) RollbackRelease(ctx context.Context, i
 	}
 	return res, err
 }
-
+func (impl *ApplicationServiceServerImpl) TemplateChartWrapper(ctx context.Context, in *client.InstallReleaseRequestWrapper) (*client.TemplateChartResponseWrapper, error) {
+	manifests, err := impl.HelmAppService.TemplateChartWrapper(ctx, in.InstallReleaseRequest)
+	if err != nil {
+		impl.Logger.Errorw("Error in Template chart request", "err", err)
+	}
+	var res []*client.TemplateChartResponse
+	for _, manifest := range manifests {
+		res = append(res, &client.TemplateChartResponse{GeneratedManifest: manifest})
+	}
+	return &client.TemplateChartResponseWrapper{TemplateChartResponse: res}, nil
+}
 func (impl *ApplicationServiceServerImpl) TemplateChart(ctx context.Context, in *client.InstallReleaseRequest) (*client.TemplateChartResponse, error) {
 	releaseIdentifier := in.ReleaseIdentifier
 	impl.Logger.Infow("Template chart request", "clusterName", releaseIdentifier.ClusterConfig.ClusterName, "releaseName", releaseIdentifier.ReleaseName,

@@ -86,6 +86,7 @@ type HelmAppService interface {
 	UpgradeReleaseWithChartInfo(ctx context.Context, request *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error)
 	IsReleaseInstalled(ctx context.Context, releaseIdentifier *client.ReleaseIdentifier) (bool, error)
 	RollbackRelease(request *client.RollbackReleaseRequest) (bool, error)
+	TemplateChartWrapper(ctx context.Context, request []*client.InstallReleaseRequest) ([]string, error)
 	TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error)
 	InstallReleaseWithCustomChart(ctx context.Context, req *client.HelmInstallCustomRequest) (bool, error)
 	GetNotes(ctx context.Context, installReleaseRequest *client.InstallReleaseRequest) (string, error)
@@ -1032,7 +1033,17 @@ func (impl HelmAppServiceImpl) RollbackRelease(request *client.RollbackReleaseRe
 
 	return true, nil
 }
-
+func (impl HelmAppServiceImpl) TemplateChartWrapper(ctx context.Context, request []*client.InstallReleaseRequest) ([]string, error) {
+	var manifestResponse []string
+	for _, req := range request {
+		manifest, err := impl.TemplateChart(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		manifestResponse = append(manifestResponse, manifest)
+	}
+	return manifestResponse, nil
+}
 func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, error) {
 
 	releaseIdentifier := request.ReleaseIdentifier
