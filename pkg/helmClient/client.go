@@ -22,6 +22,7 @@ import (
 	"os"
 	"sigs.k8s.io/yaml"
 	"strconv"
+	"text/template"
 	"time"
 )
 
@@ -564,6 +565,12 @@ func (c *HelmClient) GetNotes(spec *ChartSpec, options *HelmTemplateOptions) ([]
 	out := new(bytes.Buffer)
 	rel, err := client.Run(helmChart, values)
 	if err != nil {
+		if _, isExecError := err.(template.ExecError); isExecError {
+			return nil, status.Errorf(
+				codes.FailedPrecondition,
+				fmt.Sprintf("invalid template, err %s", err),
+			)
+		}
 		fmt.Errorf("error in fetching release for helm chart %q and repo Url %q",
 			spec.ChartName,
 			spec.RepoURL,
@@ -637,6 +644,12 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 	out := new(bytes.Buffer)
 	rel, err := client.Run(helmChart, values)
 	if err != nil {
+		if _, isExecError := err.(template.ExecError); isExecError {
+			return nil, chartBytes, status.Errorf(
+				codes.FailedPrecondition,
+				fmt.Sprintf("invalid template, err %s", err),
+			)
+		}
 		fmt.Errorf("error in fetching release for helm chart %q and repo Url %q",
 			spec.ChartName,
 			spec.RepoURL,
@@ -646,7 +659,7 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 
 	// We ignore a potential error here because, when the --debug flag was specified,
 	// we always want to print the YAML, even if it is not valid. The error is still returned afterwards.
-	// if rel != nil {
+	//if rel != nil {
 	//	var manifests bytes.Buffer
 	//	fmt.Fprintln(&manifests, strings.TrimSpace(rel.Manifest))
 	//	if !client.DisableHooks {
@@ -658,7 +671,7 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 	//	// if we have a list of files to render, then check that each of the
 	//	// provided files exists in the chart.
 	//	fmt.Fprintf(out, "%s", manifests.String())
-	// }
+	//}
 	fmt.Fprintf(out, "%s", rel.Manifest)
 
 	return out.Bytes(), chartBytes, err
