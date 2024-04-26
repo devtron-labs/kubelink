@@ -1775,6 +1775,7 @@ func (impl HelmAppServiceImpl) InstallReleaseWithCustomChart(ctx context.Context
 		Namespace:   releaseIdentifier.ReleaseNamespace,
 		ValuesYaml:  request.ValuesYaml,
 		ChartName:   referenceChartDir,
+		KubeVersion: request.K8SVersion,
 	}
 
 	impl.logger.Debug("Installing release with chart info")
@@ -1836,6 +1837,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 		Namespace:   releaseIdentifier.ReleaseNamespace,
 		ValuesYaml:  request.ValuesYaml,
 		ChartName:   referenceChartDir,
+		KubeVersion: request.K8SVersion,
 	}
 	// Update release spec
 	updateChartSpec := installChartSpec

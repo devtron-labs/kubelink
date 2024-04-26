@@ -11,6 +11,7 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
+	chartutil2 "helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/downloader"
 	"helm.sh/helm/v3/pkg/getter"
@@ -285,6 +286,13 @@ func (c *HelmClient) upgrade(ctx context.Context, helmChart *chart.Chart, update
 // Optionally lints the chart if the linting flag is set.
 func (c *HelmClient) upgradeWithChartInfo(ctx context.Context, spec *ChartSpec) (*release.Release, error) {
 	c.ActionConfig.RegistryClient = spec.RegistryClient
+	if len(spec.KubeVersion) > 0 {
+		c.ActionConfig.Capabilities = &chartutil2.Capabilities{
+			KubeVersion: chartutil2.KubeVersion{
+				Version: spec.KubeVersion,
+			},
+		}
+	}
 	client := action.NewUpgrade(c.ActionConfig)
 	copyUpgradeOptions(spec, client)
 
@@ -421,6 +429,13 @@ func (c *HelmClient) chartIsInstalled(releaseName string, releaseNamespace strin
 // install installs the provided chart.
 // Optionally lints the chart if the linting flag is set.
 func (c *HelmClient) install(ctx context.Context, spec *ChartSpec) (*release.Release, error) {
+	if len(spec.KubeVersion) > 0 {
+		c.ActionConfig.Capabilities = &chartutil2.Capabilities{
+			KubeVersion: chartutil2.KubeVersion{
+				Version: spec.KubeVersion,
+			},
+		}
+	}
 	client := action.NewInstall(c.ActionConfig)
 	copyInstallOptions(spec, client)
 
