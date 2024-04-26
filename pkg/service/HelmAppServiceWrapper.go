@@ -297,6 +297,30 @@ func (impl *ApplicationServiceServerImpl) RollbackRelease(ctx context.Context, i
 	return res, err
 }
 
+func (impl *ApplicationServiceServerImpl) TemplateChartAndRetrieveChart(ctx context.Context, in *client.InstallReleaseRequest) (*client.TemplateChartResponseWithChart, error) {
+	releaseIdentifier := in.ReleaseIdentifier
+	impl.Logger.Infow("Template chart request", "clusterName", releaseIdentifier.ClusterConfig.ClusterName, "releaseName", releaseIdentifier.ReleaseName,
+		"namespace", releaseIdentifier.ReleaseNamespace)
+	if in.ChartRepository != nil {
+		impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
+		defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
+	}
+	manifest, chart, err := impl.HelmAppService.TemplateChart(ctx, in, true)
+	if err != nil {
+		impl.Logger.Errorw("Error in Template chart request", "err", err)
+	}
+	impl.Logger.Info("Template chart request served")
+
+	res := &client.TemplateChartResponseWithChart{
+		TemplateChartResponse: &client.TemplateChartResponse{
+			GeneratedManifest: manifest,
+		},
+		ChartBytes: string(chart),
+	}
+
+	return res, err
+}
+
 func (impl *ApplicationServiceServerImpl) TemplateChart(ctx context.Context, in *client.InstallReleaseRequest) (*client.TemplateChartResponse, error) {
 	releaseIdentifier := in.ReleaseIdentifier
 	impl.Logger.Infow("Template chart request", "clusterName", releaseIdentifier.ClusterConfig.ClusterName, "releaseName", releaseIdentifier.ReleaseName,
@@ -305,7 +329,7 @@ func (impl *ApplicationServiceServerImpl) TemplateChart(ctx context.Context, in 
 		impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
 		defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
 	}
-	manifest, chartBytes, err := impl.HelmAppService.TemplateChart(ctx, in)
+	manifest, _, err := impl.HelmAppService.TemplateChart(ctx, in, false)
 	if err != nil {
 		impl.Logger.Errorw("Error in Template chart request", "err", err)
 	}
@@ -313,7 +337,7 @@ func (impl *ApplicationServiceServerImpl) TemplateChart(ctx context.Context, in 
 
 	res := &client.TemplateChartResponse{
 		GeneratedManifest: manifest,
-		ChartBytes:        string(chartBytes),
+		//ChartBytes:        string(chartBytes),
 	}
 
 	return res, err

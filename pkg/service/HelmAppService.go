@@ -86,7 +86,7 @@ type HelmAppService interface {
 	UpgradeReleaseWithChartInfo(ctx context.Context, request *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error)
 	IsReleaseInstalled(ctx context.Context, releaseIdentifier *client.ReleaseIdentifier) (bool, error)
 	RollbackRelease(request *client.RollbackReleaseRequest) (bool, error)
-	TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, []byte, error)
+	TemplateChart(ctx context.Context, request *client.InstallReleaseRequest, getChart bool) (string, []byte, error)
 	InstallReleaseWithCustomChart(ctx context.Context, req *client.HelmInstallCustomRequest) (bool, error)
 	GetNotes(ctx context.Context, installReleaseRequest *client.InstallReleaseRequest) (string, error)
 	UpgradeReleaseWithCustomChart(ctx context.Context, request *client.UpgradeReleaseRequest) (bool, error)
@@ -1033,7 +1033,7 @@ func (impl HelmAppServiceImpl) RollbackRelease(request *client.RollbackReleaseRe
 	return true, nil
 }
 
-func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *client.InstallReleaseRequest) (string, []byte, error) {
+func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *client.InstallReleaseRequest, getChart bool) (string, []byte, error) {
 
 	releaseIdentifier := request.ReleaseIdentifier
 
@@ -1085,7 +1085,7 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 	if request.ChartContent != nil {
 		content = request.ChartContent.Content
 	}
-	rel, chartBytes, err := helmClientObj.TemplateChart(chartSpec, HelmTemplateOptions, content, request.ReturnChartBytes)
+	rel, chartBytes, err := helmClientObj.TemplateChart(chartSpec, HelmTemplateOptions, content, getChart)
 	if err != nil {
 		impl.logger.Errorw("error occured while generating manifest in helm app service", "err:", err)
 		return "", nil, err
