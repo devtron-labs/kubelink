@@ -1052,7 +1052,7 @@ func (impl HelmAppServiceImpl) RollbackRelease(request *client.RollbackReleaseRe
 	return true, nil
 }
 func (impl HelmAppServiceImpl) TemplateChartBulk(ctx context.Context, request []*client.InstallReleaseRequest) (map[string]string, error) {
-	var manifestResponse map[string]string
+	manifestResponse := make(map[string]string)
 	for _, req := range request {
 		manifest, err := impl.TemplateChart(ctx, req)
 		if err != nil {
