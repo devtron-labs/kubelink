@@ -1969,7 +1969,7 @@ func (impl HelmAppServiceImpl) OCIRegistryLogin(client *registry.Client, registr
 	)
 	// helm registry login --username "" --password ""
 	err = client.Login(registryCredential.RegistryUrl,
-		registry.LoginOptBasicAuth(username, pwd), registry.LoginOptInsecure(false),
+		registry.LoginOptBasicAuth(username, pwd), registry.LoginOptInsecure(true),
 	)
 	if err != nil {
 		return err
