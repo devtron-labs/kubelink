@@ -2,8 +2,6 @@ package router
 
 import (
 	"encoding/json"
-	"github.com/devtron-labs/kubelink/internals/middleware"
-
 	"github.com/devtron-labs/common-lib/monitoring"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -36,7 +34,6 @@ func (r *RouterImpl) InitRouter() {
 	statsVizRouter := r.Router.PathPrefix("/kubelink").Subrouter()
 
 	r.monitoringRouter.InitMonitoringRouter(pProfListenerRouter, statsVizRouter, "/kubelink")
-	r.Router.Use(middleware.PrometheusMiddleware)
 	r.Router.PathPrefix("/metrics").Handler(promhttp.Handler())
 	r.Router.Path("/health").HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("Content-Type", "application/json")

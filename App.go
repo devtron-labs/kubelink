@@ -7,6 +7,7 @@ import (
 	"github.com/devtron-labs/common-lib/middlewares"
 	"github.com/devtron-labs/kubelink/api/router"
 	client "github.com/devtron-labs/kubelink/grpc"
+	"github.com/devtron-labs/kubelink/internals/middleware"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
 	"github.com/go-pg/pg"
@@ -72,6 +73,7 @@ func (app *App) Start() {
 			grpc_prometheus.UnaryServerInterceptor,
 			recovery.UnaryServerInterceptor(recoveryOption)), // panic interceptor, should be at last
 	}
+	app.router.Router.Use(middleware.PrometheusMiddleware)
 	app.router.InitRouter()
 	app.grpcServer = grpc.NewServer(opts...)
 	client.RegisterApplicationServiceServer(app.grpcServer, app.ServerImpl)
