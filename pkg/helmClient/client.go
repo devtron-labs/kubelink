@@ -5,9 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	error2 "github.com/devtron-labs/kubelink/error"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
+	chartutil2 "helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/downloader"
 	"helm.sh/helm/v3/pkg/getter"
@@ -17,6 +21,7 @@ import (
 	"log"
 	"os"
 	"sigs.k8s.io/yaml"
+	"text/template"
 )
 
 var storage = repo.File{}
@@ -282,6 +287,13 @@ func (c *HelmClient) upgrade(ctx context.Context, helmChart *chart.Chart, update
 // Optionally lints the chart if the linting flag is set.
 func (c *HelmClient) upgradeWithChartInfo(ctx context.Context, spec *ChartSpec) (*release.Release, error) {
 	c.ActionConfig.RegistryClient = spec.RegistryClient
+	if len(spec.KubeVersion) > 0 {
+		c.ActionConfig.Capabilities = &chartutil2.Capabilities{
+			KubeVersion: chartutil2.KubeVersion{
+				Version: spec.KubeVersion,
+			},
+		}
+	}
 	client := action.NewUpgrade(c.ActionConfig)
 	copyUpgradeOptions(spec, client)
 
@@ -309,7 +321,6 @@ func (c *HelmClient) upgradeWithChartInfo(ctx context.Context, spec *ChartSpec) 
 	if err != nil {
 		return nil, err
 	}
-
 	return release, nil
 }
 
@@ -388,6 +399,10 @@ func getValuesMap(spec *ChartSpec) (map[string]interface{}, error) {
 
 	err := yaml.Unmarshal([]byte(spec.ValuesYaml), &values)
 	if err != nil {
+		if error2.IsValidationError(err) {
+			err = status.New(codes.InvalidArgument, err.Error()).Err()
+			return nil, err
+		}
 		return nil, err
 	}
 
@@ -415,6 +430,13 @@ func (c *HelmClient) chartIsInstalled(releaseName string, releaseNamespace strin
 // install installs the provided chart.
 // Optionally lints the chart if the linting flag is set.
 func (c *HelmClient) install(ctx context.Context, spec *ChartSpec) (*release.Release, error) {
+	if len(spec.KubeVersion) > 0 {
+		c.ActionConfig.Capabilities = &chartutil2.Capabilities{
+			KubeVersion: chartutil2.KubeVersion{
+				Version: spec.KubeVersion,
+			},
+		}
+	}
 	client := action.NewInstall(c.ActionConfig)
 	copyInstallOptions(spec, client)
 
@@ -554,6 +576,12 @@ func (c *HelmClient) GetNotes(spec *ChartSpec, options *HelmTemplateOptions) ([]
 	out := new(bytes.Buffer)
 	rel, err := client.Run(helmChart, values)
 	if err != nil {
+		if _, isExecError := err.(template.ExecError); isExecError {
+			return nil, status.Errorf(
+				codes.FailedPrecondition,
+				fmt.Sprintf("invalid template, err %s", err),
+			)
+		}
 		fmt.Errorf("error in fetching release for helm chart %q and repo Url %q",
 			spec.ChartName,
 			spec.RepoURL,
@@ -619,6 +647,12 @@ func (c *HelmClient) TemplateChart(spec *ChartSpec, options *HelmTemplateOptions
 	out := new(bytes.Buffer)
 	rel, err := client.Run(helmChart, values)
 	if err != nil {
+		if _, isExecError := err.(template.ExecError); isExecError {
+			return nil, status.Errorf(
+				codes.FailedPrecondition,
+				fmt.Sprintf("invalid template, err %s", err),
+			)
+		}
 		fmt.Errorf("error in fetching release for helm chart %q and repo Url %q",
 			spec.ChartName,
 			spec.RepoURL,

@@ -11,6 +11,7 @@ import (
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	k8sObjectUtils "github.com/devtron-labs/common-lib/utils/k8sObjectsUtil"
 	"github.com/devtron-labs/kubelink/converter"
+	error2 "github.com/devtron-labs/kubelink/error"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	registry2 "github.com/devtron-labs/kubelink/pkg/registry"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -226,23 +227,7 @@ func (impl HelmAppServiceImpl) GetResourceTreeForExternalResources(req *client.E
 		return nil, err
 	}
 
-	var manifests []*bean.DesiredOrLiveManifest
-	for _, resource := range req.ExternalResourceDetail {
-		gvk := &schema.GroupVersionKind{
-			Group:   resource.GetGroup(),
-			Version: resource.GetVersion(),
-			Kind:    resource.GetKind(),
-		}
-		manifest, _, err := impl.K8sService.GetLiveManifest(restConfig, resource.GetNamespace(), gvk, resource.GetName())
-		if err != nil {
-			impl.Logger.Errorw("Error in getting live manifest", "err", err)
-			return nil, err
-		} else {
-			manifests = append(manifests, &bean.DesiredOrLiveManifest{
-				Manifest: manifest,
-			})
-		}
-	}
+	manifests := impl.getManifestsForExternalResources(restConfig, req.ExternalResourceDetail)
 	// build resource nodes
 	nodes, _, err := impl.buildNodes(restConfig, manifests, "", nil)
 	if err != nil {
@@ -263,6 +248,40 @@ func (impl HelmAppServiceImpl) GetResourceTreeForExternalResources(req *client.E
 	return resourceTreeResponse, nil
 }
 
+func (impl HelmAppServiceImpl) getManifestsForExternalResources(restConfig *rest.Config, externalResourceDetails []*client.ExternalResourceDetail) []*bean.DesiredOrLiveManifest {
+	var manifests []*bean.DesiredOrLiveManifest
+	for _, resource := range externalResourceDetails {
+		gvk := &schema.GroupVersionKind{
+			Group:   resource.GetGroup(),
+			Version: resource.GetVersion(),
+			Kind:    resource.GetKind(),
+		}
+		manifest, _, err := impl.K8sService.GetLiveManifest(restConfig, resource.GetNamespace(), gvk, resource.GetName())
+		if err != nil {
+			impl.Logger.Errorw("Error in getting live manifest", "err", err)
+			statusError, _ := err.(*errors2.StatusError)
+			desiredManifest := &unstructured.Unstructured{}
+			desiredManifest.SetGroupVersionKind(*gvk)
+			desiredManifest.SetName(resource.Name)
+			desiredManifest.SetNamespace(resource.Namespace)
+			desiredOrLiveManifest := &bean.DesiredOrLiveManifest{
+				Manifest: desiredManifest,
+				// using deep copy as it replaces item in manifest in loop
+				IsLiveManifestFetchError: true,
+			}
+			if statusError != nil {
+				desiredOrLiveManifest.LiveManifestFetchErrorCode = statusError.Status().Code
+			}
+			manifests = append(manifests, desiredOrLiveManifest)
+		} else {
+			manifests = append(manifests, &bean.DesiredOrLiveManifest{
+				Manifest: manifest,
+			})
+		}
+	}
+	return manifests
+}
+
 func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error) {
 	helmRelease, err := impl.getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
@@ -272,7 +291,6 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 		impl.Logger.Errorw("Error in getting helm release ", "err", err)
 		return nil, err
 	}
-
 	resourceTreeResponse, err := impl.buildResourceTree(req, helmRelease)
 	if err != nil {
 		impl.Logger.Errorw("error in building resource tree ", "err", err)
@@ -304,6 +322,19 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 
 	return appDetail, nil
 }
+
+type Resource struct {
+	UidToResourceRefMapping map[string]*bean.ResourceRef
+}
+
+//
+//func (k *Resource) action(resource *clustercache.Resource, _ map[kube.ResourceKey]*clustercache.Resource) bool {
+//	if resourceNode, ok := resource.Info.(*bean.ResourceNode); ok {
+//		k.UidToResourceRefMapping[resourceNode.UID] = resourceNode.ResourceRef
+//	}
+//	k.CacheResources = append(k.CacheResources, resource)
+//	return true
+//}
 
 func (impl *HelmAppServiceImpl) addHookResourcesInManifest(helmRelease *release.Release, manifests []unstructured.Unstructured) []unstructured.Unstructured {
 	for _, helmHook := range helmRelease.Hooks {
@@ -339,6 +370,21 @@ func (impl *HelmAppServiceImpl) getRestConfigForClusterConfig(clusterConfig *cli
 	}
 	return conf, nil
 }
+
+//func getNodeInfoFromHierarchy(node *clustercache.Resource, uidToResourceRefMapping map[string]*bean.ResourceRef) *bean.ResourceNode {
+//	resourceNode := &bean.ResourceNode{}
+//	var ok bool
+//	if resourceNode, ok = node.Info.(*bean.ResourceNode); ok {
+//		if node.OwnerRefs != nil {
+//			parentRefs := make([]*bean.ResourceRef, 0)
+//			for _, ownerRef := range node.OwnerRefs {
+//				parentRefs = append(parentRefs, uidToResourceRefMapping[string(ownerRef.UID)])
+//			}
+//			resourceNode.ParentRefs = parentRefs
+//		}
+//	}
+//	return resourceNode
+//}
 
 func (impl *HelmAppServiceImpl) FetchApplicationStatus(req *client.AppDetailRequest) (*client.AppStatus, error) {
 	helmAppStatus := &client.AppStatus{}
@@ -601,6 +647,10 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 		helmRelease, err := impl.getHelmRelease(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName)
 		if err != nil {
 			impl.Logger.Errorw("Error in getting helm release ", "err", err)
+			internalErr := error2.ConvertHelmErrorToInternalError(err)
+			if internalErr != nil {
+				err = internalErr
+			}
 			return nil, err
 		}
 
@@ -616,6 +666,10 @@ func (impl HelmAppServiceImpl) UpgradeRelease(ctx context.Context, request *clie
 		_, err = helmClientObj.UpgradeRelease(context.Background(), helmRelease.Chart, updateChartSpec)
 		if err != nil {
 			impl.Logger.Errorw("Error in upgrade release ", "err", err)
+			internalErr := error2.ConvertHelmErrorToInternalError(err)
+			if internalErr != nil {
+				err = internalErr
+			}
 			return nil, err
 		}
 
@@ -778,15 +832,7 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 			impl.Logger.Errorw("Error in install release ", "err", err)
 			return nil, err
 		}
-		//helmInstallMessage := HelmReleaseStatusConfig{
-		//	InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
-		//}
-		//helmInstallMessagedata, err := impl.GetNatsMessageForHelmInstallSuccess(helmInstallMessage)
-		//if err != nil {
-		//	impl.Logger.Errorw("Error in parsing nats message for helm install success ", "err", err)
-		//}
-		//_ = impl.PubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, helmInstallMessagedata)
-		// Install release ends
+
 		return rel, nil
 	case true:
 		go func() {
@@ -844,6 +890,7 @@ func (impl HelmAppServiceImpl) GetNotes(ctx context.Context, request *client.Ins
 		MaxHistory:    0,    // limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
 		RepoURL:       request.ChartRepository.Url,
 		Version:       request.ChartVersion,
+		ValuesYaml:    request.ValuesYaml,
 	}
 	HelmTemplateOptions := &helmClient.HelmTemplateOptions{}
 	if request.K8SVersion != "" {
@@ -875,14 +922,6 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 
 	switch request.IsOCIRepo {
 	case true:
-		username, password, err := impl.ExtractCredentialsForRegistry(request.RegistryCredential)
-		if err != nil {
-			return nil, err
-		}
-		// Updating registry credentials
-		request.RegistryCredential.Username = username
-		request.RegistryCredential.Password = password
-
 		registryClient, err := impl.registryClientGetter.GetRegistryClient(request.RegistryCredential)
 		if err != nil {
 			impl.Logger.Errorw(HELM_CLIENT_ERROR, "chartName", request.ChartName, "err", err)
@@ -896,9 +935,12 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		}
 		request.RegistryCredential.RegistryUrl = hostUrl
 
-		err = impl.OCIRegistryLogin(registryClient, request.RegistryCredential)
-		if err != nil {
-			return nil, err
+		if request.RegistryCredential != nil && !request.RegistryCredential.IsPublic {
+			err = impl.OCIRegistryLogin(registryClient, request.RegistryCredential)
+			if err != nil {
+				impl.Logger.Errorw("error in oci registry login", "chartName", request.ChartName, "err", err)
+				return nil, err
+			}
 		}
 		chartName, err = parseOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
 		if err != nil {
@@ -947,7 +989,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
 		if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
 			if UpgradeErr != nil {
-				if UpgradeErr.Err == driver.ErrReleaseNotFound {
+				if util.IsReleaseNotFoundError(UpgradeErr.Err) {
 					_, err := helmClientObj.InstallChart(context.Background(), chartSpec)
 					if err != nil {
 						impl.Logger.Errorw("Error in install release ", "err", err)
@@ -961,14 +1003,6 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 				}
 			}
 		}
-		//helmInstallMessage := HelmReleaseStatusConfig{
-		//	InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
-		//}
-		//helmInstallMessagedata, err := impl.GetNatsMessageForHelmInstallSuccess(helmInstallMessage)
-		//if err != nil {
-		//	impl.Logger.Errorw("Error in parsing nats message for helm install success ", "err", err)
-		//}
-		//_ = impl.PubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, helmInstallMessagedata)
 	case true:
 		go func() {
 			impl.Logger.Debug("Upgrading release with chart info")
@@ -980,7 +1014,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 
 			if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
 				if UpgradeErr != nil {
-					if UpgradeErr.Err == driver.ErrReleaseNotFound {
+					if util.IsReleaseNotFoundError(UpgradeErr.Err) {
 						_, err := helmClientObj.InstallChart(context.Background(), chartSpec)
 						if err != nil {
 							HelmInstallFailureNatsMessage, _ = impl.GetNatsMessageForHelmInstallError(ctx, helmInstallMessage, releaseIdentifier, err)
@@ -1801,12 +1835,17 @@ func (impl HelmAppServiceImpl) InstallReleaseWithCustomChart(ctx context.Context
 		Namespace:   releaseIdentifier.ReleaseNamespace,
 		ValuesYaml:  request.ValuesYaml,
 		ChartName:   referenceChartDir,
+		KubeVersion: request.K8SVersion,
 	}
 
 	impl.Logger.Debug("Installing release with chart info")
 	_, err = helmClientObj.InstallChart(ctx, chartSpec)
 	if err != nil {
 		impl.Logger.Errorw("Error in install chart", "err", err)
+		internalErr := error2.ConvertHelmErrorToInternalError(err)
+		if internalErr != nil {
+			err = internalErr
+		}
 		return false, err
 	}
 	// Install release ends
@@ -1858,6 +1897,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 		Namespace:   releaseIdentifier.ReleaseNamespace,
 		ValuesYaml:  request.ValuesYaml,
 		ChartName:   referenceChartDir,
+		KubeVersion: request.K8SVersion,
 	}
 	// Update release spec
 	updateChartSpec := installChartSpec
@@ -1868,10 +1908,14 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 	impl.Logger.Debugw("response form UpgradeReleaseWithChartInfo", "err", err)
 	if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
 		if UpgradeErr != nil {
-			if UpgradeErr.Err == driver.ErrNoDeployedReleases {
+			if util.IsReleaseNotFoundError(UpgradeErr.Err) {
 				_, err := helmClientObj.InstallChart(ctx, installChartSpec)
 				if err != nil {
 					impl.Logger.Errorw("Error in install release ", "err", err)
+					internalErr := error2.ConvertHelmErrorToInternalError(err)
+					if internalErr != nil {
+						err = internalErr
+					}
 					return false, err
 				}
 
@@ -1882,8 +1926,11 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 			}
 		}
 	} else if err != nil {
-
 		impl.Logger.Errorw("Error in upgrade release with chart info", "err", err)
+		internalErr := error2.ConvertHelmErrorToInternalError(err)
+		if internalErr != nil {
+			err = internalErr
+		}
 		return false, err
 
 	}
