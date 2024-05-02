@@ -304,7 +304,7 @@ message InstallReleaseRequest {
 }
 
 message  BulkInstallReleaseRequest{
-  repeated  InstallReleaseRequest InstallReleaseRequest=1;
+  repeated  InstallReleaseRequest BulkInstallReleaseRequest=1;
 }
 
 message InstallReleaseResponse {
@@ -326,7 +326,7 @@ message TemplateChartResponse {
 }
 
 message BulkTemplateChartResponse {
-  repeated TemplateChartResponse TemplateChartResponse=1;
+  repeated TemplateChartResponse BulkTemplateChartResponse=1;
 }
 
 message HelmInstallCustomRequest {
