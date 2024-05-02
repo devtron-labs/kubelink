@@ -298,7 +298,7 @@ func (impl *ApplicationServiceServerImpl) RollbackRelease(ctx context.Context, i
 }
 
 func (impl *ApplicationServiceServerImpl) TemplateChartBulk(ctx context.Context, in *client.BulkInstallReleaseRequest) (*client.BulkTemplateChartResponse, error) {
-	manifests, err := impl.HelmAppService.TemplateChartBulk(ctx, in.InstallReleaseRequest)
+	manifests, err := impl.HelmAppService.TemplateChartBulk(ctx, in.BulkInstallReleaseRequest)
 	if err != nil {
 		impl.Logger.Errorw("Error in Template chart request", "err", err)
 	}
@@ -306,7 +306,7 @@ func (impl *ApplicationServiceServerImpl) TemplateChartBulk(ctx context.Context,
 	for appName, manifest := range manifests {
 		res = append(res, &client.TemplateChartResponse{GeneratedManifest: manifest, AppName: appName})
 	}
-	return &client.BulkTemplateChartResponse{TemplateChartResponse: res}, nil
+	return &client.BulkTemplateChartResponse{BulkTemplateChartResponse: res}, nil
 }
 
 func (impl *ApplicationServiceServerImpl) TemplateChart(ctx context.Context, in *client.InstallReleaseRequest) (*client.TemplateChartResponse, error) {
