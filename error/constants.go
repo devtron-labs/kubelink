@@ -8,7 +8,7 @@ const (
 	ClusterUnreachableErrorMsg  = "cluster unreachable"
 	CrdPreconditionErrorMsg     = "ensure CRDs are installed first"
 	ArrayStringMismatchErrorMsg = "got array expected string"
-	NamespaceNotFoundErrorMsg   = "not found"
+	//NamespaceNotFoundErrorMsg   = "not found" // todo - add more acurate error message, this is very generic
 	InvalidValueErrorMsg        = "Invalid value"
 	OperationInProgressErrorMsg = "another operation (install/upgrade/rollback) is in progress"
 )
@@ -24,9 +24,9 @@ const (
 )
 
 var helmErrorInternalErrorMap = map[string]map[string]codes.Code{
-	ClusterUnreachableErrorMsg:  {InternalClusterUnreachableErrorMsg: codes.DeadlineExceeded},
-	CrdPreconditionErrorMsg:     {InternalCrdPreconditionErrorMsg: codes.FailedPrecondition},
-	NamespaceNotFoundErrorMsg:   {InternalNamespaceNotFoundErrorMsg: codes.Unknown},
+	ClusterUnreachableErrorMsg: {InternalClusterUnreachableErrorMsg: codes.DeadlineExceeded},
+	CrdPreconditionErrorMsg:    {InternalCrdPreconditionErrorMsg: codes.FailedPrecondition},
+	//NamespaceNotFoundErrorMsg:   {InternalNamespaceNotFoundErrorMsg: codes.Unknown},
 	ArrayStringMismatchErrorMsg: {InternalArrayStringMismatchErrorMsg: codes.Unknown},
 	InvalidValueErrorMsg:        {InternalInvalidValueErrorMsg: codes.Unknown},
 	OperationInProgressErrorMsg: {InternalOperationInProgressErrorMsg: codes.FailedPrecondition},
