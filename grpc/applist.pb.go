@@ -2290,6 +2290,7 @@ type UpgradeReleaseRequest struct {
 	HistoryMax        int32              `protobuf:"varint,3,opt,name=historyMax,proto3" json:"historyMax,omitempty"`
 	ChartContent      *ChartContent      `protobuf:"bytes,4,opt,name=chartContent,proto3" json:"chartContent,omitempty"`
 	RunInCtx          bool               `protobuf:"varint,5,opt,name=RunInCtx,proto3" json:"RunInCtx,omitempty"`
+	K8SVersion        string             `protobuf:"bytes,6,opt,name=K8sVersion,proto3" json:"K8sVersion,omitempty"`
 }
 
 func (x *UpgradeReleaseRequest) Reset() {
@@ -2357,6 +2358,13 @@ func (x *UpgradeReleaseRequest) GetRunInCtx() bool {
 		return x.RunInCtx
 	}
 	return false
+}
+
+func (x *UpgradeReleaseRequest) GetK8SVersion() string {
+	if x != nil {
+		return x.K8SVersion
+	}
+	return ""
 }
 
 type UpgradeReleaseResponse struct {
@@ -3020,6 +3028,61 @@ func (x *BulkTemplateChartResponse) GetBulkTemplateChartResponse() []*TemplateCh
 	return nil
 }
 
+type TemplateChartResponseWithChart struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	TemplateChartResponse *TemplateChartResponse `protobuf:"bytes,1,opt,name=templateChartResponse,proto3" json:"templateChartResponse,omitempty"`
+	ChartBytes            *ChartContent          `protobuf:"bytes,2,opt,name=chartBytes,proto3" json:"chartBytes,omitempty"`
+}
+
+func (x *TemplateChartResponseWithChart) Reset() {
+	*x = TemplateChartResponseWithChart{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_grpc_applist_proto_msgTypes[43]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *TemplateChartResponseWithChart) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TemplateChartResponseWithChart) ProtoMessage() {}
+
+func (x *TemplateChartResponseWithChart) ProtoReflect() protoreflect.Message {
+	mi := &file_grpc_applist_proto_msgTypes[43]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TemplateChartResponseWithChart.ProtoReflect.Descriptor instead.
+func (*TemplateChartResponseWithChart) Descriptor() ([]byte, []int) {
+	return file_grpc_applist_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *TemplateChartResponseWithChart) GetTemplateChartResponse() *TemplateChartResponse {
+	if x != nil {
+		return x.TemplateChartResponse
+	}
+	return nil
+}
+
+func (x *TemplateChartResponseWithChart) GetChartBytes() *ChartContent {
+	if x != nil {
+		return x.ChartBytes
+	}
+	return nil
+}
+
 type HelmInstallCustomRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3029,12 +3092,13 @@ type HelmInstallCustomRequest struct {
 	ChartContent      *ChartContent      `protobuf:"bytes,2,opt,name=chartContent,proto3" json:"chartContent,omitempty"`
 	ReleaseIdentifier *ReleaseIdentifier `protobuf:"bytes,3,opt,name=releaseIdentifier,proto3" json:"releaseIdentifier,omitempty"`
 	RunInCtx          bool               `protobuf:"varint,4,opt,name=RunInCtx,proto3" json:"RunInCtx,omitempty"`
+	K8SVersion        string             `protobuf:"bytes,5,opt,name=K8sVersion,proto3" json:"K8sVersion,omitempty"`
 }
 
 func (x *HelmInstallCustomRequest) Reset() {
 	*x = HelmInstallCustomRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_grpc_applist_proto_msgTypes[43]
+		mi := &file_grpc_applist_proto_msgTypes[44]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3047,7 +3111,7 @@ func (x *HelmInstallCustomRequest) String() string {
 func (*HelmInstallCustomRequest) ProtoMessage() {}
 
 func (x *HelmInstallCustomRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_applist_proto_msgTypes[43]
+	mi := &file_grpc_applist_proto_msgTypes[44]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3060,7 +3124,7 @@ func (x *HelmInstallCustomRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HelmInstallCustomRequest.ProtoReflect.Descriptor instead.
 func (*HelmInstallCustomRequest) Descriptor() ([]byte, []int) {
-	return file_grpc_applist_proto_rawDescGZIP(), []int{43}
+	return file_grpc_applist_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *HelmInstallCustomRequest) GetValuesYaml() string {
@@ -3091,6 +3155,13 @@ func (x *HelmInstallCustomRequest) GetRunInCtx() bool {
 	return false
 }
 
+func (x *HelmInstallCustomRequest) GetK8SVersion() string {
+	if x != nil {
+		return x.K8SVersion
+	}
+	return ""
+}
+
 type HelmInstallCustomResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3102,7 +3173,7 @@ type HelmInstallCustomResponse struct {
 func (x *HelmInstallCustomResponse) Reset() {
 	*x = HelmInstallCustomResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_grpc_applist_proto_msgTypes[44]
+		mi := &file_grpc_applist_proto_msgTypes[45]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3115,7 +3186,7 @@ func (x *HelmInstallCustomResponse) String() string {
 func (*HelmInstallCustomResponse) ProtoMessage() {}
 
 func (x *HelmInstallCustomResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_applist_proto_msgTypes[44]
+	mi := &file_grpc_applist_proto_msgTypes[45]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3128,7 +3199,7 @@ func (x *HelmInstallCustomResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HelmInstallCustomResponse.ProtoReflect.Descriptor instead.
 func (*HelmInstallCustomResponse) Descriptor() ([]byte, []int) {
-	return file_grpc_applist_proto_rawDescGZIP(), []int{44}
+	return file_grpc_applist_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *HelmInstallCustomResponse) GetSuccess() bool {
@@ -3149,7 +3220,7 @@ type ChartContent struct {
 func (x *ChartContent) Reset() {
 	*x = ChartContent{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_grpc_applist_proto_msgTypes[45]
+		mi := &file_grpc_applist_proto_msgTypes[46]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3162,7 +3233,7 @@ func (x *ChartContent) String() string {
 func (*ChartContent) ProtoMessage() {}
 
 func (x *ChartContent) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_applist_proto_msgTypes[45]
+	mi := &file_grpc_applist_proto_msgTypes[46]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3175,7 +3246,7 @@ func (x *ChartContent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChartContent.ProtoReflect.Descriptor instead.
 func (*ChartContent) Descriptor() ([]byte, []int) {
-	return file_grpc_applist_proto_rawDescGZIP(), []int{45}
+	return file_grpc_applist_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ChartContent) GetContent() []byte {
@@ -3198,7 +3269,7 @@ type Gvk struct {
 func (x *Gvk) Reset() {
 	*x = Gvk{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_grpc_applist_proto_msgTypes[46]
+		mi := &file_grpc_applist_proto_msgTypes[47]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3211,7 +3282,7 @@ func (x *Gvk) String() string {
 func (*Gvk) ProtoMessage() {}
 
 func (x *Gvk) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_applist_proto_msgTypes[46]
+	mi := &file_grpc_applist_proto_msgTypes[47]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3224,7 +3295,7 @@ func (x *Gvk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Gvk.ProtoReflect.Descriptor instead.
 func (*Gvk) Descriptor() ([]byte, []int) {
-	return file_grpc_applist_proto_rawDescGZIP(), []int{46}
+	return file_grpc_applist_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *Gvk) GetGroup() string {
@@ -3260,7 +3331,7 @@ type ResourceFilter struct {
 func (x *ResourceFilter) Reset() {
 	*x = ResourceFilter{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_grpc_applist_proto_msgTypes[47]
+		mi := &file_grpc_applist_proto_msgTypes[48]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3273,7 +3344,7 @@ func (x *ResourceFilter) String() string {
 func (*ResourceFilter) ProtoMessage() {}
 
 func (x *ResourceFilter) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_applist_proto_msgTypes[47]
+	mi := &file_grpc_applist_proto_msgTypes[48]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3286,7 +3357,7 @@ func (x *ResourceFilter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceFilter.ProtoReflect.Descriptor instead.
 func (*ResourceFilter) Descriptor() ([]byte, []int) {
-	return file_grpc_applist_proto_rawDescGZIP(), []int{47}
+	return file_grpc_applist_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *ResourceFilter) GetGvk() *Gvk {
@@ -3314,7 +3385,7 @@ type ResourceIdentifier struct {
 func (x *ResourceIdentifier) Reset() {
 	*x = ResourceIdentifier{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_grpc_applist_proto_msgTypes[48]
+		mi := &file_grpc_applist_proto_msgTypes[49]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3327,7 +3398,7 @@ func (x *ResourceIdentifier) String() string {
 func (*ResourceIdentifier) ProtoMessage() {}
 
 func (x *ResourceIdentifier) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_applist_proto_msgTypes[48]
+	mi := &file_grpc_applist_proto_msgTypes[49]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3340,7 +3411,7 @@ func (x *ResourceIdentifier) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceIdentifier.ProtoReflect.Descriptor instead.
 func (*ResourceIdentifier) Descriptor() ([]byte, []int) {
-	return file_grpc_applist_proto_rawDescGZIP(), []int{48}
+	return file_grpc_applist_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *ResourceIdentifier) GetLabels() map[string]string {
@@ -3362,7 +3433,7 @@ type ResourceTreeFilter struct {
 func (x *ResourceTreeFilter) Reset() {
 	*x = ResourceTreeFilter{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_grpc_applist_proto_msgTypes[49]
+		mi := &file_grpc_applist_proto_msgTypes[50]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3375,7 +3446,7 @@ func (x *ResourceTreeFilter) String() string {
 func (*ResourceTreeFilter) ProtoMessage() {}
 
 func (x *ResourceTreeFilter) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_applist_proto_msgTypes[49]
+	mi := &file_grpc_applist_proto_msgTypes[50]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3388,7 +3459,7 @@ func (x *ResourceTreeFilter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceTreeFilter.ProtoReflect.Descriptor instead.
 func (*ResourceTreeFilter) Descriptor() ([]byte, []int) {
-	return file_grpc_applist_proto_rawDescGZIP(), []int{49}
+	return file_grpc_applist_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *ResourceTreeFilter) GetGlobalFilter() *ResourceIdentifier {
@@ -3416,7 +3487,7 @@ type ChartNotesResponse struct {
 func (x *ChartNotesResponse) Reset() {
 	*x = ChartNotesResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_grpc_applist_proto_msgTypes[50]
+		mi := &file_grpc_applist_proto_msgTypes[51]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3429,7 +3500,7 @@ func (x *ChartNotesResponse) String() string {
 func (*ChartNotesResponse) ProtoMessage() {}
 
 func (x *ChartNotesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_applist_proto_msgTypes[50]
+	mi := &file_grpc_applist_proto_msgTypes[51]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3442,7 +3513,7 @@ func (x *ChartNotesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChartNotesResponse.ProtoReflect.Descriptor instead.
 func (*ChartNotesResponse) Descriptor() ([]byte, []int) {
-	return file_grpc_applist_proto_rawDescGZIP(), []int{50}
+	return file_grpc_applist_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *ChartNotesResponse) GetNotes() string {
@@ -3467,7 +3538,7 @@ type OCIRegistryRequest struct {
 func (x *OCIRegistryRequest) Reset() {
 	*x = OCIRegistryRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_grpc_applist_proto_msgTypes[51]
+		mi := &file_grpc_applist_proto_msgTypes[52]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3480,7 +3551,7 @@ func (x *OCIRegistryRequest) String() string {
 func (*OCIRegistryRequest) ProtoMessage() {}
 
 func (x *OCIRegistryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_applist_proto_msgTypes[51]
+	mi := &file_grpc_applist_proto_msgTypes[52]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3493,7 +3564,7 @@ func (x *OCIRegistryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OCIRegistryRequest.ProtoReflect.Descriptor instead.
 func (*OCIRegistryRequest) Descriptor() ([]byte, []int) {
-	return file_grpc_applist_proto_rawDescGZIP(), []int{51}
+	return file_grpc_applist_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *OCIRegistryRequest) GetChart() []byte {
@@ -3550,7 +3621,7 @@ type RegistryCredential struct {
 func (x *RegistryCredential) Reset() {
 	*x = RegistryCredential{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_grpc_applist_proto_msgTypes[52]
+		mi := &file_grpc_applist_proto_msgTypes[53]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3563,7 +3634,7 @@ func (x *RegistryCredential) String() string {
 func (*RegistryCredential) ProtoMessage() {}
 
 func (x *RegistryCredential) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_applist_proto_msgTypes[52]
+	mi := &file_grpc_applist_proto_msgTypes[53]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3576,7 +3647,7 @@ func (x *RegistryCredential) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegistryCredential.ProtoReflect.Descriptor instead.
 func (*RegistryCredential) Descriptor() ([]byte, []int) {
-	return file_grpc_applist_proto_rawDescGZIP(), []int{52}
+	return file_grpc_applist_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *RegistryCredential) GetRegistryUrl() string {
@@ -3654,7 +3725,7 @@ type OCIRegistryResponse struct {
 func (x *OCIRegistryResponse) Reset() {
 	*x = OCIRegistryResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_grpc_applist_proto_msgTypes[53]
+		mi := &file_grpc_applist_proto_msgTypes[54]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3667,7 +3738,7 @@ func (x *OCIRegistryResponse) String() string {
 func (*OCIRegistryResponse) ProtoMessage() {}
 
 func (x *OCIRegistryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_applist_proto_msgTypes[53]
+	mi := &file_grpc_applist_proto_msgTypes[54]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3680,7 +3751,7 @@ func (x *OCIRegistryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OCIRegistryResponse.ProtoReflect.Descriptor instead.
 func (*OCIRegistryResponse) Descriptor() ([]byte, []int) {
-	return file_grpc_applist_proto_rawDescGZIP(), []int{53}
+	return file_grpc_applist_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *OCIRegistryResponse) GetIsLoggedIn() bool {
@@ -3709,7 +3780,7 @@ type OCIRegistryPushResponse struct {
 func (x *OCIRegistryPushResponse) Reset() {
 	*x = OCIRegistryPushResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_grpc_applist_proto_msgTypes[54]
+		mi := &file_grpc_applist_proto_msgTypes[55]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3722,7 +3793,7 @@ func (x *OCIRegistryPushResponse) String() string {
 func (*OCIRegistryPushResponse) ProtoMessage() {}
 
 func (x *OCIRegistryPushResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_applist_proto_msgTypes[54]
+	mi := &file_grpc_applist_proto_msgTypes[55]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3735,7 +3806,7 @@ func (x *OCIRegistryPushResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OCIRegistryPushResponse.ProtoReflect.Descriptor instead.
 func (*OCIRegistryPushResponse) Descriptor() ([]byte, []int) {
-	return file_grpc_applist_proto_rawDescGZIP(), []int{54}
+	return file_grpc_applist_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *OCIRegistryPushResponse) GetDigest() string {
@@ -4105,7 +4176,7 @@ var file_grpc_applist_proto_rawDesc = []byte{
 	0x09, 0x52, 0x0b, 0x72, 0x65, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x2a,
 	0x0a, 0x10, 0x72, 0x65, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61,
 	0x63, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x10, 0x72, 0x65, 0x6c, 0x65, 0x61, 0x73,
-	0x65, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x22, 0xe8, 0x01, 0x0a, 0x15, 0x55,
+	0x65, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x22, 0x88, 0x02, 0x0a, 0x15, 0x55,
 	0x70, 0x67, 0x72, 0x61, 0x64, 0x65, 0x52, 0x65, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x52, 0x65, 0x71,
 	0x75, 0x65, 0x73, 0x74, 0x12, 0x40, 0x0a, 0x11, 0x72, 0x65, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x49,
 	0x64, 0x65, 0x6e, 0x74, 0x69, 0x66, 0x69, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32,
@@ -4120,7 +4191,9 @@ var file_grpc_applist_proto_rawDesc = []byte{
 	0x68, 0x61, 0x72, 0x74, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x52, 0x0c, 0x63, 0x68, 0x61,
 	0x72, 0x74, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x12, 0x1a, 0x0a, 0x08, 0x52, 0x75, 0x6e,
 	0x49, 0x6e, 0x43, 0x74, 0x78, 0x18, 0x05, 0x20, 0x01, 0x28, 0x08, 0x52, 0x08, 0x52, 0x75, 0x6e,
-	0x49, 0x6e, 0x43, 0x74, 0x78, 0x22, 0x32, 0x0a, 0x16, 0x55, 0x70, 0x67, 0x72, 0x61, 0x64, 0x65,
+	0x49, 0x6e, 0x43, 0x74, 0x78, 0x12, 0x1e, 0x0a, 0x0a, 0x4b, 0x38, 0x73, 0x56, 0x65, 0x72, 0x73,
+	0x69, 0x6f, 0x6e, 0x18, 0x06, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0a, 0x4b, 0x38, 0x73, 0x56, 0x65,
+	0x72, 0x73, 0x69, 0x6f, 0x6e, 0x22, 0x32, 0x0a, 0x16, 0x55, 0x70, 0x67, 0x72, 0x61, 0x64, 0x65,
 	0x52, 0x65, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
 	0x18, 0x0a, 0x07, 0x73, 0x75, 0x63, 0x63, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08,
 	0x52, 0x07, 0x73, 0x75, 0x63, 0x63, 0x65, 0x73, 0x73, 0x22, 0x89, 0x01, 0x0a, 0x17, 0x44, 0x65,
@@ -4213,7 +4286,17 @@ var file_grpc_applist_proto_rawDesc = []byte{
 	0x0b, 0x32, 0x16, 0x2e, 0x54, 0x65, 0x6d, 0x70, 0x6c, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x72,
 	0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x52, 0x19, 0x42, 0x75, 0x6c, 0x6b, 0x54,
 	0x65, 0x6d, 0x70, 0x6c, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x72, 0x74, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x22, 0xcb, 0x01, 0x0a, 0x18, 0x48, 0x65, 0x6c, 0x6d, 0x49, 0x6e, 0x73,
+	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x9d, 0x01, 0x0a, 0x1e, 0x54, 0x65, 0x6d, 0x70, 0x6c, 0x61, 0x74,
+	0x65, 0x43, 0x68, 0x61, 0x72, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x57, 0x69,
+	0x74, 0x68, 0x43, 0x68, 0x61, 0x72, 0x74, 0x12, 0x4c, 0x0a, 0x15, 0x74, 0x65, 0x6d, 0x70, 0x6c,
+	0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x72, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x54, 0x65, 0x6d, 0x70, 0x6c, 0x61, 0x74,
+	0x65, 0x43, 0x68, 0x61, 0x72, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x52, 0x15,
+	0x74, 0x65, 0x6d, 0x70, 0x6c, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x72, 0x74, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2d, 0x0a, 0x0a, 0x63, 0x68, 0x61, 0x72, 0x74, 0x42, 0x79,
+	0x74, 0x65, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0d, 0x2e, 0x43, 0x68, 0x61, 0x72,
+	0x74, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x52, 0x0a, 0x63, 0x68, 0x61, 0x72, 0x74, 0x42,
+	0x79, 0x74, 0x65, 0x73, 0x22, 0xeb, 0x01, 0x0a, 0x18, 0x48, 0x65, 0x6c, 0x6d, 0x49, 0x6e, 0x73,
 	0x74, 0x61, 0x6c, 0x6c, 0x43, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
 	0x74, 0x12, 0x1e, 0x0a, 0x0a, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x59, 0x61, 0x6d, 0x6c, 0x18,
 	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0a, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x59, 0x61, 0x6d,
@@ -4226,7 +4309,9 @@ var file_grpc_applist_proto_rawDesc = []byte{
 	0x69, 0x65, 0x72, 0x52, 0x11, 0x72, 0x65, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x49, 0x64, 0x65, 0x6e,
 	0x74, 0x69, 0x66, 0x69, 0x65, 0x72, 0x12, 0x1a, 0x0a, 0x08, 0x52, 0x75, 0x6e, 0x49, 0x6e, 0x43,
 	0x74, 0x78, 0x18, 0x04, 0x20, 0x01, 0x28, 0x08, 0x52, 0x08, 0x52, 0x75, 0x6e, 0x49, 0x6e, 0x43,
-	0x74, 0x78, 0x22, 0x35, 0x0a, 0x19, 0x48, 0x65, 0x6c, 0x6d, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c,
+	0x74, 0x78, 0x12, 0x1e, 0x0a, 0x0a, 0x4b, 0x38, 0x73, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e,
+	0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0a, 0x4b, 0x38, 0x73, 0x56, 0x65, 0x72, 0x73, 0x69,
+	0x6f, 0x6e, 0x22, 0x35, 0x0a, 0x19, 0x48, 0x65, 0x6c, 0x6d, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c,
 	0x6c, 0x43, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
 	0x18, 0x0a, 0x07, 0x73, 0x75, 0x63, 0x63, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08,
 	0x52, 0x07, 0x73, 0x75, 0x63, 0x63, 0x65, 0x73, 0x73, 0x22, 0x28, 0x0a, 0x0c, 0x43, 0x68, 0x61,
@@ -4307,7 +4392,7 @@ var file_grpc_applist_proto_rawDesc = []byte{
 	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x16, 0x0a, 0x06, 0x44, 0x69, 0x67, 0x65, 0x73, 0x74,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x44, 0x69, 0x67, 0x65, 0x73, 0x74, 0x12, 0x1c,
 	0x0a, 0x09, 0x50, 0x75, 0x73, 0x68, 0x65, 0x64, 0x55, 0x52, 0x4c, 0x18, 0x02, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x09, 0x50, 0x75, 0x73, 0x68, 0x65, 0x64, 0x55, 0x52, 0x4c, 0x32, 0xb2, 0x0c, 0x0a,
+	0x09, 0x52, 0x09, 0x50, 0x75, 0x73, 0x68, 0x65, 0x64, 0x55, 0x52, 0x4c, 0x32, 0x8e, 0x0d, 0x0a,
 	0x12, 0x41, 0x70, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x53, 0x65, 0x72, 0x76,
 	0x69, 0x63, 0x65, 0x12, 0x39, 0x0a, 0x10, 0x4c, 0x69, 0x73, 0x74, 0x41, 0x70, 0x70, 0x6c, 0x69,
 	0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x0f, 0x2e, 0x41, 0x70, 0x70, 0x4c, 0x69, 0x73,
@@ -4377,40 +4462,46 @@ var file_grpc_applist_proto_rawDesc = []byte{
 	0x6b, 0x12, 0x1a, 0x2e, 0x42, 0x75, 0x6c, 0x6b, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x52,
 	0x65, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1a, 0x2e,
 	0x42, 0x75, 0x6c, 0x6b, 0x54, 0x65, 0x6d, 0x70, 0x6c, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x72,
-	0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x58, 0x0a, 0x1d, 0x49,
-	0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x52, 0x65, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x57, 0x69, 0x74,
-	0x68, 0x43, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x43, 0x68, 0x61, 0x72, 0x74, 0x12, 0x19, 0x2e, 0x48,
-	0x65, 0x6c, 0x6d, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x43, 0x75, 0x73, 0x74, 0x6f, 0x6d,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1a, 0x2e, 0x48, 0x65, 0x6c, 0x6d, 0x49, 0x6e,
-	0x73, 0x74, 0x61, 0x6c, 0x6c, 0x43, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x39, 0x0a, 0x08, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x74, 0x65,
-	0x73, 0x12, 0x16, 0x2e, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x52, 0x65, 0x6c, 0x65, 0x61,
-	0x73, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x13, 0x2e, 0x43, 0x68, 0x61, 0x72,
-	0x74, 0x4e, 0x6f, 0x74, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00,
-	0x12, 0x52, 0x0a, 0x1d, 0x55, 0x70, 0x67, 0x72, 0x61, 0x64, 0x65, 0x52, 0x65, 0x6c, 0x65, 0x61,
-	0x73, 0x65, 0x57, 0x69, 0x74, 0x68, 0x43, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x43, 0x68, 0x61, 0x72,
-	0x74, 0x12, 0x16, 0x2e, 0x55, 0x70, 0x67, 0x72, 0x61, 0x64, 0x65, 0x52, 0x65, 0x6c, 0x65, 0x61,
-	0x73, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x17, 0x2e, 0x55, 0x70, 0x67, 0x72,
-	0x61, 0x64, 0x65, 0x52, 0x65, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x22, 0x00, 0x12, 0x42, 0x0a, 0x13, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x65,
-	0x4f, 0x43, 0x49, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x12, 0x13, 0x2e, 0x52, 0x65,
-	0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x43, 0x72, 0x65, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c,
-	0x1a, 0x14, 0x2e, 0x4f, 0x43, 0x49, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x52, 0x65,
-	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x49, 0x0a, 0x1a, 0x50, 0x75, 0x73, 0x68,
-	0x48, 0x65, 0x6c, 0x6d, 0x43, 0x68, 0x61, 0x72, 0x74, 0x54, 0x6f, 0x4f, 0x43, 0x49, 0x52, 0x65,
-	0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x12, 0x13, 0x2e, 0x4f, 0x43, 0x49, 0x52, 0x65, 0x67, 0x69,
-	0x73, 0x74, 0x72, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x14, 0x2e, 0x4f, 0x43,
-	0x49, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x22, 0x00, 0x12, 0x5c, 0x0a, 0x23, 0x47, 0x65, 0x74, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72,
-	0x63, 0x65, 0x54, 0x72, 0x65, 0x65, 0x46, 0x6f, 0x72, 0x45, 0x78, 0x74, 0x65, 0x72, 0x6e, 0x61,
-	0x6c, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x73, 0x12, 0x1c, 0x2e, 0x45, 0x78, 0x74,
-	0x65, 0x72, 0x6e, 0x61, 0x6c, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x54, 0x72, 0x65,
-	0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x15, 0x2e, 0x52, 0x65, 0x73, 0x6f, 0x75,
-	0x72, 0x63, 0x65, 0x54, 0x72, 0x65, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
-	0x00, 0x42, 0x33, 0x5a, 0x31, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f,
-	0x64, 0x65, 0x76, 0x74, 0x72, 0x6f, 0x6e, 0x2d, 0x6c, 0x61, 0x62, 0x73, 0x2f, 0x6b, 0x75, 0x62,
-	0x65, 0x6c, 0x69, 0x6e, 0x6b, 0x2f, 0x62, 0x65, 0x61, 0x6e, 0x2f, 0x67, 0x72, 0x70, 0x63, 0x2f,
-	0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x5a, 0x0a, 0x1d, 0x54,
+	0x65, 0x6d, 0x70, 0x6c, 0x61, 0x74, 0x65, 0x43, 0x68, 0x61, 0x72, 0x74, 0x41, 0x6e, 0x64, 0x52,
+	0x65, 0x74, 0x72, 0x69, 0x65, 0x76, 0x65, 0x43, 0x68, 0x61, 0x72, 0x74, 0x12, 0x16, 0x2e, 0x49,
+	0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x52, 0x65, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x1a, 0x1f, 0x2e, 0x54, 0x65, 0x6d, 0x70, 0x6c, 0x61, 0x74, 0x65, 0x43,
+	0x68, 0x61, 0x72, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x57, 0x69, 0x74, 0x68,
+	0x43, 0x68, 0x61, 0x72, 0x74, 0x22, 0x00, 0x12, 0x58, 0x0a, 0x1d, 0x49, 0x6e, 0x73, 0x74, 0x61,
+	0x6c, 0x6c, 0x52, 0x65, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x57, 0x69, 0x74, 0x68, 0x43, 0x75, 0x73,
+	0x74, 0x6f, 0x6d, 0x43, 0x68, 0x61, 0x72, 0x74, 0x12, 0x19, 0x2e, 0x48, 0x65, 0x6c, 0x6d, 0x49,
+	0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x43, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x1a, 0x1a, 0x2e, 0x48, 0x65, 0x6c, 0x6d, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c,
+	0x6c, 0x43, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
+	0x00, 0x12, 0x39, 0x0a, 0x08, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x74, 0x65, 0x73, 0x12, 0x16, 0x2e,
+	0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x52, 0x65, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x13, 0x2e, 0x43, 0x68, 0x61, 0x72, 0x74, 0x4e, 0x6f, 0x74,
+	0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x52, 0x0a, 0x1d,
+	0x55, 0x70, 0x67, 0x72, 0x61, 0x64, 0x65, 0x52, 0x65, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x57, 0x69,
+	0x74, 0x68, 0x43, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x43, 0x68, 0x61, 0x72, 0x74, 0x12, 0x16, 0x2e,
+	0x55, 0x70, 0x67, 0x72, 0x61, 0x64, 0x65, 0x52, 0x65, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x17, 0x2e, 0x55, 0x70, 0x67, 0x72, 0x61, 0x64, 0x65, 0x52,
+	0x65, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00,
+	0x12, 0x42, 0x0a, 0x13, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x65, 0x4f, 0x43, 0x49, 0x52,
+	0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x12, 0x13, 0x2e, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74,
+	0x72, 0x79, 0x43, 0x72, 0x65, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x1a, 0x14, 0x2e, 0x4f,
+	0x43, 0x49, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x22, 0x00, 0x12, 0x49, 0x0a, 0x1a, 0x50, 0x75, 0x73, 0x68, 0x48, 0x65, 0x6c, 0x6d,
+	0x43, 0x68, 0x61, 0x72, 0x74, 0x54, 0x6f, 0x4f, 0x43, 0x49, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74,
+	0x72, 0x79, 0x12, 0x13, 0x2e, 0x4f, 0x43, 0x49, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x14, 0x2e, 0x4f, 0x43, 0x49, 0x52, 0x65, 0x67,
+	0x69, 0x73, 0x74, 0x72, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12,
+	0x5c, 0x0a, 0x23, 0x47, 0x65, 0x74, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x54, 0x72,
+	0x65, 0x65, 0x46, 0x6f, 0x72, 0x45, 0x78, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x52, 0x65, 0x73,
+	0x6f, 0x75, 0x72, 0x63, 0x65, 0x73, 0x12, 0x1c, 0x2e, 0x45, 0x78, 0x74, 0x65, 0x72, 0x6e, 0x61,
+	0x6c, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x54, 0x72, 0x65, 0x65, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x1a, 0x15, 0x2e, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x54,
+	0x72, 0x65, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x42, 0x33, 0x5a,
+	0x31, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x64, 0x65, 0x76, 0x74,
+	0x72, 0x6f, 0x6e, 0x2d, 0x6c, 0x61, 0x62, 0x73, 0x2f, 0x6b, 0x75, 0x62, 0x65, 0x6c, 0x69, 0x6e,
+	0x6b, 0x2f, 0x62, 0x65, 0x61, 0x6e, 0x2f, 0x67, 0x72, 0x70, 0x63, 0x2f, 0x63, 0x6c, 0x69, 0x65,
+	0x6e, 0x74, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -4425,66 +4516,67 @@ func file_grpc_applist_proto_rawDescGZIP() []byte {
 	return file_grpc_applist_proto_rawDescData
 }
 
-var file_grpc_applist_proto_msgTypes = make([]protoimpl.MessageInfo, 57)
+var file_grpc_applist_proto_msgTypes = make([]protoimpl.MessageInfo, 58)
 var file_grpc_applist_proto_goTypes = []interface{}{
-	(*ClusterConfig)(nil),               // 0: ClusterConfig
-	(*AppListRequest)(nil),              // 1: AppListRequest
-	(*ExternalResourceTreeRequest)(nil), // 2: ExternalResourceTreeRequest
-	(*ExternalResourceDetail)(nil),      // 3: ExternalResourceDetail
-	(*DeployedAppList)(nil),             // 4: DeployedAppList
-	(*DeployedAppDetail)(nil),           // 5: DeployedAppDetail
-	(*EnvironmentDetails)(nil),          // 6: EnvironmentDetails
-	(*AppDetailRequest)(nil),            // 7: AppDetailRequest
-	(*AppDetail)(nil),                   // 8: AppDetail
-	(*AppStatus)(nil),                   // 9: AppStatus
-	(*ReleaseStatus)(nil),               // 10: ReleaseStatus
-	(*ChartMetadata)(nil),               // 11: ChartMetadata
-	(*ResourceTreeResponse)(nil),        // 12: ResourceTreeResponse
-	(*ResourceNode)(nil),                // 13: ResourceNode
-	(*InfoItem)(nil),                    // 14: InfoItem
-	(*HealthStatus)(nil),                // 15: HealthStatus
-	(*ResourceNetworkingInfo)(nil),      // 16: ResourceNetworkingInfo
-	(*ResourceRef)(nil),                 // 17: ResourceRef
-	(*PodMetadata)(nil),                 // 18: PodMetadata
-	(*EphemeralContainerData)(nil),      // 19: EphemeralContainerData
-	(*HibernateRequest)(nil),            // 20: HibernateRequest
-	(*ObjectIdentifier)(nil),            // 21: ObjectIdentifier
-	(*HibernateStatus)(nil),             // 22: HibernateStatus
-	(*HibernateResponse)(nil),           // 23: HibernateResponse
-	(*HelmAppDeploymentDetail)(nil),     // 24: HelmAppDeploymentDetail
-	(*HelmAppDeploymentHistory)(nil),    // 25: HelmAppDeploymentHistory
-	(*ReleaseInfo)(nil),                 // 26: ReleaseInfo
-	(*ObjectRequest)(nil),               // 27: ObjectRequest
-	(*DesiredManifestResponse)(nil),     // 28: DesiredManifestResponse
-	(*UninstallReleaseResponse)(nil),    // 29: UninstallReleaseResponse
-	(*ReleaseIdentifier)(nil),           // 30: ReleaseIdentifier
-	(*UpgradeReleaseRequest)(nil),       // 31: UpgradeReleaseRequest
-	(*UpgradeReleaseResponse)(nil),      // 32: UpgradeReleaseResponse
-	(*DeploymentDetailRequest)(nil),     // 33: DeploymentDetailRequest
-	(*DeploymentDetailResponse)(nil),    // 34: DeploymentDetailResponse
-	(*ChartRepository)(nil),             // 35: ChartRepository
-	(*InstallReleaseRequest)(nil),       // 36: InstallReleaseRequest
-	(*BulkInstallReleaseRequest)(nil),   // 37: BulkInstallReleaseRequest
-	(*InstallReleaseResponse)(nil),      // 38: InstallReleaseResponse
-	(*BooleanResponse)(nil),             // 39: BooleanResponse
-	(*RollbackReleaseRequest)(nil),      // 40: RollbackReleaseRequest
-	(*TemplateChartResponse)(nil),       // 41: TemplateChartResponse
-	(*BulkTemplateChartResponse)(nil),   // 42: BulkTemplateChartResponse
-	(*HelmInstallCustomRequest)(nil),    // 43: HelmInstallCustomRequest
-	(*HelmInstallCustomResponse)(nil),   // 44: HelmInstallCustomResponse
-	(*ChartContent)(nil),                // 45: ChartContent
-	(*Gvk)(nil),                         // 46: Gvk
-	(*ResourceFilter)(nil),              // 47: ResourceFilter
-	(*ResourceIdentifier)(nil),          // 48: ResourceIdentifier
-	(*ResourceTreeFilter)(nil),          // 49: ResourceTreeFilter
-	(*ChartNotesResponse)(nil),          // 50: ChartNotesResponse
-	(*OCIRegistryRequest)(nil),          // 51: OCIRegistryRequest
-	(*RegistryCredential)(nil),          // 52: RegistryCredential
-	(*OCIRegistryResponse)(nil),         // 53: OCIRegistryResponse
-	(*OCIRegistryPushResponse)(nil),     // 54: OCIRegistryPushResponse
-	nil,                                 // 55: ResourceNetworkingInfo.LabelsEntry
-	nil,                                 // 56: ResourceIdentifier.LabelsEntry
-	(*timestamp.Timestamp)(nil),         // 57: google.protobuf.Timestamp
+	(*ClusterConfig)(nil),                  // 0: ClusterConfig
+	(*AppListRequest)(nil),                 // 1: AppListRequest
+	(*ExternalResourceTreeRequest)(nil),    // 2: ExternalResourceTreeRequest
+	(*ExternalResourceDetail)(nil),         // 3: ExternalResourceDetail
+	(*DeployedAppList)(nil),                // 4: DeployedAppList
+	(*DeployedAppDetail)(nil),              // 5: DeployedAppDetail
+	(*EnvironmentDetails)(nil),             // 6: EnvironmentDetails
+	(*AppDetailRequest)(nil),               // 7: AppDetailRequest
+	(*AppDetail)(nil),                      // 8: AppDetail
+	(*AppStatus)(nil),                      // 9: AppStatus
+	(*ReleaseStatus)(nil),                  // 10: ReleaseStatus
+	(*ChartMetadata)(nil),                  // 11: ChartMetadata
+	(*ResourceTreeResponse)(nil),           // 12: ResourceTreeResponse
+	(*ResourceNode)(nil),                   // 13: ResourceNode
+	(*InfoItem)(nil),                       // 14: InfoItem
+	(*HealthStatus)(nil),                   // 15: HealthStatus
+	(*ResourceNetworkingInfo)(nil),         // 16: ResourceNetworkingInfo
+	(*ResourceRef)(nil),                    // 17: ResourceRef
+	(*PodMetadata)(nil),                    // 18: PodMetadata
+	(*EphemeralContainerData)(nil),         // 19: EphemeralContainerData
+	(*HibernateRequest)(nil),               // 20: HibernateRequest
+	(*ObjectIdentifier)(nil),               // 21: ObjectIdentifier
+	(*HibernateStatus)(nil),                // 22: HibernateStatus
+	(*HibernateResponse)(nil),              // 23: HibernateResponse
+	(*HelmAppDeploymentDetail)(nil),        // 24: HelmAppDeploymentDetail
+	(*HelmAppDeploymentHistory)(nil),       // 25: HelmAppDeploymentHistory
+	(*ReleaseInfo)(nil),                    // 26: ReleaseInfo
+	(*ObjectRequest)(nil),                  // 27: ObjectRequest
+	(*DesiredManifestResponse)(nil),        // 28: DesiredManifestResponse
+	(*UninstallReleaseResponse)(nil),       // 29: UninstallReleaseResponse
+	(*ReleaseIdentifier)(nil),              // 30: ReleaseIdentifier
+	(*UpgradeReleaseRequest)(nil),          // 31: UpgradeReleaseRequest
+	(*UpgradeReleaseResponse)(nil),         // 32: UpgradeReleaseResponse
+	(*DeploymentDetailRequest)(nil),        // 33: DeploymentDetailRequest
+	(*DeploymentDetailResponse)(nil),       // 34: DeploymentDetailResponse
+	(*ChartRepository)(nil),                // 35: ChartRepository
+	(*InstallReleaseRequest)(nil),          // 36: InstallReleaseRequest
+	(*BulkInstallReleaseRequest)(nil),      // 37: BulkInstallReleaseRequest
+	(*InstallReleaseResponse)(nil),         // 38: InstallReleaseResponse
+	(*BooleanResponse)(nil),                // 39: BooleanResponse
+	(*RollbackReleaseRequest)(nil),         // 40: RollbackReleaseRequest
+	(*TemplateChartResponse)(nil),          // 41: TemplateChartResponse
+	(*BulkTemplateChartResponse)(nil),      // 42: BulkTemplateChartResponse
+	(*TemplateChartResponseWithChart)(nil), // 43: TemplateChartResponseWithChart
+	(*HelmInstallCustomRequest)(nil),       // 44: HelmInstallCustomRequest
+	(*HelmInstallCustomResponse)(nil),      // 45: HelmInstallCustomResponse
+	(*ChartContent)(nil),                   // 46: ChartContent
+	(*Gvk)(nil),                            // 47: Gvk
+	(*ResourceFilter)(nil),                 // 48: ResourceFilter
+	(*ResourceIdentifier)(nil),             // 49: ResourceIdentifier
+	(*ResourceTreeFilter)(nil),             // 50: ResourceTreeFilter
+	(*ChartNotesResponse)(nil),             // 51: ChartNotesResponse
+	(*OCIRegistryRequest)(nil),             // 52: OCIRegistryRequest
+	(*RegistryCredential)(nil),             // 53: RegistryCredential
+	(*OCIRegistryResponse)(nil),            // 54: OCIRegistryResponse
+	(*OCIRegistryPushResponse)(nil),        // 55: OCIRegistryPushResponse
+	nil,                                    // 56: ResourceNetworkingInfo.LabelsEntry
+	nil,                                    // 57: ResourceIdentifier.LabelsEntry
+	(*timestamp.Timestamp)(nil),            // 58: google.protobuf.Timestamp
 }
 var file_grpc_applist_proto_depIdxs = []int32{
 	0,  // 0: AppListRequest.clusters:type_name -> ClusterConfig
@@ -4492,104 +4584,108 @@ var file_grpc_applist_proto_depIdxs = []int32{
 	3,  // 2: ExternalResourceTreeRequest.externalResourceDetail:type_name -> ExternalResourceDetail
 	5,  // 3: DeployedAppList.DeployedAppDetail:type_name -> DeployedAppDetail
 	6,  // 4: DeployedAppDetail.environmentDetail:type_name -> EnvironmentDetails
-	57, // 5: DeployedAppDetail.LastDeployed:type_name -> google.protobuf.Timestamp
+	58, // 5: DeployedAppDetail.LastDeployed:type_name -> google.protobuf.Timestamp
 	0,  // 6: AppDetailRequest.clusterConfig:type_name -> ClusterConfig
-	49, // 7: AppDetailRequest.resourceTreeFilter:type_name -> ResourceTreeFilter
+	50, // 7: AppDetailRequest.resourceTreeFilter:type_name -> ResourceTreeFilter
 	10, // 8: AppDetail.releaseStatus:type_name -> ReleaseStatus
-	57, // 9: AppDetail.lastDeployed:type_name -> google.protobuf.Timestamp
+	58, // 9: AppDetail.lastDeployed:type_name -> google.protobuf.Timestamp
 	11, // 10: AppDetail.chartMetadata:type_name -> ChartMetadata
 	12, // 11: AppDetail.resourceTreeResponse:type_name -> ResourceTreeResponse
 	6,  // 12: AppDetail.environmentDetails:type_name -> EnvironmentDetails
-	57, // 13: AppStatus.LastDeployed:type_name -> google.protobuf.Timestamp
+	58, // 13: AppStatus.LastDeployed:type_name -> google.protobuf.Timestamp
 	13, // 14: ResourceTreeResponse.nodes:type_name -> ResourceNode
 	18, // 15: ResourceTreeResponse.podMetadata:type_name -> PodMetadata
 	17, // 16: ResourceNode.parentRefs:type_name -> ResourceRef
 	16, // 17: ResourceNode.networkingInfo:type_name -> ResourceNetworkingInfo
 	15, // 18: ResourceNode.health:type_name -> HealthStatus
 	14, // 19: ResourceNode.info:type_name -> InfoItem
-	55, // 20: ResourceNetworkingInfo.labels:type_name -> ResourceNetworkingInfo.LabelsEntry
+	56, // 20: ResourceNetworkingInfo.labels:type_name -> ResourceNetworkingInfo.LabelsEntry
 	19, // 21: PodMetadata.ephemeralContainers:type_name -> EphemeralContainerData
 	0,  // 22: HibernateRequest.clusterConfig:type_name -> ClusterConfig
 	21, // 23: HibernateRequest.objectIdentifier:type_name -> ObjectIdentifier
 	21, // 24: HibernateStatus.targetObject:type_name -> ObjectIdentifier
 	22, // 25: HibernateResponse.status:type_name -> HibernateStatus
 	11, // 26: HelmAppDeploymentDetail.chartMetadata:type_name -> ChartMetadata
-	57, // 27: HelmAppDeploymentDetail.deployedAt:type_name -> google.protobuf.Timestamp
+	58, // 27: HelmAppDeploymentDetail.deployedAt:type_name -> google.protobuf.Timestamp
 	24, // 28: HelmAppDeploymentHistory.deploymentHistory:type_name -> HelmAppDeploymentDetail
 	5,  // 29: ReleaseInfo.deployedAppDetail:type_name -> DeployedAppDetail
 	0,  // 30: ObjectRequest.clusterConfig:type_name -> ClusterConfig
 	21, // 31: ObjectRequest.objectIdentifier:type_name -> ObjectIdentifier
 	0,  // 32: ReleaseIdentifier.clusterConfig:type_name -> ClusterConfig
 	30, // 33: UpgradeReleaseRequest.releaseIdentifier:type_name -> ReleaseIdentifier
-	45, // 34: UpgradeReleaseRequest.chartContent:type_name -> ChartContent
+	46, // 34: UpgradeReleaseRequest.chartContent:type_name -> ChartContent
 	30, // 35: DeploymentDetailRequest.releaseIdentifier:type_name -> ReleaseIdentifier
 	30, // 36: InstallReleaseRequest.releaseIdentifier:type_name -> ReleaseIdentifier
 	35, // 37: InstallReleaseRequest.chartRepository:type_name -> ChartRepository
-	52, // 38: InstallReleaseRequest.RegistryCredential:type_name -> RegistryCredential
-	45, // 39: InstallReleaseRequest.chartContent:type_name -> ChartContent
+	53, // 38: InstallReleaseRequest.RegistryCredential:type_name -> RegistryCredential
+	46, // 39: InstallReleaseRequest.chartContent:type_name -> ChartContent
 	36, // 40: BulkInstallReleaseRequest.BulkInstallReleaseRequest:type_name -> InstallReleaseRequest
 	30, // 41: RollbackReleaseRequest.releaseIdentifier:type_name -> ReleaseIdentifier
 	41, // 42: BulkTemplateChartResponse.BulkTemplateChartResponse:type_name -> TemplateChartResponse
-	45, // 43: HelmInstallCustomRequest.chartContent:type_name -> ChartContent
-	30, // 44: HelmInstallCustomRequest.releaseIdentifier:type_name -> ReleaseIdentifier
-	46, // 45: ResourceFilter.gvk:type_name -> Gvk
-	48, // 46: ResourceFilter.resourceIdentifier:type_name -> ResourceIdentifier
-	56, // 47: ResourceIdentifier.labels:type_name -> ResourceIdentifier.LabelsEntry
-	48, // 48: ResourceTreeFilter.globalFilter:type_name -> ResourceIdentifier
-	47, // 49: ResourceTreeFilter.resourceFilters:type_name -> ResourceFilter
-	52, // 50: OCIRegistryRequest.RegistryCredential:type_name -> RegistryCredential
-	54, // 51: OCIRegistryResponse.PushResult:type_name -> OCIRegistryPushResponse
-	1,  // 52: ApplicationService.ListApplications:input_type -> AppListRequest
-	7,  // 53: ApplicationService.GetAppDetail:input_type -> AppDetailRequest
-	7,  // 54: ApplicationService.GetAppStatus:input_type -> AppDetailRequest
-	20, // 55: ApplicationService.Hibernate:input_type -> HibernateRequest
-	20, // 56: ApplicationService.UnHibernate:input_type -> HibernateRequest
-	7,  // 57: ApplicationService.GetDeploymentHistory:input_type -> AppDetailRequest
-	7,  // 58: ApplicationService.GetValuesYaml:input_type -> AppDetailRequest
-	27, // 59: ApplicationService.GetDesiredManifest:input_type -> ObjectRequest
-	30, // 60: ApplicationService.UninstallRelease:input_type -> ReleaseIdentifier
-	31, // 61: ApplicationService.UpgradeRelease:input_type -> UpgradeReleaseRequest
-	33, // 62: ApplicationService.GetDeploymentDetail:input_type -> DeploymentDetailRequest
-	36, // 63: ApplicationService.InstallRelease:input_type -> InstallReleaseRequest
-	36, // 64: ApplicationService.UpgradeReleaseWithChartInfo:input_type -> InstallReleaseRequest
-	30, // 65: ApplicationService.IsReleaseInstalled:input_type -> ReleaseIdentifier
-	40, // 66: ApplicationService.RollbackRelease:input_type -> RollbackReleaseRequest
-	36, // 67: ApplicationService.TemplateChart:input_type -> InstallReleaseRequest
-	37, // 68: ApplicationService.TemplateChartBulk:input_type -> BulkInstallReleaseRequest
-	43, // 69: ApplicationService.InstallReleaseWithCustomChart:input_type -> HelmInstallCustomRequest
-	36, // 70: ApplicationService.GetNotes:input_type -> InstallReleaseRequest
-	31, // 71: ApplicationService.UpgradeReleaseWithCustomChart:input_type -> UpgradeReleaseRequest
-	52, // 72: ApplicationService.ValidateOCIRegistry:input_type -> RegistryCredential
-	51, // 73: ApplicationService.PushHelmChartToOCIRegistry:input_type -> OCIRegistryRequest
-	2,  // 74: ApplicationService.GetResourceTreeForExternalResources:input_type -> ExternalResourceTreeRequest
-	4,  // 75: ApplicationService.ListApplications:output_type -> DeployedAppList
-	8,  // 76: ApplicationService.GetAppDetail:output_type -> AppDetail
-	9,  // 77: ApplicationService.GetAppStatus:output_type -> AppStatus
-	23, // 78: ApplicationService.Hibernate:output_type -> HibernateResponse
-	23, // 79: ApplicationService.UnHibernate:output_type -> HibernateResponse
-	25, // 80: ApplicationService.GetDeploymentHistory:output_type -> HelmAppDeploymentHistory
-	26, // 81: ApplicationService.GetValuesYaml:output_type -> ReleaseInfo
-	28, // 82: ApplicationService.GetDesiredManifest:output_type -> DesiredManifestResponse
-	29, // 83: ApplicationService.UninstallRelease:output_type -> UninstallReleaseResponse
-	32, // 84: ApplicationService.UpgradeRelease:output_type -> UpgradeReleaseResponse
-	34, // 85: ApplicationService.GetDeploymentDetail:output_type -> DeploymentDetailResponse
-	38, // 86: ApplicationService.InstallRelease:output_type -> InstallReleaseResponse
-	32, // 87: ApplicationService.UpgradeReleaseWithChartInfo:output_type -> UpgradeReleaseResponse
-	39, // 88: ApplicationService.IsReleaseInstalled:output_type -> BooleanResponse
-	39, // 89: ApplicationService.RollbackRelease:output_type -> BooleanResponse
-	41, // 90: ApplicationService.TemplateChart:output_type -> TemplateChartResponse
-	42, // 91: ApplicationService.TemplateChartBulk:output_type -> BulkTemplateChartResponse
-	44, // 92: ApplicationService.InstallReleaseWithCustomChart:output_type -> HelmInstallCustomResponse
-	50, // 93: ApplicationService.GetNotes:output_type -> ChartNotesResponse
-	32, // 94: ApplicationService.UpgradeReleaseWithCustomChart:output_type -> UpgradeReleaseResponse
-	53, // 95: ApplicationService.ValidateOCIRegistry:output_type -> OCIRegistryResponse
-	53, // 96: ApplicationService.PushHelmChartToOCIRegistry:output_type -> OCIRegistryResponse
-	12, // 97: ApplicationService.GetResourceTreeForExternalResources:output_type -> ResourceTreeResponse
-	75, // [75:98] is the sub-list for method output_type
-	52, // [52:75] is the sub-list for method input_type
-	52, // [52:52] is the sub-list for extension type_name
-	52, // [52:52] is the sub-list for extension extendee
-	0,  // [0:52] is the sub-list for field type_name
+	41, // 43: TemplateChartResponseWithChart.templateChartResponse:type_name -> TemplateChartResponse
+	46, // 44: TemplateChartResponseWithChart.chartBytes:type_name -> ChartContent
+	46, // 45: HelmInstallCustomRequest.chartContent:type_name -> ChartContent
+	30, // 46: HelmInstallCustomRequest.releaseIdentifier:type_name -> ReleaseIdentifier
+	47, // 47: ResourceFilter.gvk:type_name -> Gvk
+	49, // 48: ResourceFilter.resourceIdentifier:type_name -> ResourceIdentifier
+	57, // 49: ResourceIdentifier.labels:type_name -> ResourceIdentifier.LabelsEntry
+	49, // 50: ResourceTreeFilter.globalFilter:type_name -> ResourceIdentifier
+	48, // 51: ResourceTreeFilter.resourceFilters:type_name -> ResourceFilter
+	53, // 52: OCIRegistryRequest.RegistryCredential:type_name -> RegistryCredential
+	55, // 53: OCIRegistryResponse.PushResult:type_name -> OCIRegistryPushResponse
+	1,  // 54: ApplicationService.ListApplications:input_type -> AppListRequest
+	7,  // 55: ApplicationService.GetAppDetail:input_type -> AppDetailRequest
+	7,  // 56: ApplicationService.GetAppStatus:input_type -> AppDetailRequest
+	20, // 57: ApplicationService.Hibernate:input_type -> HibernateRequest
+	20, // 58: ApplicationService.UnHibernate:input_type -> HibernateRequest
+	7,  // 59: ApplicationService.GetDeploymentHistory:input_type -> AppDetailRequest
+	7,  // 60: ApplicationService.GetValuesYaml:input_type -> AppDetailRequest
+	27, // 61: ApplicationService.GetDesiredManifest:input_type -> ObjectRequest
+	30, // 62: ApplicationService.UninstallRelease:input_type -> ReleaseIdentifier
+	31, // 63: ApplicationService.UpgradeRelease:input_type -> UpgradeReleaseRequest
+	33, // 64: ApplicationService.GetDeploymentDetail:input_type -> DeploymentDetailRequest
+	36, // 65: ApplicationService.InstallRelease:input_type -> InstallReleaseRequest
+	36, // 66: ApplicationService.UpgradeReleaseWithChartInfo:input_type -> InstallReleaseRequest
+	30, // 67: ApplicationService.IsReleaseInstalled:input_type -> ReleaseIdentifier
+	40, // 68: ApplicationService.RollbackRelease:input_type -> RollbackReleaseRequest
+	36, // 69: ApplicationService.TemplateChart:input_type -> InstallReleaseRequest
+	37, // 70: ApplicationService.TemplateChartBulk:input_type -> BulkInstallReleaseRequest
+	36, // 71: ApplicationService.TemplateChartAndRetrieveChart:input_type -> InstallReleaseRequest
+	44, // 72: ApplicationService.InstallReleaseWithCustomChart:input_type -> HelmInstallCustomRequest
+	36, // 73: ApplicationService.GetNotes:input_type -> InstallReleaseRequest
+	31, // 74: ApplicationService.UpgradeReleaseWithCustomChart:input_type -> UpgradeReleaseRequest
+	53, // 75: ApplicationService.ValidateOCIRegistry:input_type -> RegistryCredential
+	52, // 76: ApplicationService.PushHelmChartToOCIRegistry:input_type -> OCIRegistryRequest
+	2,  // 77: ApplicationService.GetResourceTreeForExternalResources:input_type -> ExternalResourceTreeRequest
+	4,  // 78: ApplicationService.ListApplications:output_type -> DeployedAppList
+	8,  // 79: ApplicationService.GetAppDetail:output_type -> AppDetail
+	9,  // 80: ApplicationService.GetAppStatus:output_type -> AppStatus
+	23, // 81: ApplicationService.Hibernate:output_type -> HibernateResponse
+	23, // 82: ApplicationService.UnHibernate:output_type -> HibernateResponse
+	25, // 83: ApplicationService.GetDeploymentHistory:output_type -> HelmAppDeploymentHistory
+	26, // 84: ApplicationService.GetValuesYaml:output_type -> ReleaseInfo
+	28, // 85: ApplicationService.GetDesiredManifest:output_type -> DesiredManifestResponse
+	29, // 86: ApplicationService.UninstallRelease:output_type -> UninstallReleaseResponse
+	32, // 87: ApplicationService.UpgradeRelease:output_type -> UpgradeReleaseResponse
+	34, // 88: ApplicationService.GetDeploymentDetail:output_type -> DeploymentDetailResponse
+	38, // 89: ApplicationService.InstallRelease:output_type -> InstallReleaseResponse
+	32, // 90: ApplicationService.UpgradeReleaseWithChartInfo:output_type -> UpgradeReleaseResponse
+	39, // 91: ApplicationService.IsReleaseInstalled:output_type -> BooleanResponse
+	39, // 92: ApplicationService.RollbackRelease:output_type -> BooleanResponse
+	41, // 93: ApplicationService.TemplateChart:output_type -> TemplateChartResponse
+	42, // 94: ApplicationService.TemplateChartBulk:output_type -> BulkTemplateChartResponse
+	43, // 95: ApplicationService.TemplateChartAndRetrieveChart:output_type -> TemplateChartResponseWithChart
+	45, // 96: ApplicationService.InstallReleaseWithCustomChart:output_type -> HelmInstallCustomResponse
+	51, // 97: ApplicationService.GetNotes:output_type -> ChartNotesResponse
+	32, // 98: ApplicationService.UpgradeReleaseWithCustomChart:output_type -> UpgradeReleaseResponse
+	54, // 99: ApplicationService.ValidateOCIRegistry:output_type -> OCIRegistryResponse
+	54, // 100: ApplicationService.PushHelmChartToOCIRegistry:output_type -> OCIRegistryResponse
+	12, // 101: ApplicationService.GetResourceTreeForExternalResources:output_type -> ResourceTreeResponse
+	78, // [78:102] is the sub-list for method output_type
+	54, // [54:78] is the sub-list for method input_type
+	54, // [54:54] is the sub-list for extension type_name
+	54, // [54:54] is the sub-list for extension extendee
+	0,  // [0:54] is the sub-list for field type_name
 }
 
 func init() { file_grpc_applist_proto_init() }
@@ -5115,7 +5211,7 @@ func file_grpc_applist_proto_init() {
 			}
 		}
 		file_grpc_applist_proto_msgTypes[43].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HelmInstallCustomRequest); i {
+			switch v := v.(*TemplateChartResponseWithChart); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -5127,7 +5223,7 @@ func file_grpc_applist_proto_init() {
 			}
 		}
 		file_grpc_applist_proto_msgTypes[44].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HelmInstallCustomResponse); i {
+			switch v := v.(*HelmInstallCustomRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -5139,7 +5235,7 @@ func file_grpc_applist_proto_init() {
 			}
 		}
 		file_grpc_applist_proto_msgTypes[45].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ChartContent); i {
+			switch v := v.(*HelmInstallCustomResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -5151,7 +5247,7 @@ func file_grpc_applist_proto_init() {
 			}
 		}
 		file_grpc_applist_proto_msgTypes[46].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Gvk); i {
+			switch v := v.(*ChartContent); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -5163,7 +5259,7 @@ func file_grpc_applist_proto_init() {
 			}
 		}
 		file_grpc_applist_proto_msgTypes[47].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ResourceFilter); i {
+			switch v := v.(*Gvk); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -5175,7 +5271,7 @@ func file_grpc_applist_proto_init() {
 			}
 		}
 		file_grpc_applist_proto_msgTypes[48].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ResourceIdentifier); i {
+			switch v := v.(*ResourceFilter); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -5187,7 +5283,7 @@ func file_grpc_applist_proto_init() {
 			}
 		}
 		file_grpc_applist_proto_msgTypes[49].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ResourceTreeFilter); i {
+			switch v := v.(*ResourceIdentifier); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -5199,7 +5295,7 @@ func file_grpc_applist_proto_init() {
 			}
 		}
 		file_grpc_applist_proto_msgTypes[50].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ChartNotesResponse); i {
+			switch v := v.(*ResourceTreeFilter); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -5211,7 +5307,7 @@ func file_grpc_applist_proto_init() {
 			}
 		}
 		file_grpc_applist_proto_msgTypes[51].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*OCIRegistryRequest); i {
+			switch v := v.(*ChartNotesResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -5223,7 +5319,7 @@ func file_grpc_applist_proto_init() {
 			}
 		}
 		file_grpc_applist_proto_msgTypes[52].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RegistryCredential); i {
+			switch v := v.(*OCIRegistryRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -5235,7 +5331,7 @@ func file_grpc_applist_proto_init() {
 			}
 		}
 		file_grpc_applist_proto_msgTypes[53].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*OCIRegistryResponse); i {
+			switch v := v.(*RegistryCredential); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -5247,6 +5343,18 @@ func file_grpc_applist_proto_init() {
 			}
 		}
 		file_grpc_applist_proto_msgTypes[54].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*OCIRegistryResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_grpc_applist_proto_msgTypes[55].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*OCIRegistryPushResponse); i {
 			case 0:
 				return &v.state
@@ -5265,7 +5373,7 @@ func file_grpc_applist_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_grpc_applist_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   57,
+			NumMessages:   58,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
