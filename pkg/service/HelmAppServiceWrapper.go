@@ -305,7 +305,7 @@ func (impl *ApplicationServiceServerImpl) TemplateChartAndRetrieveChart(ctx cont
 		impl.ChartRepositoryLocker.Lock(in.ChartRepository.Name)
 		defer impl.ChartRepositoryLocker.Unlock(in.ChartRepository.Name)
 	}
-	manifest, chart, err := impl.HelmAppService.TemplateChart(ctx, in, true)
+	manifest, chartBytes, err := impl.HelmAppService.TemplateChart(ctx, in, true)
 	if err != nil {
 		impl.Logger.Errorw("Error in Template chart request", "err", err)
 	}
@@ -315,7 +315,9 @@ func (impl *ApplicationServiceServerImpl) TemplateChartAndRetrieveChart(ctx cont
 		TemplateChartResponse: &client.TemplateChartResponse{
 			GeneratedManifest: manifest,
 		},
-		ChartBytes: string(chart),
+		ChartBytes: &client.ChartContent{
+			Content: chartBytes,
+		},
 	}
 
 	return res, err

@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.9.1
-// source: grpc/applist.proto
+// source: gRPC/applist.proto
 
 package client
 
@@ -921,5 +921,5 @@ var ApplicationService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "grpc/applist.proto",
+	Metadata: "gRPC/applist.proto",
 }
