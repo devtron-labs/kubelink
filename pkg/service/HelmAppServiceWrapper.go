@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/devtron-labs/kubelink/bean"
-	"github.com/devtron-labs/kubelink/grpc"
+	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/internals/lock"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -295,6 +295,18 @@ func (impl *ApplicationServiceServerImpl) RollbackRelease(ctx context.Context, i
 		Result: success,
 	}
 	return res, err
+}
+
+func (impl *ApplicationServiceServerImpl) TemplateChartBulk(ctx context.Context, in *client.BulkInstallReleaseRequest) (*client.BulkTemplateChartResponse, error) {
+	manifests, err := impl.HelmAppService.TemplateChartBulk(ctx, in.BulkInstallReleaseRequest)
+	if err != nil {
+		impl.Logger.Errorw("Error in Template chart request", "err", err)
+	}
+	var res []*client.TemplateChartResponse
+	for appName, manifest := range manifests {
+		res = append(res, &client.TemplateChartResponse{GeneratedManifest: manifest, AppName: appName})
+	}
+	return &client.BulkTemplateChartResponse{BulkTemplateChartResponse: res}, nil
 }
 
 func (impl *ApplicationServiceServerImpl) TemplateChartAndRetrieveChart(ctx context.Context, in *client.InstallReleaseRequest) (*client.TemplateChartResponseWithChart, error) {

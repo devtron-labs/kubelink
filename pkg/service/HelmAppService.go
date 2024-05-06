@@ -87,6 +87,7 @@ type HelmAppService interface {
 	IsReleaseInstalled(ctx context.Context, releaseIdentifier *client.ReleaseIdentifier) (bool, error)
 	RollbackRelease(request *client.RollbackReleaseRequest) (bool, error)
 	TemplateChart(ctx context.Context, request *client.InstallReleaseRequest, getChart bool) (string, []byte, error)
+	TemplateChartBulk(ctx context.Context, request []*client.InstallReleaseRequest) (map[string]string, error)
 	InstallReleaseWithCustomChart(ctx context.Context, req *client.HelmInstallCustomRequest) (bool, error)
 	GetNotes(ctx context.Context, installReleaseRequest *client.InstallReleaseRequest) (string, error)
 	UpgradeReleaseWithCustomChart(ctx context.Context, request *client.UpgradeReleaseRequest) (bool, error)
@@ -1054,6 +1055,18 @@ func (impl HelmAppServiceImpl) RollbackRelease(request *client.RollbackReleaseRe
 	}
 
 	return true, nil
+}
+func (impl HelmAppServiceImpl) TemplateChartBulk(ctx context.Context, request []*client.InstallReleaseRequest) (map[string]string, error) {
+	manifestResponse := make(map[string]string)
+	for _, req := range request {
+		manifest, _, err := impl.TemplateChart(ctx, req, false)
+		if err != nil {
+			impl.logger.Errorw("error in fetching template chart", "req", req, "err", err)
+			return nil, err
+		}
+		manifestResponse[req.AppName] = manifest
+	}
+	return manifestResponse, nil
 }
 
 func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *client.InstallReleaseRequest, getChart bool) (string, []byte, error) {
