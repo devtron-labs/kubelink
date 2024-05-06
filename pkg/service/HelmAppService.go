@@ -117,11 +117,15 @@ type HelmAppServiceImpl struct {
 func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 	k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig,
 	k8sUtil k8sUtils.K8sService, converter converter.ClusterBeanConverter,
-	clusterRepository repository.ClusterRepository) *HelmAppServiceImpl {
+	clusterRepository repository.ClusterRepository) (*HelmAppServiceImpl, error) {
 
 	var pubsubClient *pubsub_lib.PubSubClientServiceImpl
+	var err error
 	if helmReleaseConfig.RunHelmInstallInAsyncMode {
-		pubsubClient = pubsub_lib.NewPubSubClientServiceImpl(logger)
+		pubsubClient, err = pubsub_lib.NewPubSubClientServiceImpl(logger)
+		if err != nil {
+			return nil, err
+		}
 	}
 	helmAppServiceImpl := &HelmAppServiceImpl{
 		logger:            logger,
@@ -134,12 +138,13 @@ func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 		clusterRepository: clusterRepository,
 		converter:         converter,
 	}
-	err := os.MkdirAll(chartWorkingDirectory, os.ModePerm)
+	err = os.MkdirAll(chartWorkingDirectory, os.ModePerm)
 	if err != nil {
 		helmAppServiceImpl.logger.Errorw("err in creating dir", "err", err)
+		return nil, err
 	}
 
-	return helmAppServiceImpl
+	return helmAppServiceImpl, nil
 }
 func (impl HelmAppServiceImpl) CleanDir(dir string) {
 	err := os.RemoveAll(dir)
