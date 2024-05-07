@@ -3,8 +3,10 @@ package sqlparse
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
+
 	"strings"
 )
 
@@ -21,26 +23,29 @@ type ParsedMigration struct {
 	DisableTransactionDown bool
 }
 
-// LineSeparator can be used to split migrations by an exact line match. This line
-// will be removed from the output. If left blank, it is not considered. It is defaulted
-// to blank so you will have to set it manually.
-// Use case: in MSSQL, it is convenient to separate commands by GO statements like in
-// SQL Query Analyzer.
-var LineSeparator = ""
+var (
+	// LineSeparator can be used to split migrations by an exact line match. This line
+	// will be removed from the output. If left blank, it is not considered. It is defaulted
+	// to blank so you will have to set it manually.
+	// Use case: in MSSQL, it is convenient to separate commands by GO statements like in
+	// SQL Query Analyzer.
+	LineSeparator = ""
+)
 
 func errNoTerminator() error {
 	if len(LineSeparator) == 0 {
-		return fmt.Errorf(`ERROR: The last statement must be ended by a semicolon or '-- +migrate StatementEnd' marker.
+		return errors.New(`ERROR: The last statement must be ended by a semicolon or '-- +migrate StatementEnd' marker.
 			See https://github.com/rubenv/sql-migrate for details.`)
 	}
 
-	return fmt.Errorf(`ERROR: The last statement must be ended by a semicolon, a line whose contents are %q, or '-- +migrate StatementEnd' marker.
-			See https://github.com/rubenv/sql-migrate for details.`, LineSeparator)
+	return errors.New(fmt.Sprintf(`ERROR: The last statement must be ended by a semicolon, a line whose contents are %q, or '-- +migrate StatementEnd' marker.
+			See https://github.com/rubenv/sql-migrate for details.`, LineSeparator))
 }
 
 // Checks the line to see if the line has a statement-ending semicolon
 // or if the line contains a double-dash comment.
 func endsWithSemicolon(line string) bool {
+
 	prev := ""
 	scanner := bufio.NewScanner(strings.NewReader(line))
 	scanner.Split(bufio.ScanWords)
@@ -83,12 +88,12 @@ func parseCommand(line string) (*migrateCommand, error) {
 	cmd := &migrateCommand{}
 
 	if !strings.HasPrefix(line, sqlCmdPrefix) {
-		return nil, fmt.Errorf("ERROR: not a sql-migrate command")
+		return nil, errors.New("ERROR: not a sql-migrate command")
 	}
 
 	fields := strings.Fields(line[len(sqlCmdPrefix):])
 	if len(fields) == 0 {
-		return nil, fmt.Errorf(`ERROR: incomplete migration command`)
+		return nil, errors.New(`ERROR: incomplete migration command`)
 	}
 
 	cmd.Command = fields[0]
@@ -146,6 +151,7 @@ func ParseMigration(r io.ReadSeeker) (*ParsedMigration, error) {
 				if cmd.HasOption(optionNoTransaction) {
 					p.DisableTransactionUp = true
 				}
+				break
 
 			case "Down":
 				if len(strings.TrimSpace(buf.String())) > 0 {
@@ -155,17 +161,20 @@ func ParseMigration(r io.ReadSeeker) (*ParsedMigration, error) {
 				if cmd.HasOption(optionNoTransaction) {
 					p.DisableTransactionDown = true
 				}
+				break
 
 			case "StatementBegin":
 				if currentDirection != directionNone {
 					ignoreSemicolons = true
 				}
+				break
 
 			case "StatementEnd":
 				if currentDirection != directionNone {
-					statementEnded = ignoreSemicolons
+					statementEnded = (ignoreSemicolons == true)
 					ignoreSemicolons = false
 				}
+				break
 			}
 		}
 
@@ -207,11 +216,11 @@ func ParseMigration(r io.ReadSeeker) (*ParsedMigration, error) {
 
 	// diagnose likely migration script errors
 	if ignoreSemicolons {
-		return nil, fmt.Errorf("ERROR: saw '-- +migrate StatementBegin' with no matching '-- +migrate StatementEnd'")
+		return nil, errors.New("ERROR: saw '-- +migrate StatementBegin' with no matching '-- +migrate StatementEnd'")
 	}
 
 	if currentDirection == directionNone {
-		return nil, fmt.Errorf(`ERROR: no Up/Down annotations found, so no statements were executed.
+		return nil, errors.New(`ERROR: no Up/Down annotations found, so no statements were executed.
 			See https://github.com/rubenv/sql-migrate for details.`)
 	}
 

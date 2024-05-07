@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sort"
 	"time"
 
 	"github.com/pkg/errors"
@@ -28,11 +27,6 @@ import (
 
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/release"
-)
-
-const (
-	ExcludeNameFilter = "!name"
-	IncludeNameFilter = "name"
 )
 
 // ReleaseTesting is the action for testing a release.
@@ -72,9 +66,9 @@ func (r *ReleaseTesting) Run(name string) (*release.Release, error) {
 
 	skippedHooks := []*release.Hook{}
 	executingHooks := []*release.Hook{}
-	if len(r.Filters[ExcludeNameFilter]) != 0 {
+	if len(r.Filters["!name"]) != 0 {
 		for _, h := range rel.Hooks {
-			if contains(r.Filters[ExcludeNameFilter], h.Name) {
+			if contains(r.Filters["!name"], h.Name) {
 				skippedHooks = append(skippedHooks, h)
 			} else {
 				executingHooks = append(executingHooks, h)
@@ -82,10 +76,10 @@ func (r *ReleaseTesting) Run(name string) (*release.Release, error) {
 		}
 		rel.Hooks = executingHooks
 	}
-	if len(r.Filters[IncludeNameFilter]) != 0 {
+	if len(r.Filters["name"]) != 0 {
 		executingHooks = nil
 		for _, h := range rel.Hooks {
-			if contains(r.Filters[IncludeNameFilter], h.Name) {
+			if contains(r.Filters["name"], h.Name) {
 				executingHooks = append(executingHooks, h)
 			} else {
 				skippedHooks = append(skippedHooks, h)
@@ -113,17 +107,9 @@ func (r *ReleaseTesting) GetPodLogs(out io.Writer, rel *release.Release) error {
 		return errors.Wrap(err, "unable to get kubernetes client to fetch pod logs")
 	}
 
-	hooksByWight := append([]*release.Hook{}, rel.Hooks...)
-	sort.Stable(hookByWeight(hooksByWight))
-	for _, h := range hooksByWight {
+	for _, h := range rel.Hooks {
 		for _, e := range h.Events {
 			if e == release.HookTest {
-				if contains(r.Filters[ExcludeNameFilter], h.Name) {
-					continue
-				}
-				if len(r.Filters[IncludeNameFilter]) > 0 && !contains(r.Filters[IncludeNameFilter], h.Name) {
-					continue
-				}
 				req := client.CoreV1().Pods(r.Namespace).GetLogs(h.Name, &v1.PodLogOptions{})
 				logReader, err := req.Stream(context.Background())
 				if err != nil {
