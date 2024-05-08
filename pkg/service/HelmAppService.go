@@ -19,6 +19,7 @@ import (
 	"helm.sh/helm/v3/pkg/storage/driver"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"net/url"
 	"path"
 	"time"
 
@@ -729,10 +730,14 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 
 }
 
-func (impl HelmAppServiceImpl) GetOCIChartName(registryUrl, repoName string) string {
+func parseOCIChartName(registryUrl, repoName string) (string, error) {
 	// helm package expects chart name to be in this format
-	chartName := fmt.Sprintf("%s://%s/%s", "oci", registryUrl, repoName)
-	return chartName
+	parsedUrl, err := url.Parse(registryUrl)
+	if err != nil {
+		return registryUrl, err
+	}
+	chartName := fmt.Sprintf("%s://%s/%s", "oci", parsedUrl.Host, repoName)
+	return chartName, nil
 }
 
 func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *client.InstallReleaseRequest, dryRun bool) (*release.Release, error) {
@@ -756,7 +761,12 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 	var chartName string
 	switch request.IsOCIRepo {
 	case true:
-		chartName = impl.GetOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+
+		chartName, err = parseOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+		if err != nil {
+			impl.logger.Errorw("error in parsing oci chart name", "registryUrl", request.RegistryCredential.RegistryUrl, "repoName", request.RegistryCredential.RepoName, "err", err)
+			return nil, err
+		}
 
 	case false:
 		chartRepoRequest := request.ChartRepository
@@ -884,6 +894,7 @@ func (impl HelmAppServiceImpl) GetNotes(ctx context.Context, request *client.Ins
 }
 
 func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, request *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error) {
+
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	if err != nil {
@@ -902,7 +913,11 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 	var chartName string
 	switch request.IsOCIRepo {
 	case true:
-		chartName = fmt.Sprintf("%s://%s/%s", "oci", request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+		chartName, err = parseOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+		if err != nil {
+			impl.logger.Errorw("error in parsing oci chart name", "registryUrl", request.RegistryCredential.RegistryUrl, "repoName", request.RegistryCredential.RepoName, "err", err)
+			return nil, err
+		}
 	case false:
 		chartRepoRequest := request.ChartRepository
 		chartRepoName := chartRepoRequest.Name
@@ -1081,8 +1096,11 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 	var chartName, repoURL string
 	switch request.IsOCIRepo {
 	case true:
-
-		chartName = impl.GetOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+		chartName, err = parseOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+		if err != nil {
+			impl.logger.Errorw("error in parsing oci chart name", "registryUrl", request.RegistryCredential.RegistryUrl, "repoName", request.RegistryCredential.RepoName, "err", err)
+			return "", nil, err
+		}
 	case false:
 		chartName = request.ChartName
 		repoURL = request.ChartRepository.Url
