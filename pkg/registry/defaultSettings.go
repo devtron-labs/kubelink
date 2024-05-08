@@ -10,17 +10,17 @@ type DefaultSettingsGetter interface {
 	SettingsGetter
 }
 
-type DefaultSettingsImpl struct {
+type DefaultSettingsGetterImpl struct {
 	logger *zap.SugaredLogger
 }
 
-func NewDefaultSettings(logger *zap.SugaredLogger) *DefaultSettingsImpl {
-	return &DefaultSettingsImpl{
+func NewDefaultSettingsGetter(logger *zap.SugaredLogger) *DefaultSettingsGetterImpl {
+	return &DefaultSettingsGetterImpl{
 		logger: logger,
 	}
 }
 
-func (s *DefaultSettingsImpl) GetRegistrySettings(registryCredential *client.RegistryCredential) (*Settings, error) {
+func (s *DefaultSettingsGetterImpl) GetRegistrySettings(registryCredential *client.RegistryCredential) (*Settings, error) {
 
 	registryClient, err := s.getRegistryClient(registryCredential)
 	if err != nil {
@@ -34,7 +34,7 @@ func (s *DefaultSettingsImpl) GetRegistrySettings(registryCredential *client.Reg
 	}, nil
 }
 
-func (s *DefaultSettingsImpl) getRegistryClient(registryCredential *client.RegistryCredential) (*registry.Client, error) {
+func (s *DefaultSettingsGetterImpl) getRegistryClient(registryCredential *client.RegistryCredential) (*registry.Client, error) {
 	registryClient, err := registry.NewClient()
 	if err != nil {
 		return nil, err

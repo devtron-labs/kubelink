@@ -16,6 +16,7 @@ import (
 	"github.com/devtron-labs/kubelink/internals/logger"
 	"github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
+	"github.com/devtron-labs/kubelink/pkg/registry"
 	"github.com/devtron-labs/kubelink/pkg/service"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 )
@@ -53,7 +54,9 @@ func InitializeApp() (*App, error) {
 	k8sK8sServiceImpl := k8s.NewK8sUtil(sugaredLogger, runtimeConfig)
 	clusterBeanConverterImpl := converter.NewConverterImpl()
 	k8sInformerImpl := k8sInformer.Newk8sInformerImpl(sugaredLogger, clusterRepositoryImpl, k8sInformerHelmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl)
-	helmAppServiceImpl, err := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, helmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl, clusterRepositoryImpl)
+	defaultSettingsGetterImpl := registry.NewDefaultSettingsGetter(sugaredLogger)
+	settingsFactoryImpl := registry.NewSettingsFactoryImpl(defaultSettingsGetterImpl)
+	helmAppServiceImpl, err := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, helmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl, clusterRepositoryImpl, settingsFactoryImpl)
 	if err != nil {
 		return nil, err
 	}

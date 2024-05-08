@@ -29,6 +29,7 @@ import (
 	"github.com/devtron-labs/kubelink/internals/logger"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
+	"github.com/devtron-labs/kubelink/pkg/registry"
 	"github.com/devtron-labs/kubelink/pkg/service"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 	"github.com/google/wire"
@@ -61,6 +62,12 @@ func InitializeApp() (*App, error) {
 		//cache.NewClusterCacheImpl,
 		//wire.Bind(new(cache.ClusterCache), new(*cache.ClusterCacheImpl)),
 		//cache.GetClusterCacheConfig,
+		registry.NewSettingsFactoryImpl,
+		wire.Bind(new(registry.SettingsFactory), new(*registry.SettingsFactoryImpl)),
+
+		registry.NewDefaultSettingsGetter,
+		wire.Bind(new(registry.DefaultSettingsGetter), new(*registry.DefaultSettingsGetterImpl)),
+
 		monitoring.NewMonitoringRouter,
 	)
 	return &App{}, nil
