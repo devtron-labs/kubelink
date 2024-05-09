@@ -8,17 +8,17 @@ import (
 func ConvertToRegistryConfig(credential *client.RegistryCredential) *bean.RegistryConfig {
 	var registryConfig *bean.RegistryConfig
 	if credential != nil {
+		registryConfig = &bean.RegistryConfig{
+			RegistryId:                credential.RegistryName,
+			RegistryUrl:               credential.RegistryUrl,
+			RegistryUsername:          credential.Username,
+			RegistryPassword:          credential.Password,
+			RegistryConnectionType:    credential.Connection,
+			RegistryCertificateString: credential.RegistryCertificate,
+		}
 		connectionConfig := credential.RemoteConnectionConfig
 		if connectionConfig != nil {
-			registryConfig = &bean.RegistryConfig{
-				RegistryId:                credential.RegistryName,
-				RegistryUrl:               credential.RegistryUrl,
-				RegistryUsername:          credential.Username,
-				RegistryPassword:          credential.Password,
-				RegistryConnectionType:    credential.Connection,
-				RegistryCertificateString: credential.RegistryCertificate,
-				ConnectionMethod:          bean.ConnectionMethod(connectionConfig.RemoteConnectionMethod),
-			}
+			registryConfig.ConnectionMethod = bean.ConnectionMethod(connectionConfig.RemoteConnectionMethod)
 			switch connectionConfig.RemoteConnectionMethod {
 			case client.RemoteConnectionMethod_PROXY:
 				registryConfig.ConnectionMethod = bean.ConnectionMethod_Proxy
