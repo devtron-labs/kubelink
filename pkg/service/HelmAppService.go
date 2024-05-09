@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"net/url"
 	"path"
+	"strings"
 	"time"
 
 	"sync"
@@ -1971,7 +1972,7 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 			impl.logger.Errorw("Error in loading chart bytes", "err", err)
 			return nil, err
 		}
-		trimmedURL, err := util.TrimSchemeFromURL(repoURL)
+		trimmedURL := TrimSchemeFromURL(repoURL)
 		if err != nil {
 			impl.logger.Errorw("err in getting repo url without scheme", "repoURL", repoURL, "err", err)
 			return nil, err
@@ -1983,7 +1984,7 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 	} else {
 		// disable strict mode for configuring chartName in repo
 		withStrictMode = registry.PushOptStrictMode(false)
-		trimmedURL, err := util.TrimSchemeFromURL(repoURL)
+		trimmedURL := TrimSchemeFromURL(repoURL)
 		if err != nil {
 			impl.logger.Errorw("err in getting repo url without scheme", "repoURL", repoURL, "err", err)
 			return nil, err
@@ -2004,6 +2005,16 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 		PushedURL: pushResult.Ref,
 	}
 	return registryPushResponse, err
+}
+
+func TrimSchemeFromURL(registryUrl string) string {
+	parsedUrl, err := url.Parse(registryUrl)
+	if err != nil {
+		return registryUrl
+	}
+	urlWithoutScheme := parsedUrl.Host + parsedUrl.Path
+	urlWithoutScheme = strings.TrimPrefix(urlWithoutScheme, "/")
+	return urlWithoutScheme
 }
 
 func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallError(ctx context.Context, helmInstallMessage HelmReleaseStatusConfig, releaseIdentifier *client.ReleaseIdentifier, installationErr error) (string, error) {
