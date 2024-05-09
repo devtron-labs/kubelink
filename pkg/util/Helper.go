@@ -3,6 +3,7 @@ package util
 import (
 	url2 "net/url"
 	"reflect"
+	"strings"
 )
 
 func IsMapSubset(mapSet interface{}, mapSubset interface{}) bool {
@@ -40,5 +41,6 @@ func TrimSchemeFromURL(url string) (string, error) {
 		return "", err
 	}
 	urlWithoutScheme := parsedUrl.Host + parsedUrl.Path
+	urlWithoutScheme = strings.TrimPrefix(urlWithoutScheme, "/")
 	return urlWithoutScheme, nil
 }
