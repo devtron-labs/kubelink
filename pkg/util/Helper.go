@@ -1,6 +1,9 @@
 package util
 
-import "reflect"
+import (
+	url2 "net/url"
+	"reflect"
+)
 
 func IsMapSubset(mapSet interface{}, mapSubset interface{}) bool {
 
@@ -29,4 +32,13 @@ func IsMapSubset(mapSet interface{}, mapSubset interface{}) bool {
 	}
 
 	return true
+}
+
+func TrimSchemeFromURL(url string) (string, error) {
+	parsedUrl, err := url2.Parse(url)
+	if err != nil {
+		return "", err
+	}
+	urlWithoutScheme := parsedUrl.Host + parsedUrl.Path
+	return urlWithoutScheme, nil
 }

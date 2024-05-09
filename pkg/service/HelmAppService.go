@@ -51,7 +51,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 )
 
 const (
@@ -1972,16 +1971,26 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 			impl.logger.Errorw("Error in loading chart bytes", "err", err)
 			return nil, err
 		}
+		trimmedURL, err := util.TrimSchemeFromURL(repoURL)
+		if err != nil {
+			impl.logger.Errorw("err in getting repo url without scheme", "repoURL", repoURL, "err", err)
+			return nil, err
+		}
 		// add chart name and version from the chart metadata
 		ref = fmt.Sprintf("%s:%s",
-			path.Join(strings.TrimPrefix(repoURL, fmt.Sprintf("%s://", registry.OCIScheme)), meta.Metadata.Name),
+			path.Join(trimmedURL, meta.Metadata.Name),
 			meta.Metadata.Version)
 	} else {
 		// disable strict mode for configuring chartName in repo
 		withStrictMode = registry.PushOptStrictMode(false)
+		trimmedURL, err := util.TrimSchemeFromURL(repoURL)
+		if err != nil {
+			impl.logger.Errorw("err in getting repo url without scheme", "repoURL", repoURL, "err", err)
+			return nil, err
+		}
 		// add chartName and version to url
 		ref = fmt.Sprintf("%s:%s",
-			path.Join(strings.TrimPrefix(repoURL, fmt.Sprintf("%s://", registry.OCIScheme)), OCIRegistryRequest.ChartName),
+			path.Join(trimmedURL, OCIRegistryRequest.ChartName),
 			OCIRegistryRequest.ChartVersion)
 	}
 
