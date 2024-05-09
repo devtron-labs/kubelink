@@ -1926,8 +1926,17 @@ func (impl HelmAppServiceImpl) ValidateOCIRegistryLogin(ctx context.Context, OCI
 		impl.logger.Errorw(HELM_CLIENT_ERROR, "err", err)
 		return nil, err
 	}
-	err = registry2.OCIRegistryLogin(registryClient, OCIRegistryRequest)
+	var caFilePath string
+	if OCIRegistryRequest.Connection == registry2.SECURE_WITH_CERT {
+		caFilePath, err = registry2.CreateCertificateFile(OCIRegistryRequest.RegistryName, OCIRegistryRequest.RegistryCertificate)
+		if err != nil {
+			impl.logger.Errorw("error in creating certificate file path", "registryName", OCIRegistryRequest.RegistryName, "err", err)
+			return nil, err
+		}
+	}
+	err = registry2.OCIRegistryLogin(registryClient, OCIRegistryRequest, caFilePath)
 	if err != nil {
+		impl.logger.Errorw("error in registry login", "registryName", OCIRegistryRequest.RegistryName, "err", err)
 		return nil, err
 	}
 	return &client.OCIRegistryResponse{
