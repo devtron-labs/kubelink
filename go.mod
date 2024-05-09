@@ -6,18 +6,18 @@ require (
 	//github.com/argoproj/gitops-engine v0.7.1-0.20231013183858-f15cf615b814
 	github.com/aws/aws-sdk-go v1.44.285
 	github.com/caarlos0/env v3.5.0+incompatible
-	github.com/devtron-labs/common-lib v0.0.16-0.20240503082245-7ab933f8381f
+	github.com/devtron-labs/common-lib v0.0.16-0.20240509124735-240663359542
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/go-pg/pg v6.15.1+incompatible
-	github.com/golang/protobuf v1.5.3
-	github.com/google/wire v0.5.0
+	github.com/golang/protobuf v1.5.4
+	github.com/google/wire v0.6.0
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/prometheus/client_golang v1.16.0
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.21.0
-	golang.org/x/sync v0.3.0
+	golang.org/x/sync v0.6.0
 	google.golang.org/grpc v1.58.3
 	google.golang.org/protobuf v1.33.0
 	helm.sh/helm/v3 v3.14.3
