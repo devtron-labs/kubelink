@@ -33,11 +33,13 @@ type RemoteConnectionConfigBean struct {
 }
 
 type RegistryConfig struct {
-	RegistryId       string
-	RegistryUrl      string
-	RegistryUsername string
-	RegistryPassword string
-	ConnectionMethod ConnectionMethod
-	ProxyConfig      *ProxyConfig
-	SSHConfig        *SSHTunnelConfig
+	RegistryId                string
+	RegistryUrl               string
+	RegistryUsername          string
+	RegistryPassword          string
+	RegistryConnectionType    string //secure, insecure, secure-with-cert
+	RegistryCertificateString string
+	ConnectionMethod          ConnectionMethod //ssh, proxy
+	ProxyConfig               *ProxyConfig
+	SSHConfig                 *SSHTunnelConfig
 }
