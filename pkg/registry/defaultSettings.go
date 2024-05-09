@@ -53,6 +53,7 @@ func (s *DefaultSettingsGetterImpl) getRegistryClient(registryCredential *client
 	httpClient, err := getHttpClient(registryConfig, caFilePath)
 	if err != nil {
 		s.logger.Errorw("error in getting http client", "registryName", registryConfig.RegistryId, "err", err)
+		return nil, err
 	}
 
 	registryClient, err := registry.NewClient(registry.ClientOptHTTPClient(httpClient))
