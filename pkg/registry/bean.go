@@ -15,8 +15,8 @@ const (
 )
 
 const (
-	INSECURE_CONNETION_STRING = "insecure"
-	SECURE_WITH_CERT_STRING   = "secure-with-cert"
+	INSECURE_CONNECTION = "insecure"
+	SECURE_WITH_CERT    = "secure-with-cert"
 )
 
 const (

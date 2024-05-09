@@ -100,20 +100,23 @@ func getLoginOptions(credential *client.RegistryCredential) ([]registry.LoginOpt
 
 	var loginOptions []registry.LoginOption
 
-	if credential.Connection == SECURE_WITH_CERT_STRING {
+	loginOptions = append(loginOptions, registry.LoginOptBasicAuth(credential.Username, credential.Password))
+
+	isSecureConnection := credential.Connection == INSECURE_CONNECTION
+	if credential.Connection == SECURE_WITH_CERT {
+		isSecureConnection = false
+	}
+
+	loginOptions = append(loginOptions,
+		registry.LoginOptInsecure(isSecureConnection))
+
+	if !isSecureConnection && credential.Connection == SECURE_WITH_CERT {
 		certificateFilePath, err := createCertificateFile(credential.RegistryName, credential.RegistryCertificate)
 		if err != nil {
 			return loginOptions, err
 		}
 		loginOptions = append(loginOptions, registry.LoginOptTLSClientConfig("", "", certificateFilePath))
-	} else {
-		loginOptions = append(loginOptions, registry.LoginOptBasicAuth(credential.Username, credential.Password))
 	}
-
-	allowInsecureConnection := credential.Connection == INSECURE_CONNETION_STRING
-
-	loginOptions = append(loginOptions,
-		registry.LoginOptInsecure(allowInsecureConnection))
 
 	return loginOptions, nil
 }
