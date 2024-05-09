@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/devtron-labs/kubelink/bean"
+	errorUtil "github.com/devtron-labs/kubelink/error"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/internals/lock"
 	"go.uber.org/zap"
@@ -88,6 +89,10 @@ func (impl *ApplicationServiceServerImpl) GetAppDetail(ctxt context.Context, req
 		}
 		impl.Logger.Errorw("Error in getting app detail", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
 			"namespace", req.Namespace, "err", err)
+		internalErr := errorUtil.ConvertHelmErrorToInternalError(err)
+		if internalErr != nil {
+			err = internalErr
+		}
 		return nil, err
 	}
 	res := impl.AppDetailAdaptor(helmAppDetail)
