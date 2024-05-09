@@ -111,7 +111,7 @@ func getLoginOptions(credential *client.RegistryCredential) ([]registry.LoginOpt
 		registry.LoginOptInsecure(isSecureConnection))
 
 	if !isSecureConnection && credential.Connection == SECURE_WITH_CERT {
-		certificateFilePath, err := createCertificateFile(credential.RegistryName, credential.RegistryCertificate)
+		certificateFilePath, err := CreateCertificateFile(credential.RegistryName, credential.RegistryCertificate)
 		if err != nil {
 			return loginOptions, err
 		}
@@ -121,7 +121,7 @@ func getLoginOptions(credential *client.RegistryCredential) ([]registry.LoginOpt
 	return loginOptions, nil
 }
 
-func createCertificateFile(registryName, caString string) (certificatePath string, err error) {
+func CreateCertificateFile(registryName, caString string) (certificatePath string, err error) {
 
 	registryFolderPath := fmt.Sprintf("%s/%s", REGISTRY_CREDENTIAL_BASE_PATH, registryName)
 	certificateFilePath := fmt.Sprintf("%s/%s/ca.crt", REGISTRY_CREDENTIAL_BASE_PATH, registryName)
