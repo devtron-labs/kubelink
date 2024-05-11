@@ -39,6 +39,8 @@ type RegistryConfig struct {
 	RegistryPassword          string
 	RegistryConnectionType    string //secure, insecure, secure-with-cert
 	RegistryCertificateString string
+	RegistryCAFilePath        string
+	IsPublicRegistry          bool
 	ConnectionMethod          ConnectionMethod //ssh, proxy
 	ProxyConfig               *ProxyConfig
 	SSHConfig                 *SSHTunnelConfig

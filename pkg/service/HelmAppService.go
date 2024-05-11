@@ -7,13 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	registry2 "github.com/devtron-labs/common-lib/helm-lib/registry"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	k8sObjectUtils "github.com/devtron-labs/common-lib/utils/k8sObjectsUtil"
 	"github.com/devtron-labs/kubelink/converter"
 	error2 "github.com/devtron-labs/kubelink/error"
 	"github.com/devtron-labs/kubelink/pkg/cache"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
-	registry2 "github.com/devtron-labs/kubelink/pkg/registry"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -745,12 +745,13 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	if err != nil {
+		impl.logger.Errorw("error in creating helm client object", "releaseIdentifier", releaseIdentifier, "err", err)
 		return nil, err
 	}
 
 	// oci registry client
-	settingsGetter := impl.registrySettings.GetSettings(request.RegistryCredential)
-	settings, err := settingsGetter.GetRegistrySettings(request.RegistryCredential)
+	settingsGetter := impl.registrySettings.GetSettings(ConvertToRegistryConfig(request.RegistryCredential))
+	settings, err := settingsGetter.GetRegistrySettings(ConvertToRegistryConfig(request.RegistryCredential))
 	if err != nil {
 		impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", request.RegistryCredential.RegistryName, "err", err)
 		return nil, err
@@ -901,8 +902,8 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		return nil, err
 	}
 
-	settingsGetter := impl.registrySettings.GetSettings(request.RegistryCredential)
-	settings, err := settingsGetter.GetRegistrySettings(request.RegistryCredential)
+	settingsGetter := impl.registrySettings.GetSettings(ConvertToRegistryConfig(request.RegistryCredential))
+	settings, err := settingsGetter.GetRegistrySettings(ConvertToRegistryConfig(request.RegistryCredential))
 	if err != nil {
 		impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", request.RegistryCredential.RegistryName, "err", err)
 		return nil, err
@@ -1084,8 +1085,8 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 		return "", nil, err
 	}
 
-	settingsGetter := impl.registrySettings.GetSettings(request.RegistryCredential)
-	settings, err := settingsGetter.GetRegistrySettings(request.RegistryCredential)
+	settingsGetter := impl.registrySettings.GetSettings(ConvertToRegistryConfig(request.RegistryCredential))
+	settings, err := settingsGetter.GetRegistrySettings(ConvertToRegistryConfig(request.RegistryCredential))
 	if err != nil {
 		impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", request.RegistryCredential.RegistryName, "err", err)
 		return "", nil, err
@@ -1934,7 +1935,9 @@ func (impl HelmAppServiceImpl) ValidateOCIRegistryLogin(ctx context.Context, OCI
 			return nil, err
 		}
 	}
-	err = registry2.OCIRegistryLogin(registryClient, OCIRegistryRequest, caFilePath)
+	registryConfig := ConvertToRegistryConfig(OCIRegistryRequest)
+	registryConfig.RegistryCAFilePath = caFilePath
+	err = registry2.OCIRegistryLogin(registryClient, registryConfig)
 	if err != nil {
 		impl.logger.Errorw("error in registry login", "registryName", OCIRegistryRequest.RegistryName, "err", err)
 		return nil, err
@@ -1948,8 +1951,8 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 
 	registryPushResponse := &client.OCIRegistryResponse{}
 
-	settingsGetter := impl.registrySettings.GetSettings(OCIRegistryRequest.RegistryCredential)
-	settings, err := settingsGetter.GetRegistrySettings(OCIRegistryRequest.RegistryCredential)
+	settingsGetter := impl.registrySettings.GetSettings(ConvertToRegistryConfig(OCIRegistryRequest.RegistryCredential))
+	settings, err := settingsGetter.GetRegistrySettings(ConvertToRegistryConfig(OCIRegistryRequest.RegistryCredential))
 	if err != nil {
 		impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", OCIRegistryRequest.RegistryCredential.RegistryName, "err", err)
 		return nil, err

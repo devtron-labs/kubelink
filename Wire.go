@@ -21,6 +21,7 @@ package main
 
 import (
 	"github.com/devtron-labs/authenticator/client"
+	"github.com/devtron-labs/common-lib/helm-lib/registry"
 	"github.com/devtron-labs/common-lib/monitoring"
 	"github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/kubelink/api/router"
@@ -29,7 +30,6 @@ import (
 	"github.com/devtron-labs/kubelink/internals/logger"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
-	"github.com/devtron-labs/kubelink/pkg/registry"
 	"github.com/devtron-labs/kubelink/pkg/service"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 	"github.com/google/wire"

@@ -10,19 +10,42 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
-	"github.com/devtron-labs/common-lib/utils/remoteConnection/bean"
-	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/registry"
 	"log"
+	"math/rand"
 	"os"
 	"strings"
 )
 
+func OCIRegistryLogin(client *registry.Client, config *Configuration) error {
+
+	username, pwd, err := extractCredentialsForRegistry(config)
+	if err != nil {
+		return err
+	}
+	config.Username = username
+	config.Password = pwd
+
+	loginOptions, err := getLoginOptions(config)
+	if err != nil {
+		return err
+	}
+
+	err = client.Login(config.RegistryUrl,
+		loginOptions...,
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func CreateCertificateFile(registryName, caString string) (certificatePath string, err error) {
 
 	registryFolderPath := fmt.Sprintf("%s/%s", REGISTRY_CREDENTIAL_BASE_PATH, registryName)
-	certificateFilePath := fmt.Sprintf("%s/%s/ca.crt", REGISTRY_CREDENTIAL_BASE_PATH, registryName)
+	certificateFilePath := fmt.Sprintf("%s/%s-%v/ca.crt", REGISTRY_CREDENTIAL_BASE_PATH, registryName, rand.Int())
 
 	if _, err = os.Stat(certificateFilePath); os.IsExist(err) {
 		// if file exists - remove file
@@ -49,10 +72,10 @@ func CreateCertificateFile(registryName, caString string) (certificatePath strin
 	return certificateFilePath, nil
 }
 
-func extractCredentialsForRegistry(registryCredential *client.RegistryCredential) (string, string, error) {
-	username := registryCredential.Username
-	pwd := registryCredential.Password
-	if (registryCredential.RegistryType == REGISTRYTYPE_GCR || registryCredential.RegistryType == REGISTRYTYPE_ARTIFACT_REGISTRY) && username == JSON_KEY_USERNAME {
+func extractCredentialsForRegistry(config *Configuration) (string, string, error) {
+	username := config.Username
+	pwd := config.Password
+	if (config.RegistryType == REGISTRYTYPE_GCR || config.RegistryType == REGISTRYTYPE_ARTIFACT_REGISTRY) && username == JSON_KEY_USERNAME {
 		if strings.HasPrefix(pwd, "'") {
 			pwd = pwd[1:]
 		}
@@ -60,13 +83,13 @@ func extractCredentialsForRegistry(registryCredential *client.RegistryCredential
 			pwd = pwd[:len(pwd)-1]
 		}
 	}
-	if registryCredential.RegistryType == REGISTRY_TYPE_ECR {
-		accessKey, secretKey := registryCredential.AccessKey, registryCredential.SecretKey
+	if config.RegistryType == REGISTRY_TYPE_ECR {
+		accessKey, secretKey := config.AwsAccessKey, config.AwsSecretKey
 		var creds *credentials.Credentials
 
-		if len(registryCredential.AccessKey) == 0 || len(registryCredential.SecretKey) == 0 {
+		if len(config.AwsAccessKey) == 0 || len(config.AwsSecretKey) == 0 {
 			sess, err := session.NewSession(&aws.Config{
-				Region: &registryCredential.AwsRegion,
+				Region: &config.AwsRegion,
 			})
 			if err != nil {
 				log.Printf("error in creating AWS client %w ", err)
@@ -77,7 +100,7 @@ func extractCredentialsForRegistry(registryCredential *client.RegistryCredential
 			creds = credentials.NewStaticCredentials(accessKey, secretKey, "")
 		}
 		sess, err := session.NewSession(&aws.Config{
-			Region:      &registryCredential.AwsRegion,
+			Region:      &config.AwsRegion,
 			Credentials: creds,
 		})
 		if err != nil {
@@ -106,51 +129,27 @@ func extractCredentialsForRegistry(registryCredential *client.RegistryCredential
 	return username, pwd, nil
 }
 
-func OCIRegistryLogin(client *registry.Client, registryCredential *client.RegistryCredential, caFilePath string) error {
-
-	username, pwd, err := extractCredentialsForRegistry(registryCredential)
-	if err != nil {
-		return err
-	}
-	registryCredential.Username = username
-	registryCredential.Password = pwd
-
-	loginOptions, err := getLoginOptions(registryCredential, caFilePath)
-	if err != nil {
-		return err
-	}
-
-	err = client.Login(registryCredential.RegistryUrl,
-		loginOptions...,
-	)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func getLoginOptions(credential *client.RegistryCredential, certificateFilePath string) ([]registry.LoginOption, error) {
+func getLoginOptions(config *Configuration) ([]registry.LoginOption, error) {
 
 	var loginOptions []registry.LoginOption
 
-	loginOptions = append(loginOptions, registry.LoginOptBasicAuth(credential.Username, credential.Password))
+	loginOptions = append(loginOptions, registry.LoginOptBasicAuth(config.Username, config.Password))
 
-	isSecureConnection := credential.Connection == INSECURE_CONNECTION
+	isSecureConnection := config.RegistryConnectionType == INSECURE_CONNECTION
 
 	loginOptions = append(loginOptions,
 		registry.LoginOptInsecure(isSecureConnection))
 
-	if !isSecureConnection && credential.Connection == SECURE_WITH_CERT {
-		loginOptions = append(loginOptions, registry.LoginOptTLSClientConfig("", "", certificateFilePath))
+	if !isSecureConnection && config.RegistryConnectionType == SECURE_WITH_CERT {
+		loginOptions = append(loginOptions, registry.LoginOptTLSClientConfig("", "", config.RegistryCAFilePath))
 	}
 
 	return loginOptions, nil
 }
 
-func GetTlsConfig(registryConfig *bean.RegistryConfig, caFilePath string) (*tls.Config, error) {
-	isInsecure := registryConfig.RegistryConnectionType == INSECURE_CONNECTION
-	tlsConfig, err := NewClientTLS("", "", caFilePath, isInsecure)
+func GetTlsConfig(config *Configuration) (*tls.Config, error) {
+	isInsecure := config.RegistryConnectionType == INSECURE_CONNECTION
+	tlsConfig, err := NewClientTLS("", "", config.RegistryCAFilePath, isInsecure)
 	if err != nil {
 		return nil, err
 	}

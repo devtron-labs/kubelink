@@ -1,31 +1,39 @@
-package registry
+package service
 
 import (
+	"github.com/devtron-labs/common-lib/helm-lib/registry"
 	"github.com/devtron-labs/common-lib/utils/remoteConnection/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 )
 
-func ConvertToRegistryConfig(credential *client.RegistryCredential) *bean.RegistryConfig {
-	var registryConfig *bean.RegistryConfig
+func ConvertToRegistryConfig(credential *client.RegistryCredential) *registry.Configuration {
+	var registryConfig *registry.Configuration
 	if credential != nil {
-		registryConfig = &bean.RegistryConfig{
+
+		registryConfig := &registry.Configuration{
 			RegistryId:                credential.RegistryName,
 			RegistryUrl:               credential.RegistryUrl,
-			RegistryUsername:          credential.Username,
-			RegistryPassword:          credential.Password,
+			Username:                  credential.Username,
+			Password:                  credential.Password,
+			AwsAccessKey:              credential.AccessKey,
+			AwsSecretKey:              credential.SecretKey,
+			AwsRegion:                 credential.AwsRegion,
 			RegistryConnectionType:    credential.Connection,
 			RegistryCertificateString: credential.RegistryCertificate,
+			RegistryType:              credential.RegistryType,
+			IsPublicRegistry:          credential.IsPublic,
 		}
+
 		connectionConfig := credential.RemoteConnectionConfig
 		if connectionConfig != nil {
-			registryConfig.ConnectionMethod = bean.ConnectionMethod(connectionConfig.RemoteConnectionMethod)
+			registryConfig.RemoteConnectionConfig = bean.RemoteConnectionConfigBean{}
 			switch connectionConfig.RemoteConnectionMethod {
 			case client.RemoteConnectionMethod_PROXY:
-				registryConfig.ConnectionMethod = bean.ConnectionMethod_Proxy
-				registryConfig.ProxyConfig = ConvertConfigToProxyConfig(connectionConfig)
+				registryConfig.RemoteConnectionConfig.ConnectionMethod = bean.RemoteConnectionMethod(bean.ConnectionMethod_Proxy)
+				registryConfig.RemoteConnectionConfig.ProxyConfig = ConvertConfigToProxyConfig(connectionConfig)
 			case client.RemoteConnectionMethod_SSH:
-				registryConfig.ConnectionMethod = bean.ConnectionMethod_SSH
-				registryConfig.SSHConfig = ConvertConfigToSSHTunnelConfig(connectionConfig)
+				registryConfig.RemoteConnectionConfig.ConnectionMethod = bean.RemoteConnectionMethod(bean.ConnectionMethod_SSH)
+				registryConfig.RemoteConnectionConfig.SSHTunnelConfig = ConvertConfigToSSHTunnelConfig(connectionConfig)
 			}
 		}
 	}

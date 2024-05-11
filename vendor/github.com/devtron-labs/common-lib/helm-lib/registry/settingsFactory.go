@@ -1,15 +1,11 @@
 package registry
 
-import (
-	client "github.com/devtron-labs/kubelink/grpc"
-)
-
 type SettingsGetter interface {
-	GetRegistrySettings(registryCredential *client.RegistryCredential) (*Settings, error)
+	GetRegistrySettings(config *Configuration) (*Settings, error)
 }
 
 type SettingsFactory interface {
-	GetSettings(registryCredential *client.RegistryCredential) SettingsGetter
+	GetSettings(config *Configuration) SettingsGetter
 }
 
 type SettingsFactoryImpl struct {
@@ -24,6 +20,6 @@ func NewSettingsFactoryImpl(
 	}
 }
 
-func (impl SettingsFactoryImpl) GetSettings(registryCredential *client.RegistryCredential) SettingsGetter {
+func (impl SettingsFactoryImpl) GetSettings(config *Configuration) SettingsGetter {
 	return impl.DefaultSettings
 }
