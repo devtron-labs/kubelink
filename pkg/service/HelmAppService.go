@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	registry2 "github.com/devtron-labs/common-lib/helm-lib/registry"
+	registry2 "github.com/devtron-labs/common-lib/helmLib/registry"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	k8sObjectUtils "github.com/devtron-labs/common-lib/utils/k8sObjectsUtil"
 	"github.com/devtron-labs/kubelink/converter"

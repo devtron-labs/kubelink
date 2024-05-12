@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/devtron-labs/common-lib/helm-lib/registry"
+	"github.com/devtron-labs/common-lib/helmLib/registry"
 	"github.com/devtron-labs/common-lib/utils/remoteConnection/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 )

@@ -8,7 +8,7 @@ package main
 
 import (
 	"github.com/devtron-labs/authenticator/client"
-	"github.com/devtron-labs/common-lib/helm-lib/registry"
+	"github.com/devtron-labs/common-lib/helmLib/registry"
 	"github.com/devtron-labs/common-lib/monitoring"
 	"github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/kubelink/api/router"
