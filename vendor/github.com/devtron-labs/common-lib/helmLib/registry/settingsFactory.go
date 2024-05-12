@@ -5,7 +5,7 @@ type SettingsGetter interface {
 }
 
 type SettingsFactory interface {
-	GetSettings(config *Configuration) SettingsGetter
+	GetSettings(config *Configuration) (SettingsGetter, error)
 }
 
 type SettingsFactoryImpl struct {
@@ -20,6 +20,6 @@ func NewSettingsFactoryImpl(
 	}
 }
 
-func (impl SettingsFactoryImpl) GetSettings(config *Configuration) SettingsGetter {
-	return impl.DefaultSettings
+func (impl SettingsFactoryImpl) GetSettings(config *Configuration) (SettingsGetter, error) {
+	return impl.DefaultSettings, nil
 }

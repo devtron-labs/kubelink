@@ -750,7 +750,11 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 	}
 
 	// oci registry client
-	settingsGetter := impl.registrySettings.GetSettings(ConvertToRegistryConfig(request.RegistryCredential))
+	settingsGetter, err := impl.registrySettings.GetSettings(ConvertToRegistryConfig(request.RegistryCredential))
+	if err != nil {
+		impl.logger.Errorw("error in getting registry settings", "err", err)
+		return nil, err
+	}
 	settings, err := settingsGetter.GetRegistrySettings(ConvertToRegistryConfig(request.RegistryCredential))
 	if err != nil {
 		impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", request.RegistryCredential.RegistryName, "err", err)
@@ -902,7 +906,11 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		return nil, err
 	}
 
-	settingsGetter := impl.registrySettings.GetSettings(ConvertToRegistryConfig(request.RegistryCredential))
+	settingsGetter, err := impl.registrySettings.GetSettings(ConvertToRegistryConfig(request.RegistryCredential))
+	if err != nil {
+		impl.logger.Errorw("error in getting registry settings", "err", err)
+		return nil, err
+	}
 	settings, err := settingsGetter.GetRegistrySettings(ConvertToRegistryConfig(request.RegistryCredential))
 	if err != nil {
 		impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", request.RegistryCredential.RegistryName, "err", err)
@@ -1085,7 +1093,11 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 		return "", nil, err
 	}
 
-	settingsGetter := impl.registrySettings.GetSettings(ConvertToRegistryConfig(request.RegistryCredential))
+	settingsGetter, err := impl.registrySettings.GetSettings(ConvertToRegistryConfig(request.RegistryCredential))
+	if err != nil {
+		impl.logger.Errorw("error in getting registry settings", "err", err)
+		return "", nil, err
+	}
 	settings, err := settingsGetter.GetRegistrySettings(ConvertToRegistryConfig(request.RegistryCredential))
 	if err != nil {
 		impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", request.RegistryCredential.RegistryName, "err", err)
@@ -1951,7 +1963,11 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 
 	registryPushResponse := &client.OCIRegistryResponse{}
 
-	settingsGetter := impl.registrySettings.GetSettings(ConvertToRegistryConfig(OCIRegistryRequest.RegistryCredential))
+	settingsGetter, err := impl.registrySettings.GetSettings(ConvertToRegistryConfig(OCIRegistryRequest.RegistryCredential))
+	if err != nil {
+		impl.logger.Errorw("error in getting registry settings", "err", err)
+		return nil, err
+	}
 	settings, err := settingsGetter.GetRegistrySettings(ConvertToRegistryConfig(OCIRegistryRequest.RegistryCredential))
 	if err != nil {
 		impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", OCIRegistryRequest.RegistryCredential.RegistryName, "err", err)

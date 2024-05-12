@@ -18,7 +18,7 @@ type Configuration struct {
 	RegistryCAFilePath        string
 	RegistryType              string
 	IsPublicRegistry          bool
-	RemoteConnectionConfig    bean.RemoteConnectionConfigBean
+	RemoteConnectionConfig    *bean.RemoteConnectionConfigBean
 }
 
 type Settings struct {

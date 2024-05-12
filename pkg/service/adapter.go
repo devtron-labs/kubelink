@@ -26,7 +26,7 @@ func ConvertToRegistryConfig(credential *client.RegistryCredential) *registry.Co
 
 		connectionConfig := credential.RemoteConnectionConfig
 		if connectionConfig != nil {
-			registryConfig.RemoteConnectionConfig = bean.RemoteConnectionConfigBean{}
+			registryConfig.RemoteConnectionConfig = &bean.RemoteConnectionConfigBean{}
 			switch connectionConfig.RemoteConnectionMethod {
 			case client.RemoteConnectionMethod_PROXY:
 				registryConfig.RemoteConnectionConfig.ConnectionMethod = bean.RemoteConnectionMethod(bean.ConnectionMethod_Proxy)
