@@ -9,8 +9,7 @@ import (
 func ConvertToRegistryConfig(credential *client.RegistryCredential) *registry.Configuration {
 	var registryConfig *registry.Configuration
 	if credential != nil {
-
-		registryConfig := &registry.Configuration{
+		registryConfig = &registry.Configuration{
 			RegistryId:                credential.RegistryName,
 			RegistryUrl:               credential.RegistryUrl,
 			Username:                  credential.Username,
