@@ -9,6 +9,7 @@ const (
 	CrdPreconditionErrorMsg     = "ensure CRDs are installed first"
 	ArrayStringMismatchErrorMsg = "got array expected string"
 	//NamespaceNotFoundErrorMsg   = "not found" // todo - add more acurate error message, this is very generic
+	// hello
 	InvalidValueErrorMsg        = "Invalid value"
 	OperationInProgressErrorMsg = "another operation (install/upgrade/rollback) is in progress"
 )
