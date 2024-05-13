@@ -3,6 +3,7 @@ package registry
 import (
 	"github.com/devtron-labs/common-lib/utils/remoteConnection/bean"
 	"helm.sh/helm/v3/pkg/registry"
+	"net/http"
 )
 
 type Configuration struct {
@@ -21,10 +22,21 @@ type Configuration struct {
 	RemoteConnectionConfig    *bean.RemoteConnectionConfigBean
 }
 
+type RegistryConnectionType string
+
 type Settings struct {
-	RegistryClient  *registry.Client
-	RegistryHostURL string
+	RegistryClient         *registry.Client
+	RegistryHostURL        string
+	RegistryConnectionType RegistryConnectionType
+	HttpClient             *http.Client
+	Header                 http.Header
 }
+
+const (
+	REGISTRY_CONNECTION_TYPE_DIRECT RegistryConnectionType = "DIRECT"
+	REGISTRY_CONNECTION_TYPE_PROXY  RegistryConnectionType = "PROXY"
+	REGISTRY_CONNECTION_TYPE_SSH    RegistryConnectionType = "SSH"
+)
 
 const (
 	REGISTRY_TYPE_ECR                     = "ecr"
