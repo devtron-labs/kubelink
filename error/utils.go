@@ -15,9 +15,7 @@ func ConvertHelmErrorToInternalError(err error) error {
 	var internalError error
 	for helmErrMsg, internalErr := range helmErrorInternalErrorMap {
 		if strings.Contains(err.Error(), helmErrMsg) {
-			for internalErrMsg, internalErrCode := range internalErr {
-				internalError = status.New(internalErrCode, internalErrMsg).Err()
-			}
+			internalError = status.New(internalErr.grpcCode, internalErr.errorMsg).Err()
 		}
 	}
 	return internalError

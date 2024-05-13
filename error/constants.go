@@ -1,6 +1,8 @@
 package error
 
-import "google.golang.org/grpc/codes"
+import (
+	"google.golang.org/grpc/codes"
+)
 
 // list of error strings from Helm. These are part of the errors we check for presence in Helm's error messages.
 const (
@@ -24,10 +26,15 @@ const (
 	InternalOperationInProgressErrorMsg = "another operation (install/upgrade/rollback) is in progress"
 )
 
-var helmErrorInternalErrorMap = map[string]map[string]codes.Code{
-	ClusterUnreachableErrorMsg:  {InternalClusterUnreachableErrorMsg: codes.DeadlineExceeded},
-	CrdPreconditionErrorMsg:     {InternalCrdPreconditionErrorMsg: codes.FailedPrecondition},
-	ArrayStringMismatchErrorMsg: {InternalArrayStringMismatchErrorMsg: codes.Unknown},
-	InvalidValueErrorMsg:        {InternalInvalidValueErrorMsg: codes.Unknown},
-	OperationInProgressErrorMsg: {InternalOperationInProgressErrorMsg: codes.FailedPrecondition},
+type errorGrpcCodeTuple struct {
+	errorMsg string
+	grpcCode codes.Code
+}
+
+var helmErrorInternalErrorMap = map[string]errorGrpcCodeTuple{
+	ClusterUnreachableErrorMsg:  {errorMsg: InternalClusterUnreachableErrorMsg, grpcCode: codes.DeadlineExceeded},
+	CrdPreconditionErrorMsg:     {errorMsg: InternalCrdPreconditionErrorMsg, grpcCode: codes.FailedPrecondition},
+	ArrayStringMismatchErrorMsg: {errorMsg: InternalArrayStringMismatchErrorMsg, grpcCode: codes.Unknown},
+	InvalidValueErrorMsg:        {errorMsg: InternalInvalidValueErrorMsg, grpcCode: codes.Unknown},
+	OperationInProgressErrorMsg: {errorMsg: InternalOperationInProgressErrorMsg, grpcCode: codes.FailedPrecondition},
 }

@@ -61,7 +61,6 @@ import (
 const (
 	hibernateReplicaAnnotation            = "hibernator.devtron.ai/replicas"
 	hibernatePatch                        = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
-	chartWorkingDirectory                 = "/tmp/home/devtron/devtroncd/charts/"
 	ReadmeFileName                        = "README.md"
 	REGISTRY_TYPE_ECR                     = "ecr"
 	REGISTRYTYPE_GCR                      = "gcr"
@@ -138,7 +137,7 @@ func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 		clusterRepository: clusterRepository,
 		converter:         converter,
 	}
-	err = os.MkdirAll(chartWorkingDirectory, os.ModePerm)
+	err = os.MkdirAll(helmReleaseConfig.ChartWorkingDirectory, os.ModePerm)
 	if err != nil {
 		helmAppServiceImpl.logger.Errorw("err in creating dir", "err", err)
 		return nil, err
@@ -1828,15 +1827,15 @@ func (impl HelmAppServiceImpl) InstallReleaseWithCustomChart(ctx context.Context
 		return false, err
 	}
 
-	if _, err := os.Stat(chartWorkingDirectory); os.IsNotExist(err) {
-		err := os.MkdirAll(chartWorkingDirectory, os.ModePerm)
+	if _, err := os.Stat(impl.helmReleaseConfig.ChartWorkingDirectory); os.IsNotExist(err) {
+		err := os.MkdirAll(impl.helmReleaseConfig.ChartWorkingDirectory, os.ModePerm)
 		if err != nil {
 			impl.logger.Errorw("err in creating dir", "err", err)
 			return false, err
 		}
 	}
 	dir := impl.GetRandomString()
-	referenceChartDir := filepath.Join(chartWorkingDirectory, dir)
+	referenceChartDir := filepath.Join(impl.helmReleaseConfig.ChartWorkingDirectory, dir)
 	referenceChartDir = fmt.Sprintf("%s.tgz", referenceChartDir)
 	defer impl.CleanDir(referenceChartDir)
 	err = ioutil.WriteFile(referenceChartDir, b.Bytes(), os.ModePerm)
@@ -1890,15 +1889,15 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 		return false, err
 	}
 
-	if _, err := os.Stat(chartWorkingDirectory); os.IsNotExist(err) {
-		err := os.MkdirAll(chartWorkingDirectory, os.ModePerm)
+	if _, err := os.Stat(impl.helmReleaseConfig.ChartWorkingDirectory); os.IsNotExist(err) {
+		err := os.MkdirAll(impl.helmReleaseConfig.ChartWorkingDirectory, os.ModePerm)
 		if err != nil {
 			impl.logger.Errorw("err in creating dir", "err", err)
 			return false, err
 		}
 	}
 	dir := impl.GetRandomString()
-	referenceChartDir := filepath.Join(chartWorkingDirectory, dir)
+	referenceChartDir := filepath.Join(impl.helmReleaseConfig.ChartWorkingDirectory, dir)
 	referenceChartDir = fmt.Sprintf("%s.tgz", referenceChartDir)
 	defer impl.CleanDir(referenceChartDir)
 	err = ioutil.WriteFile(referenceChartDir, b.Bytes(), os.ModePerm)
