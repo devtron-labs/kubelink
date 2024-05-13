@@ -32,9 +32,9 @@ func getInternalErrorForGenericErrorTypes(err error) error {
 			3. when some resource is forbidden then err can be of many formats one of which is:- Unable to continue with install: could not get information about the resource Ingress "prakash-1-prakash-env3-ingress" in namespace "prakash-ns3": ingresses.networking.k8s.io "prakash-1-prakash-env3-ingress" is forbidden...
 	*/
 	var internalError error
-	if strings.Compare(err.Error(), NotFoundErrorMsg) == 0 {
+	if strings.Compare(strings.ToLower(err.Error()), NotFoundErrorMsg) == 0 {
 		internalError = status.New(codes.NotFound, err.Error()).Err()
-	} else if strings.Contains(err.Error(), ForbiddenErrorMsg) {
+	} else if strings.Contains(strings.ToLower(err.Error()), ForbiddenErrorMsg) {
 		internalError = status.New(codes.PermissionDenied, err.Error()).Err()
 	}
 	return internalError

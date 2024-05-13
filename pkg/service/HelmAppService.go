@@ -840,6 +840,10 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 		rel, err := helmClientObj.InstallChart(context.Background(), chartSpec)
 		if err != nil {
 			impl.logger.Errorw("Error in install release ", "err", err)
+			internalErr := error2.ConvertHelmErrorToInternalError(err)
+			if internalErr != nil {
+				err = internalErr
+			}
 			return nil, err
 		}
 
