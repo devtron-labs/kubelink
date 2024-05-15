@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/devtron-labs/common-lib/constants"
 	"github.com/devtron-labs/common-lib/middlewares"
+	"github.com/devtron-labs/common-lib/pubsub-lib/metrics"
 	"github.com/devtron-labs/kubelink/api/router"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/internals/middleware"
@@ -58,6 +59,7 @@ func (app *App) Start() {
 	}
 
 	grpcPanicRecoveryHandler := func(p any) (err error) {
+		metrics.IncPanicRecoveryCount("grpc", "", "", "")
 		app.Logger.Error(constants.PanicLogIdentifier, "recovered from panic", "panic", p, "stack", string(debug.Stack()))
 		return status.Errorf(codes.Internal, "%s", p)
 	}

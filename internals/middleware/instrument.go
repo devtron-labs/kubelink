@@ -9,23 +9,37 @@ import (
 	"time"
 )
 
+// metrics name constant
+const (
+	KUBELINK_HTTP_DURATION_SECONDS = "kubelink_http_duration_seconds"
+	KUBELINK_HTTP_REQUESTS_TOTAL   = "kubelink_http_requests_total"
+	KUBELINK_HTTP_REQUESTS_CURRENT = "kubelink_http_requests_current"
+)
+
+// metrics labels constants
+const (
+	PATH   = "path"
+	METHOD = "method"
+	STATUS = "status"
+)
+
 var (
 	httpDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "kubelink_http_duration_seconds",
+		Name: KUBELINK_HTTP_DURATION_SECONDS,
 		Help: "Duration of HTTP requests.",
-	}, []string{"path", "method", "status"})
+	}, []string{PATH, METHOD, STATUS})
 )
 var requestCounter = promauto.NewCounterVec(
 	prometheus.CounterOpts{
-		Name: "kubelink_http_requests_total",
+		Name: KUBELINK_HTTP_REQUESTS_TOTAL,
 		Help: "How many HTTP requests processed, partitioned by status code, method and HTTP path.",
 	},
-	[]string{"path", "method", "status"})
+	[]string{PATH, METHOD, STATUS})
 
 var currentRequestGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-	Name: "kubelink_http_requests_current",
+	Name: KUBELINK_HTTP_REQUESTS_CURRENT,
 	Help: "no of request being served currently",
-}, []string{"path", "method"})
+}, []string{PATH, METHOD})
 
 // prometheusMiddleware implements mux.MiddlewareFunc.
 func PrometheusMiddleware(next http.Handler) http.Handler {
