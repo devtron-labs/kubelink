@@ -119,8 +119,12 @@ func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 	clusterRepository repository.ClusterRepository) *HelmAppServiceImpl {
 
 	var pubsubClient *pubsub_lib.PubSubClientServiceImpl
+	var err error
 	if helmReleaseConfig.RunHelmInstallInAsyncMode {
-		pubsubClient = pubsub_lib.NewPubSubClientServiceImpl(logger)
+		pubsubClient, err = pubsub_lib.NewPubSubClientServiceImpl(logger)
+		if err != nil {
+			logger.Errorw("error while getting pubsubClient", "err", err)
+		}
 	}
 	helmAppServiceImpl := &HelmAppServiceImpl{
 		logger:            logger,
@@ -133,7 +137,7 @@ func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 		clusterRepository: clusterRepository,
 		converter:         converter,
 	}
-	err := os.MkdirAll(chartWorkingDirectory, os.ModePerm)
+	err = os.MkdirAll(chartWorkingDirectory, os.ModePerm)
 	if err != nil {
 		helmAppServiceImpl.logger.Errorw("err in creating dir", "err", err)
 	}
