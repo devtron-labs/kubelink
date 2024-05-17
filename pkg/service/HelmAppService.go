@@ -796,7 +796,7 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 		Version:          request.ChartVersion,
 		DependencyUpdate: true,
 		UpgradeCRDs:      true,
-		CreateNamespace:  true,
+		CreateNamespace:  false,
 		DryRun:           dryRun,
 		RegistryClient:   registryClient,
 	}
