@@ -14,15 +14,11 @@ const (
 	InvalidValueErrorMsg        = "Invalid value"
 	OperationInProgressErrorMsg = "another operation (install/upgrade/rollback) is in progress"
 	ForbiddenErrorMsg           = "forbidden"
-	InvalidChartUrlErrorMsg     = "invalid chart URL format"
 )
 
 // list of internal errors, these errors are easy for the users to understand
 const (
 	InternalClusterUnreachableErrorMsg  = "cluster unreachable"
-	InternalCrdPreconditionErrorMsg     = "ensure CRDs are installed first"
-	InternalArrayStringMismatchErrorMsg = "got array expected string"
-	InternalInvalidValueErrorMsg        = "invalid value in manifest"
 	InternalOperationInProgressErrorMsg = "another operation (install/upgrade/rollback) is in progress"
 )
 
@@ -33,8 +29,13 @@ type errorGrpcCodeTuple struct {
 
 var helmErrorInternalErrorMap = map[string]errorGrpcCodeTuple{
 	ClusterUnreachableErrorMsg:  {errorMsg: InternalClusterUnreachableErrorMsg, grpcCode: codes.DeadlineExceeded},
-	CrdPreconditionErrorMsg:     {errorMsg: InternalCrdPreconditionErrorMsg, grpcCode: codes.FailedPrecondition},
-	ArrayStringMismatchErrorMsg: {errorMsg: InternalArrayStringMismatchErrorMsg, grpcCode: codes.Unknown},
-	InvalidValueErrorMsg:        {errorMsg: InternalInvalidValueErrorMsg, grpcCode: codes.Unknown},
 	OperationInProgressErrorMsg: {errorMsg: InternalOperationInProgressErrorMsg, grpcCode: codes.FailedPrecondition},
+}
+
+var DynamicErrorMapping = map[string]codes.Code{
+	NotFoundErrorMsg:            codes.NotFound,
+	ForbiddenErrorMsg:           codes.PermissionDenied,
+	InvalidValueErrorMsg:        codes.InvalidArgument,
+	ArrayStringMismatchErrorMsg: codes.InvalidArgument,
+	CrdPreconditionErrorMsg:     codes.FailedPrecondition,
 }

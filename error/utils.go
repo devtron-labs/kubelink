@@ -1,7 +1,6 @@
 package error
 
 import (
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"strings"
 )
@@ -28,12 +27,13 @@ func getInternalErrorForGenericErrorTypes(err error) error {
 			1. if namespace is not found err is:- namespace "ns1" not found,
 			2. in case ingress class not found error is of type ingress class: IngressClass.networking.k8s.io "ingress1" not found,
 			3. when some resource is forbidden then err can be of many formats one of which is:- Unable to continue with install: could not get information about the resource Ingress "prakash-1-prakash-env3-ingress" in namespace "prakash-ns3": ingresses.networking.k8s.io "prakash-1-prakash-env3-ingress" is forbidden...
+			etc..
 	*/
-	var internalError error
-	if strings.Compare(strings.ToLower(err.Error()), NotFoundErrorMsg) == 0 {
-		internalError = status.New(codes.NotFound, err.Error()).Err()
-	} else if strings.Contains(strings.ToLower(err.Error()), ForbiddenErrorMsg) {
-		internalError = status.New(codes.PermissionDenied, err.Error()).Err()
+	for errorMsg, code := range DynamicErrorMapping {
+		if strings.Contains(strings.ToLower(err.Error()), errorMsg) {
+			return status.New(code, err.Error()).Err()
+		}
 	}
-	return internalError
+
+	return nil
 }
