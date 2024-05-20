@@ -6,11 +6,11 @@ require (
 	//github.com/argoproj/gitops-engine v0.7.1-0.20231013183858-f15cf615b814
 	github.com/aws/aws-sdk-go v1.44.285
 	github.com/caarlos0/env v3.5.0+incompatible
-	github.com/devtron-labs/common-lib v0.0.16-0.20240515052028-241c9a0c6799
+	github.com/devtron-labs/common-lib v0.0.18-0.20240520062828-c6c38c3f135e
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/go-pg/pg v6.15.1+incompatible
-	github.com/golang/protobuf v1.5.3
+	github.com/golang/protobuf v1.5.4
 	github.com/google/wire v0.6.0
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
