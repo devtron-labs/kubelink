@@ -57,6 +57,7 @@ func (impl ClusterRepositoryImpl) FindAllActive() ([]*Cluster, error) {
 	var clusters []*Cluster
 	err := impl.dbConnection.
 		Model(&clusters).
+		Column("cluster.*", "RemoteConnectionConfig").
 		Where("active=?", true).
 		Select()
 	return clusters, err
