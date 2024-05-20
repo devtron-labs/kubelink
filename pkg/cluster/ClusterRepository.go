@@ -58,6 +58,7 @@ func (impl ClusterRepositoryImpl) FindAllActive() ([]*Cluster, error) {
 	err := impl.dbConnection.
 		Model(&clusters).
 		Column("cluster.*", "RemoteConnectionConfig").
+		Join("inner join remote_connection_config rc on rc.id  = cluster.remote_connection_config_id").
 		Where("active=?", true).
 		Select()
 	return clusters, err
