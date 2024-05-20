@@ -8,10 +8,10 @@ import (
 const (
 	YAMLToJSONConversionError   = "error converting YAML to JSON"
 	ClusterUnreachableErrorMsg  = "cluster unreachable"
-	CrdPreconditionErrorMsg     = "ensure CRDs are installed first"
+	CrdPreconditionErrorMsg     = "ensure crds are installed first"
 	ArrayStringMismatchErrorMsg = "got array expected string"
 	NotFoundErrorMsg            = "not found" //this is a generic type constant, an error could be namespace "ns1" not found or service "ser1" not found.
-	InvalidValueErrorMsg        = "Invalid value"
+	InvalidValueErrorMsg        = "invalid value"
 	OperationInProgressErrorMsg = "another operation (install/upgrade/rollback) is in progress"
 	ForbiddenErrorMsg           = "forbidden"
 )
