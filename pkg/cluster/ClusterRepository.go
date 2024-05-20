@@ -31,7 +31,7 @@ type Cluster struct {
 	SSHTunnelPassword        string            `sql:"ssh_tunnel_password"`
 	SSHTunnelAuthKey         string            `sql:"ssh_tunnel_auth_key"`
 	SSHTunnelServerAddress   string            `sql:"ssh_tunnel_server_address"`
-	RemoteConnectionConfig   *remoteConnection.RemoteConnectionRepository
+	RemoteConnectionConfig   *remoteConnection.RemoteConnectionConfig
 	sql.AuditLog
 }
 
