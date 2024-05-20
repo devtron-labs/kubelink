@@ -51,5 +51,5 @@ const (
 )
 
 const (
-	REGISTRY_CREDENTIAL_BASE_PATH = "registry-credentials"
+	REGISTRY_CREDENTIAL_BASE_PATH = "/home/devtron/registry-credentials"
 )
