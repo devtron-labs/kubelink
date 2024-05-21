@@ -3,15 +3,17 @@ package bean
 type RemoteConnectionMethod string
 
 const (
-	RemoteConnectionMethodProxy RemoteConnectionMethod = "PROXY"
-	RemoteConnectionMethodSSH   RemoteConnectionMethod = "SSH"
+	RemoteConnectionMethodProxy  RemoteConnectionMethod = "PROXY"
+	RemoteConnectionMethodSSH    RemoteConnectionMethod = "SSH"
+	RemoteConnectionMethodDirect RemoteConnectionMethod = "DIRECT"
 )
 
 type ConnectionMethod string
 
 const (
-	ConnectionMethod_Proxy ConnectionMethod = "PROXY"
-	ConnectionMethod_SSH   ConnectionMethod = "SSH"
+	ConnectionMethod_Proxy  ConnectionMethod = "PROXY"
+	ConnectionMethod_SSH    ConnectionMethod = "SSH"
+	ConnectionMethod_DIRECT ConnectionMethod = "DIRECT"
 )
 
 type ProxyConfig struct {

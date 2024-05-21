@@ -6,7 +6,7 @@ import (
 	client "github.com/devtron-labs/kubelink/grpc"
 )
 
-func ConvertToRegistryConfig(credential *client.RegistryCredential) *registry.Configuration {
+func NewRegistryConfig(credential *client.RegistryCredential) (*registry.Configuration, error) {
 	var registryConfig *registry.Configuration
 	if credential != nil {
 		registryConfig = &registry.Configuration{
@@ -23,20 +23,30 @@ func ConvertToRegistryConfig(credential *client.RegistryCredential) *registry.Co
 			IsPublicRegistry:          credential.IsPublic,
 		}
 
+		if credential.Connection == registry.SECURE_WITH_CERT {
+			certificatePath, err := registry.CreateCertificateFile(credential.RegistryName, credential.RegistryCertificate)
+			if err != nil {
+				return nil, err
+			}
+			registryConfig.RegistryCAFilePath = certificatePath
+		}
+
 		connectionConfig := credential.RemoteConnectionConfig
 		if connectionConfig != nil {
 			registryConfig.RemoteConnectionConfig = &bean.RemoteConnectionConfigBean{}
 			switch connectionConfig.RemoteConnectionMethod {
+			case client.RemoteConnectionMethod_DIRECT:
+				registryConfig.RemoteConnectionConfig.ConnectionMethod = bean.RemoteConnectionMethodDirect
 			case client.RemoteConnectionMethod_PROXY:
-				registryConfig.RemoteConnectionConfig.ConnectionMethod = bean.RemoteConnectionMethod(bean.ConnectionMethod_Proxy)
+				registryConfig.RemoteConnectionConfig.ConnectionMethod = bean.RemoteConnectionMethodProxy
 				registryConfig.RemoteConnectionConfig.ProxyConfig = ConvertConfigToProxyConfig(connectionConfig)
 			case client.RemoteConnectionMethod_SSH:
-				registryConfig.RemoteConnectionConfig.ConnectionMethod = bean.RemoteConnectionMethod(bean.ConnectionMethod_SSH)
+				registryConfig.RemoteConnectionConfig.ConnectionMethod = bean.RemoteConnectionMethodSSH
 				registryConfig.RemoteConnectionConfig.SSHTunnelConfig = ConvertConfigToSSHTunnelConfig(connectionConfig)
 			}
 		}
 	}
-	return registryConfig
+	return registryConfig, nil
 }
 
 func ConvertConfigToProxyConfig(config *client.RemoteConnectionConfig) *bean.ProxyConfig {
