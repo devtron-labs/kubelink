@@ -46,7 +46,7 @@ func NewApp(Logger *zap.SugaredLogger, ServerImpl *service.ApplicationServiceSer
 }
 
 func (app *App) Start() {
-
+	//hello
 	port := 50051 //TODO: extract from environment variable
 
 	httpPort := 50052
