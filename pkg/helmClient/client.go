@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/devtron-labs/common-lib/utils"
 	error2 "github.com/devtron-labs/kubelink/error"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -226,8 +227,14 @@ func (c *HelmClient) listDeployedReleases() ([]*release.Release, error) {
 	listClient := action.NewList(c.ActionConfig)
 
 	listClient.StateMask = action.ListDeployed | action.ListPendingInstall | action.ListPendingRollback | action.ListPendingUpgrade | action.ListUnknown | action.ListFailed
-
-	return listClient.Run()
+	releases, err := listClient.Run()
+	if err != nil {
+		err = &utils.HelmError{
+			Err:  err,
+			Code: error2.HelmErrorGrpcCode,
+		}
+	}
+	return releases, err
 }
 
 // getRelease returns a release matching the provided 'name'.

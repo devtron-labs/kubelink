@@ -34,21 +34,30 @@ type App struct {
 	db          *pg.DB
 	server      *http.Server
 	grpcServer  *grpc.Server
+	has         service.HelmAppService
 }
 
 func NewApp(Logger *zap.SugaredLogger, ServerImpl *service.ApplicationServiceServerImpl,
-	router *router.RouterImpl, k8sInformer k8sInformer.K8sInformer, db *pg.DB) *App {
+	router *router.RouterImpl, k8sInformer k8sInformer.K8sInformer, db *pg.DB, has service.HelmAppService) *App {
 	return &App{
 		Logger:      Logger,
 		ServerImpl:  ServerImpl,
 		router:      router,
 		k8sInformer: k8sInformer,
 		db:          db,
+		has:         has,
 	}
 }
 
 func (app *App) Start() {
-
+	appDetailReq := &client.AppDetailRequest{
+		ClusterConfig: &client.ClusterConfig{
+			ApiServerUrl: "https://kubernetes.default.svc",
+		},
+		Namespace:   "devtron-demo",
+		ReleaseName: "abc",
+	}
+	_, err := app.has.BuildAppDetail(appDetailReq)
 	port := 50051 //TODO: extract from environment variable
 
 	httpPort := 50052

@@ -8,12 +8,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/devtron-labs/common-lib/utils"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	k8sObjectUtils "github.com/devtron-labs/common-lib/utils/k8sObjectsUtil"
 	"github.com/devtron-labs/kubelink/converter"
 	error2 "github.com/devtron-labs/kubelink/error"
 	"github.com/devtron-labs/kubelink/pkg/cache"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -223,6 +226,7 @@ func (impl HelmAppServiceImpl) GetResourceTreeForExternalResources(req *client.E
 	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		impl.logger.Errorw("error in getting restConfig", "err", err)
+		err = error2.GetGrpcErrorWithCustomInternalErrorCode(err)
 		return nil, err
 	}
 
@@ -231,11 +235,13 @@ func (impl HelmAppServiceImpl) GetResourceTreeForExternalResources(req *client.E
 	nodes, _, err := impl.buildNodes(restConfig, manifests, "", nil)
 	if err != nil {
 		impl.logger.Errorw("error in building nodes", "err", err)
+		err = error2.GetGrpcErrorWithCustomInternalErrorCode(err)
 		return nil, err
 	}
 	// build pods metadata
 	podsMetadata, err := impl.buildPodMetadata(nodes, restConfig)
 	if err != nil {
+		err = error2.GetGrpcErrorWithCustomInternalErrorCode(err)
 		return nil, err
 	}
 	resourceTreeResponse := &bean.ResourceTreeResponse{
@@ -286,6 +292,7 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 	if err != nil {
 		impl.logger.Errorw("Error in getting helm release ", "err", err)
 		if errors.Is(err, driver.ErrReleaseNotFound) {
+			err = status.New(codes.NotFound, err.Error()).Err()
 			return &bean.AppDetail{ReleaseExists: false}, err
 		}
 		internalErr := error2.ConvertHelmErrorToInternalError(err)
@@ -297,6 +304,7 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 	resourceTreeResponse, err := impl.buildResourceTree(req, helmRelease)
 	if err != nil {
 		impl.logger.Errorw("error in building resource tree ", "err", err)
+		err = error2.GetGrpcErrorWithCustomInternalErrorCode(err)
 		return nil, err
 	}
 
@@ -992,6 +1000,9 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 	case false:
 		impl.logger.Debug("Upgrading release with chart info")
 		_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
+		if _, ok := err.(*utils.HelmError); ok {
+			// process here
+		}
 		if UpgradeErr, ok := err.(*driver.StorageDriverError); ok {
 			if UpgradeErr != nil {
 				if util.IsReleaseNotFoundError(UpgradeErr.Err) {

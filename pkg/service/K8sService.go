@@ -41,7 +41,7 @@ type HelmReleaseConfig struct {
 	EnableHelmReleaseCache    bool   `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
 	MaxCountForHelmRelease    int    `env:"MAX_COUNT_FOR_HELM_RELEASE" envDefault:"20"`
 	ManifestFetchBatchSize    int    `env:"MANIFEST_FETCH_BATCH_SIZE" envDefault:"2"`
-	RunHelmInstallInAsyncMode bool   `env:"RUN_HELM_INSTALL_IN_ASYNC_MODE" envDefault:"false"`
+	RunHelmInstallInAsyncMode bool   `env:"RUN_HELM_INSTALL_IN_ASYNC_MODE" envDefault:"true"`
 	ParentChildGvkMapping     string `env:"PARENT_CHILD_GVK_MAPPING" envDefault:""`
 	ChartWorkingDirectory     string `env:"CHART_WORKING_DIRECTORY" envDefault:"/home/devtron/devtroncd/charts/"`
 }
