@@ -1,33 +1,41 @@
 package error
 
-import "google.golang.org/grpc/codes"
+import (
+	"google.golang.org/grpc/codes"
+)
 
-// list of errors from helm
+// list of error strings from Helm. These are part of the errors we check for presence in Helm's error messages.
 const (
 	YAMLToJSONConversionError   = "error converting YAML to JSON"
 	ClusterUnreachableErrorMsg  = "cluster unreachable"
-	CrdPreconditionErrorMsg     = "ensure CRDs are installed first"
+	CrdPreconditionErrorMsg     = "ensure crds are installed first"
 	ArrayStringMismatchErrorMsg = "got array expected string"
-	//NamespaceNotFoundErrorMsg   = "not found" // todo - add more acurate error message, this is very generic
-	InvalidValueErrorMsg        = "Invalid value"
+	NotFoundErrorMsg            = "not found" //this is a generic type constant, an error could be namespace "ns1" not found or service "ser1" not found.
+	InvalidValueErrorMsg        = "invalid value"
 	OperationInProgressErrorMsg = "another operation (install/upgrade/rollback) is in progress"
+	ForbiddenErrorMsg           = "forbidden"
 )
 
-// list of internal errors
+// list of internal errors, these errors are easy for the users to understand
 const (
 	InternalClusterUnreachableErrorMsg  = "cluster unreachable"
-	InternalCrdPreconditionErrorMsg     = "ensure CRDs are installed first"
-	InternalArrayStringMismatchErrorMsg = "got array expected string"
-	InternalNamespaceNotFoundErrorMsg   = "namespace not found"
-	InternalInvalidValueErrorMsg        = "invalid value in manifest"
 	InternalOperationInProgressErrorMsg = "another operation (install/upgrade/rollback) is in progress"
 )
 
-var helmErrorInternalErrorMap = map[string]map[string]codes.Code{
-	ClusterUnreachableErrorMsg: {InternalClusterUnreachableErrorMsg: codes.DeadlineExceeded},
-	CrdPreconditionErrorMsg:    {InternalCrdPreconditionErrorMsg: codes.FailedPrecondition},
-	//NamespaceNotFoundErrorMsg:   {InternalNamespaceNotFoundErrorMsg: codes.Unknown},
-	ArrayStringMismatchErrorMsg: {InternalArrayStringMismatchErrorMsg: codes.Unknown},
-	InvalidValueErrorMsg:        {InternalInvalidValueErrorMsg: codes.Unknown},
-	OperationInProgressErrorMsg: {InternalOperationInProgressErrorMsg: codes.FailedPrecondition},
+type errorGrpcCodeTuple struct {
+	errorMsg string
+	grpcCode codes.Code
+}
+
+var helmErrorInternalErrorMap = map[string]errorGrpcCodeTuple{
+	ClusterUnreachableErrorMsg:  {errorMsg: InternalClusterUnreachableErrorMsg, grpcCode: codes.DeadlineExceeded},
+	OperationInProgressErrorMsg: {errorMsg: InternalOperationInProgressErrorMsg, grpcCode: codes.FailedPrecondition},
+}
+
+var DynamicErrorMapping = map[string]codes.Code{
+	NotFoundErrorMsg:            codes.NotFound,
+	ForbiddenErrorMsg:           codes.PermissionDenied,
+	InvalidValueErrorMsg:        codes.InvalidArgument,
+	ArrayStringMismatchErrorMsg: codes.InvalidArgument,
+	CrdPreconditionErrorMsg:     codes.FailedPrecondition,
 }

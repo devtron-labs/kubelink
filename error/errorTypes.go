@@ -1,6 +1,8 @@
 package error
 
-import "strings"
+import (
+	"strings"
+)
 
 func IsValidationError(err error) bool {
 	//validation errors from k8s
