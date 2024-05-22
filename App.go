@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"github.com/devtron-labs/common-lib/constants"
 	"github.com/devtron-labs/common-lib/middlewares"
+	"github.com/devtron-labs/common-lib/pubsub-lib/metrics"
 	"github.com/devtron-labs/kubelink/api/router"
 	client "github.com/devtron-labs/kubelink/grpc"
+	"github.com/devtron-labs/kubelink/internals/middleware"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
 	"github.com/go-pg/pg"
@@ -57,6 +59,7 @@ func (app *App) Start() {
 	}
 
 	grpcPanicRecoveryHandler := func(p any) (err error) {
+		metrics.IncPanicRecoveryCount("grpc", "", "", "")
 		app.Logger.Error(constants.PanicLogIdentifier, "recovered from panic", "panic", p, "stack", string(debug.Stack()))
 		return status.Errorf(codes.Internal, "%s", p)
 	}
@@ -72,6 +75,7 @@ func (app *App) Start() {
 			grpc_prometheus.UnaryServerInterceptor,
 			recovery.UnaryServerInterceptor(recoveryOption)), // panic interceptor, should be at last
 	}
+	app.router.Router.Use(middleware.PrometheusMiddleware)
 	app.router.InitRouter()
 	app.grpcServer = grpc.NewServer(opts...)
 	client.RegisterApplicationServiceServer(app.grpcServer, app.ServerImpl)

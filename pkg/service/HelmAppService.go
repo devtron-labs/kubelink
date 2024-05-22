@@ -853,7 +853,7 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 				InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
 			}
 			// Checking release exist because there can be case when release already exist with same name
-			releaseExist := impl.K8sInformer.CheckReleaseExists(releaseIdentifier.ClusterConfig.ClusterId, releaseIdentifier.ReleaseName)
+			releaseExist := impl.K8sInformer.CheckReleaseExists(releaseIdentifier.ClusterConfig.ClusterId, getUniqueReleaseIdentifierName(releaseIdentifier))
 			if releaseExist {
 				// release with name already exist, will not continue with release
 				helmInstallMessage.ErrorInInstallation = true
