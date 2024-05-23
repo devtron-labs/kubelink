@@ -1968,7 +1968,7 @@ func (impl HelmAppServiceImpl) ValidateOCIRegistryLogin(ctx context.Context, OCI
 		return nil, err
 	}
 	registryConfig.RegistryCAFilePath = caFilePath
-	err = registry2.OCIRegistryLogin(registryClient, registryConfig)
+	registryClient, err = registry2.GetLoggedInClient(registryClient, registryConfig)
 	if err != nil {
 		impl.logger.Errorw("error in registry login", "registryName", OCIRegistryRequest.RegistryName, "err", err)
 		return nil, err
