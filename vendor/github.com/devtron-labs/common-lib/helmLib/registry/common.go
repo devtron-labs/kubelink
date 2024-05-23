@@ -19,28 +19,28 @@ import (
 	"strings"
 )
 
-func OCIRegistryLogin(client *registry.Client, config *Configuration) error {
+func GetLoggedInClient(client *registry.Client, config *Configuration) (*registry.Client, error) {
 
 	username, pwd, err := extractCredentialsForRegistry(config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	config.Username = username
 	config.Password = pwd
 
 	loginOptions, err := getLoginOptions(config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = client.Login(config.RegistryUrl,
 		loginOptions...,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return client, nil
 }
 
 func CreateCertificateFile(registryName, caString string) (certificatePath string, err error) {
@@ -71,6 +71,15 @@ func CreateCertificateFile(registryName, caString string) (certificatePath strin
 		return certificatePath, err
 	}
 	return certificateFilePath, nil
+}
+
+func DeleteCertificateFolder(filePath string) error {
+	folder := strings.TrimRight(filePath, "/ca.crt")
+	err := os.RemoveAll(folder)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func extractCredentialsForRegistry(config *Configuration) (string, string, error) {

@@ -62,7 +62,7 @@ func (s *DefaultSettingsGetterImpl) getRegistryClient(config *Configuration) (*r
 	}
 
 	if config != nil && !config.IsPublicRegistry {
-		err = OCIRegistryLogin(registryClient, config)
+		registryClient, err = GetLoggedInClient(registryClient, config)
 		if err != nil {
 			return nil, err
 		}
