@@ -47,6 +47,114 @@ func NewApp(Logger *zap.SugaredLogger, ServerImpl *service.ApplicationServiceSer
 
 func (app *App) Start() {
 	//hello
+
+	y := make([]*client.ExternalResourceDetail, 0)
+
+	x := client.ExternalResourceDetail{
+		Group:     "kustomize.toolkit.fluxcd.io",
+		Version:   "v1",
+		Kind:      "Kustomization",
+		Namespace: "flux-system",
+		Name:      "flux-system",
+	}
+	y = append(y, &x)
+
+	y = append(y, &client.ExternalResourceDetail{
+		Group:     "apiextensions.k8s.io",
+		Version:   "v1",
+		Kind:      "CustomResourceDefinition",
+		Namespace: "",
+		Name:      "alerts.notification.toolkit.fluxcd.io",
+	})
+	y = append(y, &client.ExternalResourceDetail{
+		Group:     "apiextensions.k8s.io",
+		Version:   "v1",
+		Kind:      "CustomResourceDefinition",
+		Namespace: "",
+		Name:      "helmrepositories.source.toolkit.fluxcd.io",
+	})
+
+	y = append(y, &client.ExternalResourceDetail{
+		Group:     "apiextensions.k8s.io",
+		Version:   "v1",
+		Kind:      "CustomResourceDefinition",
+		Namespace: "",
+		Name:      "helmrepositories.source.toolkit.fluxcd.io",
+	})
+	y = append(y, &client.ExternalResourceDetail{
+		Group:     "",
+		Version:   "v1",
+		Kind:      "ServiceAccount",
+		Namespace: "flux-system",
+		Name:      "helm-controller",
+	})
+	y = append(y, &client.ExternalResourceDetail{
+		Group:     "",
+		Version:   "v1",
+		Kind:      "Service",
+		Namespace: "flux-system",
+		Name:      "webhook-receiver",
+	})
+	y = append(y, &client.ExternalResourceDetail{
+		Group:     "app",
+		Version:   "v1",
+		Kind:      "Deployment",
+		Namespace: "flux-system",
+		Name:      "source-controller",
+	})
+	y = append(y, &client.ExternalResourceDetail{
+		Group:     "helm.toolkit.fluxcd.io",
+		Version:   "v2",
+		Kind:      "HelmRelease",
+		Namespace: "flux-system",
+		Name:      "testrelease14",
+	})
+	y = append(y, &client.ExternalResourceDetail{
+		Group:     "source.toolkit.fluxcd.io",
+		Version:   "v1",
+		Kind:      "GitRepository",
+		Namespace: "flux-system",
+		Name:      "flux-system",
+	})
+	y = append(y, &client.ExternalResourceDetail{
+		Group:     "rbac.authorization.k8s.io",
+		Version:   "v1",
+		Kind:      "ClusterRole",
+		Namespace: "",
+		Name:      "crd-controller-flux-system",
+	})
+	//
+	//y = append(y, &client.ExternalResourceDetail{
+	//	Group:     "apps",
+	//	Version:   "v1",
+	//	Kind:      "Deployment",
+	//	Namespace: "test14",
+	//	Name:      "test14-testrelease14-example-chart",
+	//})
+	//
+	//y = append(y, &client.ExternalResourceDetail{
+	//	Group:     "",
+	//	Version:   "v1",
+	//	Kind:      "Service",
+	//	Namespace: "test14",
+	//	Name:      "test14-testrelease14-example-chart",
+	//})
+
+	//y []*client.ExternalResourceDetail
+
+	req := &client.ExternalResourceTreeRequest{
+		ClusterConfig: &client.ClusterConfig{
+			Token:        "",
+			ApiServerUrl: "https://kubernetes.default.svc",
+		},
+		ExternalResourceDetail: y,
+	}
+	resp, err := app.ServerImpl.HelmAppService.GetResourceTreeForExternalResources(req)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println(resp)
 	port := 50051 //TODO: extract from environment variable
 
 	httpPort := 50052

@@ -252,11 +252,11 @@ func (impl HelmAppServiceImpl) getManifestsForExternalResources(restConfig *rest
 	var manifests []*bean.DesiredOrLiveManifest
 	for _, resource := range externalResourceDetails {
 		gvk := &schema.GroupVersionKind{
-			Group:   resource.GetGroup(),
-			Version: resource.GetVersion(),
-			Kind:    resource.GetKind(),
+			Group:   resource.Group,
+			Version: resource.Version,
+			Kind:    resource.Kind,
 		}
-		manifest, _, err := impl.k8sService.GetLiveManifest(restConfig, resource.GetNamespace(), gvk, resource.GetName())
+		manifest, _, err := impl.k8sService.GetLiveManifest(restConfig, resource.Namespace, gvk, resource.Name)
 		if err != nil {
 			impl.logger.Errorw("Error in getting live manifest", "err", err)
 			statusError, _ := err.(*errors2.StatusError)

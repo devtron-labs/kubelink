@@ -134,6 +134,9 @@ func (impl K8sServiceImpl) GetLiveManifest(restConfig *rest.Config, namespace st
 func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace string, parentGvk schema.GroupVersionKind, parentName string, parentApiVersion string) ([]*unstructured.Unstructured, error) {
 	impl.logger.Debugw("Getting child objects ", "namespace", namespace, "parentGvk", parentGvk, "parentName", parentName, "parentApiVersion", parentApiVersion)
 
+	if parentGvk.Kind == "HelmRelease" {
+		print("HelmRelease found")
+	}
 	gvrAndScopes, ok := impl.GetChildGvrFromParentGvk(parentGvk)
 	if !ok {
 		return nil, errors.New("grv not found for given kind")
