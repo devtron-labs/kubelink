@@ -1,6 +1,7 @@
 package bean
 
 import (
+	"github.com/devtron-labs/common-lib/utils/remoteConnection/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -231,10 +232,5 @@ type ClusterInfo struct {
 	KeyData                string `json:"-"`
 	CertData               string `json:"-"`
 	CAData                 string `json:"-"`
-	ProxyUrl               string `json:"proxyUrl"`
-	ToConnectWithSSHTunnel bool   `json:"toConnectWithSSHTunnel'"`
-	SSHTunnelUser          string `json:"sshTunnelUser"`
-	SSHTunnelPassword      string `json:"sshTunnelPassword"`
-	SSHTunnelAuthKey       string `json:"sshTunnelAuthKey"`
-	SSHTunnelServerAddress string `json:"sshTunnelServerAddress"`
+	RemoteConnectionConfig *bean.RemoteConnectionConfigBean
 }
