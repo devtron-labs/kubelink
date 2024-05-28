@@ -20,6 +20,9 @@ import (
 	"io/ioutil"
 	coreV1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -379,7 +382,53 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 		impl.logger.Error("error in create k8s config", "err", err)
 		return err
 	}
+	cliSet, err := dynamic.NewForConfig(restConfig)
+	if err != nil {
+		return err
+	}
+	fac := dynamicinformer.NewFilteredDynamicSharedInformerFactory(cliSet, 0, metav1.NamespaceAll, nil)
+	informer := fac.ForResource(schema.GroupVersionResource{
+		// replace it with your CRD's corresponding property
+		Group:    "helm.toolkit.fluxcd.io",
+		Version:  "v2",
+		Resource: "helmreleases",
+	}).Informer()
 
+	fmt.Println(informer)
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			// Log when a resource is added
+			fmt.Println("Resource added:", obj)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			// Log when a resource is updated
+			fmt.Println("Resource updated. Old:", oldObj, "New:", newObj)
+		},
+		DeleteFunc: func(obj interface{}) {
+			// Log when a resource is deleted
+			fmt.Println("Resource deleted:", obj)
+		},
+	})
+
+	// Start the informer to begin watching for changes
+	go informer.Run(stopCh)
+
+	// Wait until the initial synchronization of resources is complete
+	if !cache.WaitForCacheSync(stopCh, informer.HasSynced) {
+		return errors.New("failed to sync cache")
+	}
+
+	// Retrieve the list of resources
+	resources := informer.GetStore().List()
+
+	// Print the list of resources
+	fmt.Println("List of resources:")
+	for _, resource := range resources {
+		fmt.Println(resource)
+	}
 	impl.mutex.Lock()
 	impl.HelmListClusterMap[clusterId] = make(map[string]*client.DeployedAppDetail)
 	impl.mutex.Unlock()
@@ -389,7 +438,9 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 		opts.LabelSelector = "status!=superseded"
 		opts.FieldSelector = "type==helm.sh/release.v1"
 	})
+
 	informerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(clusterClient, 15*time.Minute, labelOptions)
+
 	stopper := make(chan struct{})
 	secretInformer := informerFactory.Core().V1().Secrets()
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
