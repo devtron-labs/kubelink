@@ -1520,7 +1520,6 @@ func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLive
 			cache.SetHibernationRules(node, &node.Manifest)
 		}
 		// hibernate set ends
-
 		if k8sUtils.IsPod(gvk) {
 			infoItems, _ := argo.PopulatePodInfo(manifest)
 			node.Info = infoItems
@@ -1676,6 +1675,7 @@ func (impl HelmAppServiceImpl) isPodNew(nodes []*bean.ResourceNode, node *bean.R
 			isNew = rolloutPodHash == replicasetPodHash
 
 		}
+
 	}
 
 	// if parent kind is DaemonSet then compare DaemonSet's Child ControllerRevision's label controller-revision-hash with pod label controller-revision-hash
