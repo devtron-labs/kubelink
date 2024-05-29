@@ -30,7 +30,7 @@ var GvkForKustomizationFluxApp = schema.GroupVersionKind{
 	Version: FluxKustomizationVersion,
 }
 
-var GvkForhelmreleaseFluxApp = schema.GroupVersionKind{
+var GvkForHelmreleaseFluxApp = schema.GroupVersionKind{
 	Group:   FluxHelmReleaseGroup,
 	Kind:    FluxAppHelmreleaseKind,
 	Version: FluxHelmReleaseVersion,

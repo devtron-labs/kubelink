@@ -18,6 +18,7 @@ type ApplicationServiceServerImpl struct {
 	Logger                *zap.SugaredLogger
 	ChartRepositoryLocker *lock.ChartRepositoryLocker
 	HelmAppService        HelmAppService
+	FluxAppService        FluxApplicationService
 }
 
 func (impl *ApplicationServiceServerImpl) MustEmbedUnimplementedApplicationServiceServer() {
@@ -25,11 +26,12 @@ func (impl *ApplicationServiceServerImpl) MustEmbedUnimplementedApplicationServi
 }
 
 func NewApplicationServiceServerImpl(logger *zap.SugaredLogger, chartRepositoryLocker *lock.ChartRepositoryLocker,
-	HelmAppService HelmAppService) *ApplicationServiceServerImpl {
+	HelmAppService HelmAppService, FluxAppService FluxApplicationService) *ApplicationServiceServerImpl {
 	return &ApplicationServiceServerImpl{
 		Logger:                logger,
 		ChartRepositoryLocker: chartRepositoryLocker,
 		HelmAppService:        HelmAppService,
+		FluxAppService:        FluxAppService,
 	}
 }
 
@@ -572,4 +574,24 @@ func (impl *ApplicationServiceServerImpl) PushHelmChartToOCIRegistry(ctx context
 		return nil, err
 	}
 	return registryPushResponse, nil
+}
+
+func (impl *ApplicationServiceServerImpl) ListFluxApplications(req *client.AppListRequest, res client.ApplicationService_ListApplicationsServer) error {
+	impl.Logger.Info("List Flux Application Request")
+	clusterConfigs := req.GetClusters()
+	eg := new(errgroup.Group)
+	for _, config := range clusterConfigs {
+		clusterConfig := *config
+		eg.Go(func() error {
+			apps := impl.FluxAppService.GetFluxApplicationListForCluster(&clusterConfig)
+			err := res.Send(apps)
+			return err
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		impl.Logger.Errorw("Error in fetching application list", "err", err)
+		return err
+	}
+	impl.Logger.Info("List Application Request served")
+	return nil
 }

@@ -34,16 +34,18 @@ type App struct {
 	db          *pg.DB
 	server      *http.Server
 	grpcServer  *grpc.Server
+	fluxApp     *service.FluxApplicationServiceImpl
 }
 
 func NewApp(Logger *zap.SugaredLogger, ServerImpl *service.ApplicationServiceServerImpl,
-	router *router.RouterImpl, k8sInformer k8sInformer.K8sInformer, db *pg.DB) *App {
+	router *router.RouterImpl, k8sInformer k8sInformer.K8sInformer, db *pg.DB, fluxApp *service.FluxApplicationServiceImpl) *App {
 	return &App{
 		Logger:      Logger,
 		ServerImpl:  ServerImpl,
 		router:      router,
 		k8sInformer: k8sInformer,
 		db:          db,
+		fluxApp:     fluxApp,
 	}
 }
 
@@ -53,9 +55,9 @@ func (app *App) Start() {
 
 	httpPort := 50052
 
-	//numbers := []int{1, 2}
-	//res2, _ := service.ListApplications(numbers)
-	//fmt.Println(res2)
+	numbers := []int{1}
+	res2, _ := app.fluxApp.ListApplications(numbers)
+	fmt.Println(res2)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {

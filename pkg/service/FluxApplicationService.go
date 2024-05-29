@@ -2,19 +2,19 @@ package service
 
 import (
 	"context"
-
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/kubelink/converter"
 	"github.com/devtron-labs/kubelink/fluxApplication/bean"
+	client "github.com/devtron-labs/kubelink/grpc"
 	clusterRepository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/rest"
 )
 
 type FluxApplicationService interface {
 	ListApplications(clusterIds []int) ([]*bean.FluxApplicationListDto, error)
+	GetFluxApplicationListForCluster(config *client.ClusterConfig) []*client.FluxApplication
 	//GetAppDetail(resourceName, resourceNamespace string, clusterId int) (*bean.FluxApplicationListDto, error)
 	//GetServerConfigIfClusterIsNotAddedOnDevtron(resourceResp *k8s.ManifestResponse, restConfig *rest.Config,
 	//	clusterWithApplicationObject clusterRepository.Cluster, clusterServerUrlIdMap map[string]int) (*rest.Config, error)
@@ -62,7 +62,6 @@ func (impl *FluxApplicationServiceImpl) ListApplications(clusterIds []int) ([]*b
 		}
 	}
 
-	// TODO: make goroutine and channel for optimization
 	appListFinal := make([]*bean.FluxApplicationListDto, 0)
 	for _, cluster := range clusters {
 		clusterObj := cluster
@@ -78,41 +77,77 @@ func (impl *FluxApplicationServiceImpl) ListApplications(clusterIds []int) ([]*b
 			impl.logger.Errorw("error in getting rest config ", "err", err, "clusterId", clusterObj.Id)
 			return nil, err
 		}
+		restConfig2, err := impl.k8sUtil.GetRestConfigByCluster(clusterConfig)
+		if err != nil {
+			impl.logger.Errorw("error in getting rest config ", "err", err, "clusterId", clusterObj.Id)
+			return nil, err
+		}
 
 		kustomizationResp, _, err := impl.k8sUtil.GetResourceList(context.Background(), restConfig, bean.GvkForKustomizationFluxApp, bean.AllNamespaces, true, nil)
-		if err != nil {
-			if errStatus, ok := err.(*errors.StatusError); ok {
-				if errStatus.Status().Code == 404 {
-					// no flux kustomization apps found, not sending error
-					impl.logger.Warnw("error in getting external flux kustomization  app list, no kustomization apps found", "err", err, "clusterId", clusterObj.Id)
-					continue
-				}
-			}
-			impl.logger.Errorw("error in getting resource list", "err", err)
-			return nil, err
+		if err == nil {
+			kustomizationAppLists := getApplicationListDtos(kustomizationResp.Resources.Object, clusterObj.ClusterName, clusterObj.Id, "")
+			appListFinal = append(appListFinal, kustomizationAppLists...)
 		}
 
-		helmReleaseResp, _, err := impl.k8sUtil.GetResourceList(context.Background(), restConfig, bean.GvkForhelmreleaseFluxApp, bean.AllNamespaces, true, nil)
-		if err != nil {
-			if errStatus, ok := err.(*errors.StatusError); ok {
-				if errStatus.Status().Code == 404 {
-					// no flux apps found, not sending error
-					impl.logger.Warnw("error in getting external argo app list, no apps found", "err", err, "clusterId", clusterObj.Id)
-					continue
-				}
-			}
-			impl.logger.Errorw("error in getting resource list", "err", err)
-			return nil, err
-		}
-		kustomizationAppLists := getApplicationListDtos(kustomizationResp.Resources.Object, clusterObj.ClusterName, clusterObj.Id, "")
-		helmReleaseAppLists := getApplicationListDtos(helmReleaseResp.Resources.Object, clusterObj.ClusterName, clusterObj.Id, "HelmRelease")
-		appListFinal = append(appListFinal, kustomizationAppLists...)
+		//restConfig.Timeout = time.Duration(20)
 
-		appListFinal = append(appListFinal, helmReleaseAppLists...)
+		helmReleaseResp, _, err := impl.k8sUtil.GetResourceList(context.Background(), restConfig2, bean.GvkForHelmreleaseFluxApp, bean.AllNamespaces, true, nil)
+		if err == nil {
+			helmReleaseAppLists := getApplicationListDtos(helmReleaseResp.Resources.Object, clusterObj.ClusterName, clusterObj.Id, "HelmRelease")
+			appListFinal = append(appListFinal, helmReleaseAppLists...)
+		}
+
 	}
 	return appListFinal, nil
 }
 
+func (impl *FluxApplicationServiceImpl) GetFluxApplicationListForCluster(config *client.ClusterConfig) []*client.FluxApplication {
+	impl.logger.Debugw("Fetching application list ", "clusterId", config.ClusterId, "clusterName", config.ClusterName)
+
+	var fluxAppListFinal []*client.FluxApplication
+	appListFinal := make([]*bean.FluxApplicationListDto, 0)
+
+	k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(config)
+	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
+	if err != nil {
+		impl.logger.Errorw("Error in building rest config ", "clusterId", config.ClusterId, "err", err)
+		return fluxAppListFinal
+	}
+	restConfig2, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
+	if err != nil {
+		impl.logger.Errorw("error in getting rest config ", "err", err, "clusterId", config.ClusterId)
+		return fluxAppListFinal
+	}
+
+	kustomizationResp, _, err := impl.k8sUtil.GetResourceList(context.Background(), restConfig, bean.GvkForKustomizationFluxApp, bean.AllNamespaces, true, nil)
+	if err == nil {
+		kustomizationAppLists := getApplicationListDtos(kustomizationResp.Resources.Object, config.ClusterName, int(config.ClusterId), "")
+		appListFinal = append(appListFinal, kustomizationAppLists...)
+	}
+
+	//restConfig.Timeout = time.Duration(20)
+
+	helmReleaseResp, _, err := impl.k8sUtil.GetResourceList(context.Background(), restConfig2, bean.GvkForHelmreleaseFluxApp, bean.AllNamespaces, true, nil)
+	if err == nil {
+		helmReleaseAppLists := getApplicationListDtos(helmReleaseResp.Resources.Object, config.ClusterName, int(config.ClusterId), "HelmRelease")
+		appListFinal = append(appListFinal, helmReleaseAppLists...)
+	}
+
+	for _, item := range appListFinal {
+
+		fluxAppListFinal = append(fluxAppListFinal, &client.FluxApplication{
+			Name:         item.Name,
+			ClusterId:    item.ClusterId,
+			ClusterName:  item.ClusterName,
+			Namespace:    item.Namespace,
+			HealthStatus: item.HealthStatus,
+			SyncStatus:   item.SyncStatus,
+		}...)
+
+	}
+
+	return fluxAppListFinal
+}
 func getApplicationListDtos(manifestObj map[string]interface{}, clusterName string, clusterId int, FluxAppType string) []*bean.FluxApplicationListDto {
 	appLists := make([]*bean.FluxApplicationListDto, 0)
 	// map of keys and index in row cells, initially set as 0 will be updated by object

@@ -47,6 +47,7 @@ func InitializeApp() (*App, error) {
 		wire.Bind(new(service.K8sService), new(*service.K8sServiceImpl)),
 		service.NewHelmAppServiceImpl,
 		wire.Bind(new(service.HelmAppService), new(*service.HelmAppServiceImpl)),
+		service.NewFluxApplicationServiceImpl,
 		converter.NewConverterImpl,
 		wire.Bind(new(converter.ClusterBeanConverter), new(*converter.ClusterBeanConverterImpl)),
 		service.NewApplicationServiceServerImpl,

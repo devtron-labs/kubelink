@@ -60,6 +60,7 @@ func InitializeApp() (*App, error) {
 	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(sugaredLogger, chartRepositoryLocker, helmAppServiceImpl)
 	monitoringRouter := monitoring.NewMonitoringRouter(sugaredLogger)
 	routerImpl := router.NewRouter(sugaredLogger, monitoringRouter)
-	app := NewApp(sugaredLogger, applicationServiceServerImpl, routerImpl, k8sInformerImpl, db)
+	fluxApplicationServiceImpl := service.NewFluxApplicationServiceImpl(sugaredLogger, clusterRepositoryImpl, k8sK8sServiceImpl, helmAppServiceImpl, clusterBeanConverterImpl)
+	app := NewApp(sugaredLogger, applicationServiceServerImpl, routerImpl, k8sInformerImpl, db, fluxApplicationServiceImpl)
 	return app, nil
 }
