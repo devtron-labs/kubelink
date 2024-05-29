@@ -53,6 +53,10 @@ func (app *App) Start() {
 
 	httpPort := 50052
 
+	//numbers := []int{1, 2}
+	//res2, _ := service.ListApplications(numbers)
+	//fmt.Println(res2)
+
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Panic(err)

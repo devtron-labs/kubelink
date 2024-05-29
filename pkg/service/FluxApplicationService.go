@@ -2,12 +2,10 @@ package service
 
 import (
 	"context"
-	//k8s2 "github.com/devtron-labs/common-lib-private/utils/k8s"
-	"github.com/devtron-labs/common-lib/utils/k8s"
-	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
-	//"github.com/devtron-labs/devtron/api/helm-app/service"
-	//"github.com/devtron-labs/devtron/pkg/cluster/adapter"
+
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
+	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
+	"github.com/devtron-labs/kubelink/converter"
 	"github.com/devtron-labs/kubelink/fluxApplication/bean"
 	clusterRepository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"go.uber.org/zap"
@@ -17,39 +15,31 @@ import (
 
 type FluxApplicationService interface {
 	ListApplications(clusterIds []int) ([]*bean.FluxApplicationListDto, error)
-	GetAppDetail(resourceName, resourceNamespace string, clusterId int) (*bean.FluxApplicationListDto, error)
-	GetServerConfigIfClusterIsNotAddedOnDevtron(resourceResp *k8s.ManifestResponse, restConfig *rest.Config,
-		clusterWithApplicationObject clusterRepository.Cluster, clusterServerUrlIdMap map[string]int) (*rest.Config, error)
-	GetClusterConfigFromAllClusters(clusterId int) (*k8s.ClusterConfig, clusterRepository.Cluster, map[string]int, error)
-	GetRestConfigForExternalArgo(ctx context.Context, clusterId int, externalFluxApplicationName string) (*rest.Config, error)
+	//GetAppDetail(resourceName, resourceNamespace string, clusterId int) (*bean.FluxApplicationListDto, error)
+	//GetServerConfigIfClusterIsNotAddedOnDevtron(resourceResp *k8s.ManifestResponse, restConfig *rest.Config,
+	//	clusterWithApplicationObject clusterRepository.Cluster, clusterServerUrlIdMap map[string]int) (*rest.Config, error)
+	//GetClusterConfigFromAllClusters(clusterId int) (*k8s.ClusterConfig, clusterRepository.Cluster, map[string]int, error)
+	//GetRestConfigForExternalArgo(ctx context.Context, clusterId int, externalFluxApplicationName string) (*rest.Config, error)
 }
-
-const (
-	//K8sResourceColumnDefinitionName         = "Name"
-	K8sResourceColumnDefinitionReconcileStatus = "Status"
-	K8sResourceColumnDefinitionReadyStatus     = "Ready"
-	K8sClusterResourceStatusKey                = "status"
-	K8sClusterResourceHealthKey                = "health"
-	K8sClusterResourceResourcesKey             = "resources"
-	K8sClusterResourceSyncKey                  = "sync"
-)
 
 type FluxApplicationServiceImpl struct {
 	logger            *zap.SugaredLogger
 	clusterRepository clusterRepository.ClusterRepository
 	k8sUtil           k8sUtils.K8sService
 	helmAppService    HelmAppService
+	converter         converter.ClusterBeanConverter
 }
 
 func NewFluxApplicationServiceImpl(logger *zap.SugaredLogger,
 	clusterRepository clusterRepository.ClusterRepository,
 	k8sUtil k8sUtils.K8sService,
-	helmAppService HelmAppService) *FluxApplicationServiceImpl {
+	helmAppService HelmAppService, converter converter.ClusterBeanConverter) *FluxApplicationServiceImpl {
 	return &FluxApplicationServiceImpl{
 		logger:            logger,
 		clusterRepository: clusterRepository,
 		k8sUtil:           k8sUtil,
 		helmAppService:    helmAppService,
+		converter:         converter,
 	}
 
 }
@@ -79,13 +69,13 @@ func (impl *FluxApplicationServiceImpl) ListApplications(clusterIds []int) ([]*b
 		if clusterObj.IsVirtualCluster || len(clusterObj.ErrorInConnecting) != 0 {
 			continue
 		}
-		//clusterBean := adapter.GetClusterBean(clusterObj)
-		//clusterConfig := clusterBean.GetClusterConfig()
 
-		//restConfig, err := impl.k8sUtil.GetRestConfigByCluster(clusterConfig)
 		restConfig := &rest.Config{}
+		clusterInfo := impl.converter.GetClusterInfo(cluster)
+		clusterConfig := impl.converter.GetClusterConfig(clusterInfo)
+		restConfig, err = impl.k8sUtil.GetRestConfigByCluster(clusterConfig)
 		if err != nil {
-			impl.logger.Errorw("error in getting rest config by cluster Id", "err", err, "clusterId", clusterObj.Id)
+			impl.logger.Errorw("error in getting rest config ", "err", err, "clusterId", clusterObj.Id)
 			return nil, err
 		}
 
@@ -114,8 +104,8 @@ func (impl *FluxApplicationServiceImpl) ListApplications(clusterIds []int) ([]*b
 			impl.logger.Errorw("error in getting resource list", "err", err)
 			return nil, err
 		}
-		kustomizationAppLists := getApplicationListDtos(kustomizationResp.Resources.Object, clusterObj.ClusterName, clusterObj.Id)
-		helmReleaseAppLists := getApplicationListDtos(helmReleaseResp.Resources.Object, clusterObj.ClusterName, clusterObj.Id)
+		kustomizationAppLists := getApplicationListDtos(kustomizationResp.Resources.Object, clusterObj.ClusterName, clusterObj.Id, "")
+		helmReleaseAppLists := getApplicationListDtos(helmReleaseResp.Resources.Object, clusterObj.ClusterName, clusterObj.Id, "HelmRelease")
 		appListFinal = append(appListFinal, kustomizationAppLists...)
 
 		appListFinal = append(appListFinal, helmReleaseAppLists...)
@@ -123,7 +113,7 @@ func (impl *FluxApplicationServiceImpl) ListApplications(clusterIds []int) ([]*b
 	return appListFinal, nil
 }
 
-func getApplicationListDtos(manifestObj map[string]interface{}, clusterName string, clusterId int) []*bean.FluxApplicationListDto {
+func getApplicationListDtos(manifestObj map[string]interface{}, clusterName string, clusterId int, FluxAppType string) []*bean.FluxApplicationListDto {
 	appLists := make([]*bean.FluxApplicationListDto, 0)
 	// map of keys and index in row cells, initially set as 0 will be updated by object
 	keysToBeFetchedFromColumnDefinitions := map[string]int{k8sCommonBean.K8sResourceColumnDefinitionName: 0, "Ready": 0,
@@ -152,6 +142,19 @@ func getApplicationListDtos(manifestObj map[string]interface{}, clusterName stri
 				ClusterName: clusterName,
 			}
 			rowDataMap := rowData.(map[string]interface{})
+			rowObject := rowDataMap[k8sCommonBean.K8sClusterResourceObjectKey].(map[string]interface{})
+			metadata := rowObject[k8sCommonBean.K8sClusterResourceMetadataKey].(map[string]interface{})
+
+			if FluxAppType == "HelmRelease" {
+				// Check for the existence and non-empty values of the required labels
+				labels := metadata["labels"].(map[string]interface{})
+				nameLabel, nameExists := labels["kustomize.toolkit.fluxcd.io/name"].(string)
+				namespaceLabel, namespaceExists := labels["kustomize.toolkit.fluxcd.io/namespace"].(string)
+				if nameExists && nameLabel != "" && namespaceExists && namespaceLabel != "" {
+					continue
+				}
+			}
+
 			rowCells := rowDataMap[k8sCommonBean.K8sClusterResourceCellKey].([]interface{})
 			for key, value := range keysToBeFetchedFromColumnDefinitions {
 				resolvedValueFromRowCell := rowCells[value].(string)
@@ -164,15 +167,12 @@ func getApplicationListDtos(manifestObj map[string]interface{}, clusterName stri
 					appListDto.HealthStatus = resolvedValueFromRowCell
 				}
 			}
-			rowObject := rowDataMap[k8sCommonBean.K8sClusterResourceObjectKey].(map[string]interface{})
 			for _, key := range keysToBeFetchedFromRawObject {
 				switch key {
 				case k8sCommonBean.K8sClusterResourceNamespaceKey:
-					metadata := rowObject[k8sCommonBean.K8sClusterResourceMetadataKey].(map[string]interface{})
 					appListDto.Namespace = metadata[k8sCommonBean.K8sClusterResourceNamespaceKey].(string)
 				}
 			}
-
 			appLists = append(appLists, appListDto)
 		}
 	}
