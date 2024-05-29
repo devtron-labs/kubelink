@@ -13,7 +13,7 @@ message ClusterConfig {
   string keyData = 6;
   string certData = 7;
   string caData = 8;
-  RemoteConnectionConfig RemoteConnectionConfig = 15;
+  RemoteConnectionConfig RemoteConnectionConfig = 9;
 }
 
 message AppListRequest {

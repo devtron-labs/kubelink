@@ -58,8 +58,7 @@ func (impl ClusterRepositoryImpl) FindAllActive() ([]*Cluster, error) {
 	err := impl.dbConnection.
 		Model(&clusters).
 		Column("cluster.*", "RemoteConnectionConfig").
-		Join("inner join remote_connection_config rc on rc.id  = cluster.remote_connection_config_id").
-		Where("active=?", true).
+		Where("cluster.active=?", true).
 		Select()
 	return clusters, err
 }
@@ -68,8 +67,9 @@ func (impl ClusterRepositoryImpl) FindById(id int) (*Cluster, error) {
 	var cluster Cluster
 	err := impl.dbConnection.
 		Model(&cluster).
-		Where("id= ? ", id).
-		Where("active =?", true).
+		Column("cluster.*", "RemoteConnectionConfig").
+		Where("cluster.id= ? ", id).
+		Where("cluster.active =?", true).
 		Select()
 	return &cluster, err
 }
@@ -78,8 +78,9 @@ func (impl ClusterRepositoryImpl) FindByIdWithActiveFalse(id int) (*Cluster, err
 	var cluster Cluster
 	err := impl.dbConnection.
 		Model(&cluster).
-		Where("id= ? ", id).
-		Where("active =?", false).
+		Column("cluster.*", "RemoteConnectionConfig").
+		Where("cluster.id= ? ", id).
+		Where("cluster.active =?", false).
 		Select()
 	return &cluster, err
 }

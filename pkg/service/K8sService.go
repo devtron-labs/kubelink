@@ -8,6 +8,7 @@ import (
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/kubelink/bean"
+	error2 "github.com/devtron-labs/kubelink/error"
 	"go.uber.org/zap"
 	coreV1 "k8s.io/api/core/v1"
 	errors2 "k8s.io/apimachinery/pkg/api/errors"
@@ -42,6 +43,7 @@ type HelmReleaseConfig struct {
 	ManifestFetchBatchSize    int    `env:"MANIFEST_FETCH_BATCH_SIZE" envDefault:"2"`
 	RunHelmInstallInAsyncMode bool   `env:"RUN_HELM_INSTALL_IN_ASYNC_MODE" envDefault:"false"`
 	ParentChildGvkMapping     string `env:"PARENT_CHILD_GVK_MAPPING" envDefault:""`
+	ChartWorkingDirectory     string `env:"CHART_WORKING_DIRECTORY" envDefault:"/home/devtron/devtroncd/charts/"`
 }
 
 func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
@@ -159,6 +161,10 @@ func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace st
 		if err != nil {
 			statusError, ok := err.(*errors2.StatusError)
 			if !ok || statusError.ErrStatus.Reason != metav1.StatusReasonNotFound {
+				internalErr := error2.ConvertHelmErrorToInternalError(err)
+				if internalErr != nil {
+					err = internalErr
+				}
 				return nil, err
 			}
 		}

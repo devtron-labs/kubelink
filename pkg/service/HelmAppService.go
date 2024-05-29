@@ -57,7 +57,6 @@ import (
 const (
 	hibernateReplicaAnnotation            = "hibernator.devtron.ai/replicas"
 	hibernatePatch                        = `[{"op": "replace", "path": "/spec/replicas", "value":%d}, {"op": "add", "path": "/metadata/annotations", "value": {"%s":"%s"}}]`
-	chartWorkingDirectory                 = "/home/devtron/devtroncd/charts/"
 	ReadmeFileName                        = "README.md"
 	REGISTRY_TYPE_ECR                     = "ecr"
 	REGISTRYTYPE_GCR                      = "gcr"
@@ -134,7 +133,7 @@ func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 		converter:         converter,
 		registrySettings:  registrySettings,
 	}
-	err = os.MkdirAll(chartWorkingDirectory, os.ModePerm)
+	err = os.MkdirAll(helmReleaseConfig.ChartWorkingDirectory, os.ModePerm)
 	if err != nil {
 		helmAppServiceImpl.logger.Errorw("err in creating dir", "err", err)
 		return nil, err
@@ -281,10 +280,14 @@ func (impl HelmAppServiceImpl) getManifestsForExternalResources(restConfig *rest
 func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error) {
 	helmRelease, err := impl.getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
+		impl.logger.Errorw("Error in getting helm release ", "err", err)
 		if errors.Is(err, driver.ErrReleaseNotFound) {
 			return &bean.AppDetail{ReleaseExists: false}, err
 		}
-		impl.logger.Errorw("Error in getting helm release ", "err", err)
+		internalErr := error2.ConvertHelmErrorToInternalError(err)
+		if internalErr != nil {
+			err = internalErr
+		}
 		return nil, err
 	}
 	resourceTreeResponse, err := impl.buildResourceTree(req, helmRelease)
@@ -386,6 +389,10 @@ func (impl *HelmAppServiceImpl) FetchApplicationStatus(req *client.AppDetailRequ
 	helmRelease, err := impl.getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
 		impl.logger.Errorw("Error in getting helm release ", "err", err)
+		internalErr := error2.ConvertHelmErrorToInternalError(err)
+		if internalErr != nil {
+			err = internalErr
+		}
 		return helmAppStatus, err
 	}
 	if helmRelease.Info != nil {
@@ -409,6 +416,10 @@ func (impl HelmAppServiceImpl) GetHelmAppValues(req *client.AppDetailRequest) (*
 	helmRelease, err := impl.getHelmRelease(req.ClusterConfig, req.Namespace, req.ReleaseName)
 	if err != nil {
 		impl.logger.Errorw("Error in getting helm release ", "err", err)
+		internalErr := error2.ConvertHelmErrorToInternalError(err)
+		if internalErr != nil {
+			err = internalErr
+		}
 		return nil, err
 	}
 
@@ -536,6 +547,10 @@ func (impl HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailRequest
 	helmReleases, err := impl.getHelmReleaseHistory(req.ClusterConfig, req.Namespace, req.ReleaseName, impl.helmReleaseConfig.MaxCountForHelmRelease)
 	if err != nil {
 		impl.logger.Errorw("Error in getting helm release history ", "err", err)
+		internalErr := error2.ConvertHelmErrorToInternalError(err)
+		if internalErr != nil {
+			err = internalErr
+		}
 		return nil, err
 	}
 	helmAppDeployments := make([]*client.HelmAppDeploymentDetail, 0, len(helmReleases))
@@ -575,6 +590,10 @@ func (impl HelmAppServiceImpl) GetDesiredManifest(req *client.ObjectRequest) (*c
 	helmRelease, err := impl.getHelmRelease(req.ClusterConfig, req.ReleaseNamespace, req.ReleaseName)
 	if err != nil {
 		impl.logger.Errorw("Error in getting helm release ", "err", err)
+		internalErr := error2.ConvertHelmErrorToInternalError(err)
+		if internalErr != nil {
+			err = internalErr
+		}
 		return nil, err
 	}
 
@@ -612,6 +631,10 @@ func (impl HelmAppServiceImpl) UninstallRelease(releaseIdentifier *client.Releas
 	err = helmClient.UninstallReleaseByName(releaseIdentifier.ReleaseName)
 	if err != nil {
 		impl.logger.Errorw("Error in uninstall release ", "err", err)
+		internalErr := error2.ConvertHelmErrorToInternalError(err)
+		if internalErr != nil {
+			err = internalErr
+		}
 		return nil, err
 	}
 
@@ -695,6 +718,10 @@ func (impl HelmAppServiceImpl) GetDeploymentDetail(request *client.DeploymentDet
 	helmReleases, err := impl.getHelmReleaseHistory(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName, impl.helmReleaseConfig.MaxCountForHelmRelease)
 	if err != nil {
 		impl.logger.Errorw("Error in getting helm release history ", "err", err)
+		internalErr := error2.ConvertHelmErrorToInternalError(err)
+		if internalErr != nil {
+			err = internalErr
+		}
 		return nil, err
 	}
 
@@ -801,6 +828,10 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 		err = helmClientObj.AddOrUpdateChartRepo(chartRepo)
 		if err != nil {
 			impl.logger.Errorw("Error in add/update chart repo ", "err", err)
+			internalErr := error2.ConvertHelmErrorToInternalError(err)
+			if internalErr != nil {
+				err = internalErr
+			}
 			return nil, err
 		}
 		chartName = fmt.Sprintf("%s/%s", chartRepoName, request.ChartName)
@@ -816,7 +847,7 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 		Version:          request.ChartVersion,
 		DependencyUpdate: true,
 		UpgradeCRDs:      true,
-		CreateNamespace:  true,
+		CreateNamespace:  false,
 		DryRun:           dryRun,
 		RegistryClient:   registryClient,
 	}
@@ -828,6 +859,10 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 		rel, err := helmClientObj.InstallChart(context.Background(), chartSpec)
 		if err != nil {
 			impl.logger.Errorw("Error in install release ", "err", err)
+			internalErr := error2.ConvertHelmErrorToInternalError(err)
+			if internalErr != nil {
+				err = internalErr
+			}
 			return nil, err
 		}
 
@@ -838,7 +873,7 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 				InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
 			}
 			// Checking release exist because there can be case when release already exist with same name
-			releaseExist := impl.K8sInformer.CheckReleaseExists(releaseIdentifier.ClusterConfig.ClusterId, releaseIdentifier.ReleaseName)
+			releaseExist := impl.K8sInformer.CheckReleaseExists(releaseIdentifier.ClusterConfig.ClusterId, getUniqueReleaseIdentifierName(releaseIdentifier))
 			if releaseExist {
 				// release with name already exist, will not continue with release
 				helmInstallMessage.ErrorInInstallation = true
@@ -899,6 +934,10 @@ func (impl HelmAppServiceImpl) GetNotes(ctx context.Context, request *client.Ins
 	release, err := helmClientObj.GetNotes(chartSpec, HelmTemplateOptions)
 	if err != nil {
 		impl.logger.Errorw("Error in fetching Notes ", "err", err)
+		internalErr := error2.ConvertHelmErrorToInternalError(err)
+		if internalErr != nil {
+			err = internalErr
+		}
 		return "", err
 	}
 	if release == nil {
@@ -1841,15 +1880,15 @@ func (impl HelmAppServiceImpl) InstallReleaseWithCustomChart(ctx context.Context
 		return false, err
 	}
 
-	if _, err := os.Stat(chartWorkingDirectory); os.IsNotExist(err) {
-		err := os.MkdirAll(chartWorkingDirectory, os.ModePerm)
+	if _, err := os.Stat(impl.helmReleaseConfig.ChartWorkingDirectory); os.IsNotExist(err) {
+		err := os.MkdirAll(impl.helmReleaseConfig.ChartWorkingDirectory, os.ModePerm)
 		if err != nil {
 			impl.logger.Errorw("err in creating dir", "err", err)
 			return false, err
 		}
 	}
 	dir := impl.GetRandomString()
-	referenceChartDir := filepath.Join(chartWorkingDirectory, dir)
+	referenceChartDir := filepath.Join(impl.helmReleaseConfig.ChartWorkingDirectory, dir)
 	referenceChartDir = fmt.Sprintf("%s.tgz", referenceChartDir)
 	defer impl.CleanDir(referenceChartDir)
 	err = ioutil.WriteFile(referenceChartDir, b.Bytes(), os.ModePerm)
@@ -1903,15 +1942,15 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 		return false, err
 	}
 
-	if _, err := os.Stat(chartWorkingDirectory); os.IsNotExist(err) {
-		err := os.MkdirAll(chartWorkingDirectory, os.ModePerm)
+	if _, err := os.Stat(impl.helmReleaseConfig.ChartWorkingDirectory); os.IsNotExist(err) {
+		err := os.MkdirAll(impl.helmReleaseConfig.ChartWorkingDirectory, os.ModePerm)
 		if err != nil {
 			impl.logger.Errorw("err in creating dir", "err", err)
 			return false, err
 		}
 	}
 	dir := impl.GetRandomString()
-	referenceChartDir := filepath.Join(chartWorkingDirectory, dir)
+	referenceChartDir := filepath.Join(impl.helmReleaseConfig.ChartWorkingDirectory, dir)
 	referenceChartDir = fmt.Sprintf("%s.tgz", referenceChartDir)
 	defer impl.CleanDir(referenceChartDir)
 	err = ioutil.WriteFile(referenceChartDir, b.Bytes(), os.ModePerm)
