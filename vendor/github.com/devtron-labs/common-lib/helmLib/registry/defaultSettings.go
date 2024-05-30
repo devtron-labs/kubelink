@@ -55,7 +55,12 @@ func (s *DefaultSettingsGetterImpl) getRegistryClient(config *Configuration) (*r
 		return nil, err
 	}
 
-	registryClient, err := registry.NewClient(registry.ClientOptHTTPClient(httpClient))
+	clientOptions := []registry.ClientOption{registry.ClientOptHTTPClient(httpClient)}
+	if config.RegistryConnectionType == INSECURE_CONNECTION {
+		clientOptions = append(clientOptions, registry.ClientOptPlainHTTP())
+	}
+
+	registryClient, err := registry.NewClient(clientOptions...)
 	if err != nil {
 		s.logger.Errorw("error in getting registryClient", "registryName", config.RegistryId, "err", err)
 		return nil, err
