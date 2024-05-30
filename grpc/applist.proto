@@ -73,11 +73,12 @@ message FluxApplicationList {
   repeated FluxApplication FluxApplication =1;
 }
 message FluxApplication{
-  int32 ClusterId=1;
-  string ClusterName=2;
-  string Namespace=3;
-  string HealthStatus=4;
-  string SyncStatus=5;
+  string Name=1;
+  int32 ClusterId=2;
+  string ClusterName=3;
+  string Namespace=4;
+  string HealthStatus=5;
+  string SyncStatus=6;
 }
 
 message DeployedAppDetail {

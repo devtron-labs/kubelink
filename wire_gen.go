@@ -57,10 +57,10 @@ func InitializeApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(sugaredLogger, chartRepositoryLocker, helmAppServiceImpl)
+	fluxApplicationServiceImpl := service.NewFluxApplicationServiceImpl(sugaredLogger, clusterRepositoryImpl, k8sK8sServiceImpl, helmAppServiceImpl, clusterBeanConverterImpl)
+	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(sugaredLogger, chartRepositoryLocker, helmAppServiceImpl, fluxApplicationServiceImpl)
 	monitoringRouter := monitoring.NewMonitoringRouter(sugaredLogger)
 	routerImpl := router.NewRouter(sugaredLogger, monitoringRouter)
-	fluxApplicationServiceImpl := service.NewFluxApplicationServiceImpl(sugaredLogger, clusterRepositoryImpl, k8sK8sServiceImpl, helmAppServiceImpl, clusterBeanConverterImpl)
 	app := NewApp(sugaredLogger, applicationServiceServerImpl, routerImpl, k8sInformerImpl, db, fluxApplicationServiceImpl)
 	return app, nil
 }

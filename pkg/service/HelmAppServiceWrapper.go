@@ -576,7 +576,7 @@ func (impl *ApplicationServiceServerImpl) PushHelmChartToOCIRegistry(ctx context
 	return registryPushResponse, nil
 }
 
-func (impl *ApplicationServiceServerImpl) ListFluxApplications(req *client.AppListRequest, res client.ApplicationService_ListApplicationsServer) error {
+func (impl *ApplicationServiceServerImpl) ListFluxApplications(req *client.AppListRequest, res client.ApplicationService_ListFluxApplicationsServer) error {
 	impl.Logger.Info("List Flux Application Request")
 	clusterConfigs := req.GetClusters()
 	eg := new(errgroup.Group)
@@ -592,6 +592,6 @@ func (impl *ApplicationServiceServerImpl) ListFluxApplications(req *client.AppLi
 		impl.Logger.Errorw("Error in fetching application list", "err", err)
 		return err
 	}
-	impl.Logger.Info("List Application Request served")
+	impl.Logger.Info("List Flux Application Request served")
 	return nil
 }

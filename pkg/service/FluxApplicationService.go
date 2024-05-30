@@ -14,7 +14,7 @@ import (
 
 type FluxApplicationService interface {
 	ListApplications(clusterIds []int) ([]*bean.FluxApplicationListDto, error)
-	GetFluxApplicationListForCluster(config *client.ClusterConfig) []*client.FluxApplication
+	GetFluxApplicationListForCluster(config *client.ClusterConfig) *client.FluxApplicationList
 	//GetAppDetail(resourceName, resourceNamespace string, clusterId int) (*bean.FluxApplicationListDto, error)
 	//GetServerConfigIfClusterIsNotAddedOnDevtron(resourceResp *k8s.ManifestResponse, restConfig *rest.Config,
 	//	clusterWithApplicationObject clusterRepository.Cluster, clusterServerUrlIdMap map[string]int) (*rest.Config, error)
@@ -101,10 +101,11 @@ func (impl *FluxApplicationServiceImpl) ListApplications(clusterIds []int) ([]*b
 	return appListFinal, nil
 }
 
-func (impl *FluxApplicationServiceImpl) GetFluxApplicationListForCluster(config *client.ClusterConfig) []*client.FluxApplication {
+func (impl *FluxApplicationServiceImpl) GetFluxApplicationListForCluster(config *client.ClusterConfig) *client.FluxApplicationList {
 	impl.logger.Debugw("Fetching application list ", "clusterId", config.ClusterId, "clusterName", config.ClusterName)
-
-	var fluxAppListFinal []*client.FluxApplication
+	//var fluxAppListFinal *client.FluxApplicationList
+	fluxAppListFinal := new(client.FluxApplicationList)
+	var fluxAppFinal []*client.FluxApplication
 	appListFinal := make([]*bean.FluxApplicationListDto, 0)
 
 	k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(config)
@@ -125,27 +126,28 @@ func (impl *FluxApplicationServiceImpl) GetFluxApplicationListForCluster(config 
 		appListFinal = append(appListFinal, kustomizationAppLists...)
 	}
 
-	//restConfig.Timeout = time.Duration(20)
-
 	helmReleaseResp, _, err := impl.k8sUtil.GetResourceList(context.Background(), restConfig2, bean.GvkForHelmreleaseFluxApp, bean.AllNamespaces, true, nil)
 	if err == nil {
 		helmReleaseAppLists := getApplicationListDtos(helmReleaseResp.Resources.Object, config.ClusterName, int(config.ClusterId), "HelmRelease")
-		appListFinal = append(appListFinal, helmReleaseAppLists...)
+		if len(helmReleaseAppLists) > 0 {
+			appListFinal = append(appListFinal, helmReleaseAppLists...)
+		}
+
 	}
 
 	for _, item := range appListFinal {
 
-		fluxAppListFinal = append(fluxAppListFinal, &client.FluxApplication{
+		fluxApp := &client.FluxApplication{
 			Name:         item.Name,
-			ClusterId:    item.ClusterId,
+			ClusterId:    int32(item.ClusterId),
 			ClusterName:  item.ClusterName,
 			Namespace:    item.Namespace,
 			HealthStatus: item.HealthStatus,
 			SyncStatus:   item.SyncStatus,
-		}...)
-
+		}
+		fluxAppFinal = append(fluxAppFinal, fluxApp)
 	}
-
+	fluxAppListFinal.FluxApplication = fluxAppFinal
 	return fluxAppListFinal
 }
 func getApplicationListDtos(manifestObj map[string]interface{}, clusterName string, clusterId int, FluxAppType string) []*bean.FluxApplicationListDto {
