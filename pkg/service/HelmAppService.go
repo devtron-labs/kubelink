@@ -759,6 +759,9 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 
 func parseOCIChartName(registryUrl, repoName string) (string, error) {
 	// helm package expects chart name to be in this format
+	if !strings.Contains(strings.ToLower(registryUrl), "https") && !strings.Contains(strings.ToLower(registryUrl), "http") {
+		registryUrl = fmt.Sprintf("//%s", registryUrl)
+	}
 	parsedUrl, err := url.Parse(registryUrl)
 	if err != nil {
 		return registryUrl, err
@@ -2130,6 +2133,9 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 }
 
 func TrimSchemeFromURL(registryUrl string) string {
+	if !strings.Contains(strings.ToLower(registryUrl), "https") && !strings.Contains(strings.ToLower(registryUrl), "http") {
+		registryUrl = fmt.Sprintf("//%s", registryUrl)
+	}
 	parsedUrl, err := url.Parse(registryUrl)
 	if err != nil {
 		return registryUrl
