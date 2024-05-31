@@ -46,11 +46,11 @@ func GetLoggedInClient(client *registry.Client, config *Configuration) (*registr
 func CreateCertificateFile(registryName, caString string) (certificatePath string, err error) {
 
 	registryFolderPath := fmt.Sprintf("%s/%s-%v", REGISTRY_CREDENTIAL_BASE_PATH, registryName, rand.Int())
-	certificateFilePath := fmt.Sprintf("%s/ca.crt", registryFolderPath)
+	certificatePath = fmt.Sprintf("%s/ca.crt", registryFolderPath)
 
-	if _, err = os.Stat(certificateFilePath); os.IsExist(err) {
+	if _, err = os.Stat(certificatePath); os.IsExist(err) {
 		// if file exists - remove file
-		err := os.Remove(certificateFilePath)
+		err := os.Remove(certificatePath)
 		if err != nil {
 			return certificatePath, err
 		}
@@ -61,7 +61,7 @@ func CreateCertificateFile(registryName, caString string) (certificatePath strin
 			return certificatePath, err
 		}
 	}
-	f, err := os.Create(certificateFilePath)
+	f, err := os.Create(certificatePath)
 	if err != nil {
 		return certificatePath, err
 	}
@@ -70,7 +70,7 @@ func CreateCertificateFile(registryName, caString string) (certificatePath strin
 	if err2 != nil {
 		return certificatePath, err
 	}
-	return certificateFilePath, nil
+	return certificatePath, nil
 }
 
 func DeleteCertificateFolder(filePath string) error {
