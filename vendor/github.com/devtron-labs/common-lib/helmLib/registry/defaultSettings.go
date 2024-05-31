@@ -38,17 +38,6 @@ func (s *DefaultSettingsGetterImpl) GetRegistrySettings(config *Configuration) (
 
 func (s *DefaultSettingsGetterImpl) getRegistryClient(config *Configuration) (*registry.Client, error) {
 
-	var caFilePath string
-	var err error
-	if len(config.RegistryCAFilePath) == 0 && config.RegistryConnectionType == SECURE_WITH_CERT {
-		caFilePath, err = CreateCertificateFile(config.RegistryId, config.RegistryCertificateString)
-		if err != nil {
-			s.logger.Errorw("error in creating certificate file path", "registryName", config.RegistryId, "err", err)
-			return nil, err
-		}
-	}
-
-	config.RegistryCAFilePath = caFilePath
 	httpClient, err := GetHttpClient(config)
 	if err != nil {
 		s.logger.Errorw("error in getting http client", "registryName", config.RegistryId, "err", err)
