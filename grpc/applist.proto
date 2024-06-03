@@ -79,6 +79,7 @@ message FluxApplication{
   string Namespace=4;
   string HealthStatus=5;
   string SyncStatus=6;
+  bool IsKustomizeApp=7;
 }
 
 message DeployedAppDetail {
