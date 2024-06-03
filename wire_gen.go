@@ -8,7 +8,6 @@ package main
 
 import (
 	"github.com/devtron-labs/authenticator/client"
-	"github.com/devtron-labs/common-lib/helmLib/registry"
 	"github.com/devtron-labs/common-lib/monitoring"
 	"github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/kubelink/api/router"
@@ -54,9 +53,7 @@ func InitializeApp() (*App, error) {
 	k8sK8sServiceImpl := k8s.NewK8sUtil(sugaredLogger, runtimeConfig)
 	clusterBeanConverterImpl := converter.NewConverterImpl()
 	k8sInformerImpl := k8sInformer.Newk8sInformerImpl(sugaredLogger, clusterRepositoryImpl, k8sInformerHelmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl)
-	defaultSettingsGetterImpl := registry.NewDefaultSettingsGetter(sugaredLogger)
-	settingsFactoryImpl := registry.NewSettingsFactoryImpl(defaultSettingsGetterImpl)
-	helmAppServiceImpl, err := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, helmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl, clusterRepositoryImpl, settingsFactoryImpl)
+	helmAppServiceImpl, err := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, helmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl, clusterRepositoryImpl)
 	if err != nil {
 		return nil, err
 	}

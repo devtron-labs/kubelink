@@ -1,7 +1,7 @@
 package bean
 
 import (
-	remoteConnectionBean "github.com/devtron-labs/common-lib/utils/remoteConnection/bean"
+	"github.com/devtron-labs/common-lib/utils/remoteConnection/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -224,13 +224,13 @@ type EphemeralContainerStatusesInfo struct {
 }
 
 type ClusterInfo struct {
-	ClusterId              int                                              `json:"clusterId"`
-	ClusterName            string                                           `json:"clusterName"`
-	BearerToken            string                                           `json:"bearerToken"`
-	ServerUrl              string                                           `json:"serverUrl"`
-	InsecureSkipTLSVerify  bool                                             `json:"insecureSkipTLSVerify"`
-	KeyData                string                                           `json:"-"`
-	CertData               string                                           `json:"-"`
-	CAData                 string                                           `json:"-"`
-	RemoteConnectionConfig *remoteConnectionBean.RemoteConnectionConfigBean `json:"remoteConnectionConfig"`
+	ClusterId              int    `json:"clusterId"`
+	ClusterName            string `json:"clusterName"`
+	BearerToken            string `json:"bearerToken"`
+	ServerUrl              string `json:"serverUrl"`
+	InsecureSkipTLSVerify  bool   `json:"insecureSkipTLSVerify"`
+	KeyData                string `json:"-"`
+	CertData               string `json:"-"`
+	CAData                 string `json:"-"`
+	RemoteConnectionConfig *bean.RemoteConnectionConfigBean
 }
