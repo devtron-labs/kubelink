@@ -791,18 +791,21 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 		return nil, err
 	}
 	// oci registry client
-	settingsGetter, err := impl.registrySettings.GetSettings(registryConfig)
-	if err != nil {
-		impl.logger.Errorw("error in getting registry settings", "registryName", request.RegistryCredential.RegistryName, "err", err)
-		return nil, err
+	var registryClient *registry.Client
+	if registryConfig != nil {
+		settingsGetter, err := impl.registrySettings.GetSettings(registryConfig)
+		if err != nil {
+			impl.logger.Errorw("error in getting registry settings", "registryName", request.RegistryCredential.RegistryName, "err", err)
+			return nil, err
+		}
+		settings, err := settingsGetter.GetRegistrySettings(registryConfig)
+		if err != nil {
+			impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", request.RegistryCredential.RegistryName, "err", err)
+			return nil, err
+		}
+		registryClient = settings.RegistryClient
+		request.RegistryCredential.RegistryUrl = settings.RegistryHostURL
 	}
-	settings, err := settingsGetter.GetRegistrySettings(registryConfig)
-	if err != nil {
-		impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", request.RegistryCredential.RegistryName, "err", err)
-		return nil, err
-	}
-	registryClient := settings.RegistryClient
-	request.RegistryCredential.RegistryUrl = settings.RegistryHostURL
 
 	var chartName string
 	switch request.IsOCIRepo {
@@ -970,18 +973,21 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		impl.logger.Errorw("error in getting registry config from registry proto", "registryName", request.RegistryCredential.RegistryName, "err", err)
 		return nil, err
 	}
-	settingsGetter, err := impl.registrySettings.GetSettings(registryConfig)
-	if err != nil {
-		impl.logger.Errorw("error in getting registry settings", "err", err)
-		return nil, err
+	var registryClient *registry.Client
+	if registryConfig != nil {
+		settingsGetter, err := impl.registrySettings.GetSettings(registryConfig)
+		if err != nil {
+			impl.logger.Errorw("error in getting registry settings", "registryName", request.RegistryCredential.RegistryName, "err", err)
+			return nil, err
+		}
+		settings, err := settingsGetter.GetRegistrySettings(registryConfig)
+		if err != nil {
+			impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", request.RegistryCredential.RegistryName, "err", err)
+			return nil, err
+		}
+		registryClient = settings.RegistryClient
+		request.RegistryCredential.RegistryUrl = settings.RegistryHostURL
 	}
-	settings, err := settingsGetter.GetRegistrySettings(registryConfig)
-	if err != nil {
-		impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", request.RegistryCredential.RegistryName, "err", err)
-		return nil, err
-	}
-	registryClient := settings.RegistryClient
-	request.RegistryCredential.RegistryUrl = settings.RegistryHostURL
 
 	var chartName string
 	switch request.IsOCIRepo {
@@ -1168,18 +1174,22 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 		impl.logger.Errorw("error in getting registry config from registry proto", "registryName", request.RegistryCredential.RegistryName, "err", err)
 		return "", nil, err
 	}
-	settingsGetter, err := impl.registrySettings.GetSettings(registryConfig)
-	if err != nil {
-		impl.logger.Errorw("error in getting registry settings", "err", err)
-		return "", nil, err
+
+	var registryClient *registry.Client
+	if registryConfig != nil {
+		settingsGetter, err := impl.registrySettings.GetSettings(registryConfig)
+		if err != nil {
+			impl.logger.Errorw("error in getting registry settings", "registryName", request.RegistryCredential.RegistryName, "err", err)
+			return "", nil, err
+		}
+		settings, err := settingsGetter.GetRegistrySettings(registryConfig)
+		if err != nil {
+			impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", request.RegistryCredential.RegistryName, "err", err)
+			return "", nil, err
+		}
+		registryClient = settings.RegistryClient
+		request.RegistryCredential.RegistryUrl = settings.RegistryHostURL
 	}
-	settings, err := settingsGetter.GetRegistrySettings(registryConfig)
-	if err != nil {
-		impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", request.RegistryCredential.RegistryName, "err", err)
-		return "", nil, err
-	}
-	registryClient := settings.RegistryClient
-	request.RegistryCredential.RegistryUrl = settings.RegistryHostURL
 
 	var chartName, repoURL string
 	switch request.IsOCIRepo {
