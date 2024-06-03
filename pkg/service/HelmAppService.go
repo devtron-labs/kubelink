@@ -781,9 +781,11 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 
 	registryConfig, err := NewRegistryConfig(request.RegistryCredential)
 	defer func() {
-		err := registry2.DeleteCertificateFolder(registryConfig.RegistryCAFilePath)
-		if err != nil {
-			impl.logger.Errorw("error in deleting certificate folder", "registryName", registryConfig.RegistryId, "err", err)
+		if registryConfig != nil {
+			err := registry2.DeleteCertificateFolder(registryConfig.RegistryCAFilePath)
+			if err != nil {
+				impl.logger.Errorw("error in deleting certificate folder", "registryName", registryConfig.RegistryId, "err", err)
+			}
 		}
 	}()
 	if err != nil {
@@ -891,6 +893,7 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 					return
 				}
 				_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
+				return
 			}
 
 			_, err = helmClientObj.InstallChart(context.Background(), chartSpec)
@@ -964,9 +967,11 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 
 	registryConfig, err := NewRegistryConfig(request.RegistryCredential)
 	defer func() {
-		err := registry2.DeleteCertificateFolder(registryConfig.RegistryCAFilePath)
-		if err != nil {
-			impl.logger.Errorw("error in deleting certificate folder", "registryName", registryConfig.RegistryId, "err", err)
+		if registryConfig != nil {
+			err := registry2.DeleteCertificateFolder(registryConfig.RegistryCAFilePath)
+			if err != nil {
+				impl.logger.Errorw("error in deleting certificate folder", "registryName", registryConfig.RegistryId, "err", err)
+			}
 		}
 	}()
 	if err != nil {
@@ -1165,9 +1170,11 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 
 	registryConfig, err := NewRegistryConfig(request.RegistryCredential)
 	defer func() {
-		err := registry2.DeleteCertificateFolder(registryConfig.RegistryCAFilePath)
-		if err != nil {
-			impl.logger.Errorw("error in deleting certificate folder", "registryName", registryConfig.RegistryId, "err", err)
+		if registryConfig != nil {
+			err := registry2.DeleteCertificateFolder(registryConfig.RegistryCAFilePath)
+			if err != nil {
+				impl.logger.Errorw("error in deleting certificate folder", "registryName", registryConfig.RegistryId, "err", err)
+			}
 		}
 	}()
 	if err != nil {
@@ -2034,9 +2041,11 @@ func (impl HelmAppServiceImpl) ValidateOCIRegistryLogin(ctx context.Context, OCI
 	}
 	registryConfig, err := NewRegistryConfig(OCIRegistryRequest)
 	defer func() {
-		err := registry2.DeleteCertificateFolder(registryConfig.RegistryCAFilePath)
-		if err != nil {
-			impl.logger.Errorw("error in deleting certificate folder", "registryName", registryConfig.RegistryId, "err", err)
+		if registryConfig != nil {
+			err := registry2.DeleteCertificateFolder(registryConfig.RegistryCAFilePath)
+			if err != nil {
+				impl.logger.Errorw("error in deleting certificate folder", "registryName", registryConfig.RegistryId, "err", err)
+			}
 		}
 	}()
 	if err != nil {
@@ -2060,9 +2069,11 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 
 	registryConfig, err := NewRegistryConfig(OCIRegistryRequest.RegistryCredential)
 	defer func() {
-		err := registry2.DeleteCertificateFolder(registryConfig.RegistryCAFilePath)
-		if err != nil {
-			impl.logger.Errorw("error in deleting certificate folder", "registryName", registryConfig.RegistryId, "err", err)
+		if registryConfig != nil {
+			err := registry2.DeleteCertificateFolder(registryConfig.RegistryCAFilePath)
+			if err != nil {
+				impl.logger.Errorw("error in deleting certificate folder", "registryName", registryConfig.RegistryId, "err", err)
+			}
 		}
 	}()
 	if err != nil {
