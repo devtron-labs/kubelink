@@ -11,9 +11,8 @@ const (
 type ConnectionMethod string
 
 const (
-	ConnectionMethod_Proxy  ConnectionMethod = "PROXY"
-	ConnectionMethod_SSH    ConnectionMethod = "SSH"
-	ConnectionMethod_DIRECT ConnectionMethod = "DIRECT"
+	ConnectionMethod_Proxy ConnectionMethod = "PROXY"
+	ConnectionMethod_SSH   ConnectionMethod = "SSH"
 )
 
 type ProxyConfig struct {

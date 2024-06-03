@@ -1,8 +1,6 @@
 package util
 
-import (
-	"reflect"
-)
+import "reflect"
 
 func IsMapSubset(mapSet interface{}, mapSubset interface{}) bool {
 
