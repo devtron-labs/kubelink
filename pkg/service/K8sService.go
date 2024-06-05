@@ -43,7 +43,7 @@ type HelmReleaseConfig struct {
 	ManifestFetchBatchSize    int    `env:"MANIFEST_FETCH_BATCH_SIZE" envDefault:"2"`
 	RunHelmInstallInAsyncMode bool   `env:"RUN_HELM_INSTALL_IN_ASYNC_MODE" envDefault:"false"`
 	ParentChildGvkMapping     string `env:"PARENT_CHILD_GVK_MAPPING" envDefault:""`
-	ChartWorkingDirectory     string `env:"CHART_WORKING_DIRECTORY" envDefault:"/tmp/home/devtron/devtroncd/charts/"`
+	ChartWorkingDirectory     string `env:"CHART_WORKING_DIRECTORY" envDefault:"/home/devtron/devtroncd/charts/"`
 }
 
 func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
