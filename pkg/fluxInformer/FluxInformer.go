@@ -306,6 +306,7 @@ func (impl *FluxInformerImpl) handleDelete(obj interface{}, clusterId int, gvr s
 	if unstructuredObj, ok := obj.(*unstructured.Unstructured); ok {
 		impl.mutex.Lock()
 		defer impl.mutex.Unlock()
+		//just for keeping this
 		delete(impl.FluxAppListClusterMap[clusterId], impl.getUniqueFluxAppKey(&FluxAppDto{unstructuredObj}, clusterId))
 	}
 }
