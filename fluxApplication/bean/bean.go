@@ -32,27 +32,6 @@ const (
 	ColonTranscoded = "__"
 )
 
-type FluxApplicationListDto struct {
-	Name           string `json:"appName"`
-	ClusterId      int    `json:"clusterId"`
-	ClusterName    string `json:"clusterName"`
-	Namespace      string `json:"namespace"`
-	HealthStatus   string `json:"appStatus"`
-	SyncStatus     string `json:"syncStatus"`
-	IsKustomizeApp bool   `json:"isKustomizeApp"`
-}
-
-type ObjMetadata struct {
-	Namespace string
-	Name      string
-	GroupKind schema.GroupKind
-}
-
-type ObjectMetadataCompact struct {
-	Id      string
-	Version string
-}
-
 var GvkForKustomizationFluxApp = schema.GroupVersionKind{
 	Group:   FluxKustomizationGroup,
 	Kind:    FluxAppKustomizationKind,
@@ -65,9 +44,27 @@ var GvkForHelmreleaseFluxApp = schema.GroupVersionKind{
 	Version: FluxHelmReleaseVersion,
 }
 
-type FluxAppDto struct {
-	Name      string `json:"appName"`
-	Namespace string `json:"namespace"`
+type FluxApplicationListDto struct {
+	ClusterId   int    `json:"clusterId"`
+	ClusterName string `json:"clusterName"`
+	FluxAppDto  []*FluxApplicationDto
+}
+type FluxApplicationDto struct {
+	Name               string             `json:"appName"`
+	HealthStatus       string             `json:"appStatus"`
+	SyncStatus         string             `json:"syncStatus"`
+	EnvironmentDetails *EnvironmentDetail `json:"environmentDetail"`
+	IsKustomizeApp     bool               `json:"isKustomizeApp"`
+}
+type EnvironmentDetail struct {
+	ClusterId   int    `json:"clusterId"`
+	ClusterName string `json:"clusterName"`
+	Namespace   string `json:"namespace"`
+}
+
+type ObjectMetadataCompact struct {
+	Id      string
+	Version string
 }
 
 type FluxpplicationDetailDto struct {

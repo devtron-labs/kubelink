@@ -77,9 +77,9 @@ func (app *App) Start() {
 
 	httpPort := 50052
 
-	numbers := []int{1}
-	res2, _ := app.fluxApp.ListApplications(numbers)
-	fmt.Println(res2)
+	//numbers := []int{1}
+	//res2, _ := app.fluxApp.ListApplications(numbers)
+	//fmt.Println(res2)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {

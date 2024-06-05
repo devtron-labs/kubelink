@@ -69,17 +69,17 @@ message DeployedAppList {
   bool errored = 4;
 }
 
+
 message FluxApplicationList {
-  repeated FluxApplication FluxApplication =1;
+  int32 clusterId = 1;
+  repeated FluxApplicationDetail FluxApplicationDetail =2;
 }
-message FluxApplication{
+message FluxApplicationDetail{
   string Name=1;
-  int32 ClusterId=2;
-  string ClusterName=3;
-  string Namespace=4;
-  string HealthStatus=5;
-  string SyncStatus=6;
-  bool IsKustomizeApp=7;
+  string HealthStatus=2;
+  string SyncStatus=3;
+  EnvironmentDetails environmentDetail = 4;
+  bool IsKustomizeApp=5;
 }
 
 message DeployedAppDetail {
