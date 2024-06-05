@@ -56,7 +56,9 @@ func (impl *FluxApplicationServiceImpl) GetFluxApplicationListForCluster(config 
 	kustomizationResp, _, err := impl.k8sUtil.GetResourceList(context.Background(), restConfig, bean.GvkForKustomizationFluxApp, bean.AllNamespaces, true, nil)
 	if err == nil {
 		kustomizationAppLists := getApplicationListDtos(kustomizationResp.Resources.Object, config.ClusterName, int(config.ClusterId), "")
-		appListFinal = append(appListFinal, kustomizationAppLists...)
+		if len(kustomizationAppLists) > 0 {
+			appListFinal = append(appListFinal, kustomizationAppLists...)
+		}
 	}
 
 	helmReleaseResp, _, err := impl.k8sUtil.GetResourceList(context.Background(), restConfig2, bean.GvkForHelmreleaseFluxApp, bean.AllNamespaces, true, nil)
