@@ -18,7 +18,7 @@ import (
 type FluxApplicationService interface {
 	ListApplications(clusterIds []int) ([]*bean.FluxApplicationListDto, error)
 	GetFluxApplicationListForCluster(config *client.ClusterConfig) *client.FluxApplicationList
-	GetAppDetail(resourceName, resourceNamespace string, clusterId int) (*bean.FluxApplicationListDto, error)
+	GetAppDetail(AppDto bean.FluxApplicationListDto, config *client.ClusterConfig) error
 	//GetServerConfigIfClusterIsNotAddedOnDevtron(resourceResp *k8s.ManifestResponse, restConfig *rest.Config,
 	//	clusterWithApplicationObject clusterRepository.Cluster, clusterServerUrlIdMap map[string]int) (*rest.Config, error)
 	//GetClusterConfigFromAllClusters(clusterId int) (*k8s.ClusterConfig, clusterRepository.Cluster, map[string]int, error)
@@ -266,6 +266,13 @@ func (impl *FluxApplicationServiceImpl) GetAppDetail(AppDto bean.FluxApplication
 				return err1
 			}
 
+			resourcetree, err := impl.helmAppService.GetResourceTreeForExternalResources(fluxKustomizationTree.Resources)
+			fmt.Println(resourcetree, err)
+			for _, val := range fluxKustomizationTree.FluxHelmReleases {
+				resourcetree1, err := impl.helmAppService.BuildAppDetail(val)
+				fmt.Println(resourcetree1, err)
+			}
+
 			fmt.Println(fluxKustomizationTree)
 
 		}
@@ -293,11 +300,17 @@ func (impl *FluxApplicationServiceImpl) getFluxManagedResourceTree(fluxKsApp *be
 
 		fmt.Println(fluxManagedResourceMap, fluxKsSpecKubeConfig)
 
-		fluxK8sResources := make([]*bean.FluxResource, 0)
-		for version, id := range fluxManagedResourceMap {
+		//fluxK8sResources := make([]*bean.FluxResource, 0)
+		externalResourcesList := &client.ExternalResourceTreeRequest{
+			ClusterConfig: config,
+		}
+
+		//externalResourcesList.ClusterConfig = config
+		fluxHelmResources := make([]*client.AppDetailRequest, 0)
+		for id, version := range fluxManagedResourceMap {
 			fluxResource, err := parseObjMetadata(id)
 			if err != nil {
-				fmt.Println("issue is here for some rreson , r", err)
+				fmt.Println("issue is here for some reason , r", err)
 			}
 			fluxResource.Gvk.Version = version
 			if fluxResource.Gvk.Group == fluxKsApp.GroupKind.Group && fluxResource.Gvk.Kind == fluxKsApp.GroupKind.Kind && fluxResource.Name == fluxKsApp.Name && fluxResource.Namespace == fluxKsApp.Namespace {
@@ -305,66 +318,30 @@ func (impl *FluxApplicationServiceImpl) getFluxManagedResourceTree(fluxKsApp *be
 			}
 
 			if fluxResource.Gvk.Kind != bean.FluxAppHelmreleaseKind && fluxResource.Gvk.Kind != bean.FluxAppKustomizationKind {
-				fluxK8sResources = append(fluxK8sResources, &fluxResource)
+				//fluxK8sResources = append(fluxK8sResources, &fluxResource)
+				externalResourcesList.ExternalResourceDetail = append(externalResourcesList.ExternalResourceDetail, &client.ExternalResourceDetail{
+					Namespace: fluxResource.Namespace,
+					Name:      fluxResource.Name,
+					Group:     fluxResource.Gvk.Group,
+					Version:   fluxResource.Gvk.Version,
+					Kind:      fluxResource.Gvk.Kind,
+				})
 			}
 
 			if fluxResource.Gvk.Group == bean.FluxHelmReleaseGroup &&
 				fluxResource.Gvk.Kind == bean.FluxAppHelmreleaseKind {
 
-				fluxK8sResourcesOfHelm := &bean.FluxHelmReleases{
-					Name:        fluxResource.Name,
-					Namespace:   fluxResource.Namespace,
-					ParentKsApp: fluxAppTree.AppKsDetailDto.Name,
+				object, err := impl.getHelmReleaseInventory(fluxResource.Name, fluxResource.Namespace, config)
+				if err != nil {
+					fmt.Println(err)
 				}
-				fmt.Println(fluxK8sResourcesOfHelm)
-
-				//objects, err := impl.getHelmReleaseInventory(fluxK8sResourcesOfHelm.Name, fluxK8sResourcesOfHelm.Namespace, config)
-				//if err != nil {
-				//	fmt.Println(err)
-				//}
-				//compact := true
-				//compactGroup := "toolkit.fluxcd.io"
-				//fluxHelmResources := make([]*bean.FluxHelmResource, 0)
-				//for _, obj := range objects {
-				//	if compact && !strings.Contains(obj.Gvk.Group, compactGroup) {
-				//		continue
-				//	}
-				//	fmt.Println("namespace", obj.Namespace, "Name", obj.Name, "Group", obj.Gvk.Group, "Kind", obj.Gvk.Kind)
-				//	//ks.Add(object2.ObjMetadata(obj))
-				//	fluxHelmResources = append(fluxHelmResources, &bean.FluxHelmResource{
-				//		Gvk:       obj.Gvk,
-				//		Name:      obj.Name,
-				//		Namespace: obj.Namespace,
-				//	})
-				//}
-				//fluxK8sResourcesOfHelm.Resources = fluxHelmResources
-				//
-				//fluxAppTree.FluxHelmReleases = append(fluxAppTree.FluxHelmReleases, fluxK8sResourcesOfHelm)
-
+				fluxHelmResources = append(fluxHelmResources, object)
 			}
 
 			if fluxResource.Gvk.Group == bean.FluxKustomizationGroup &&
 				fluxResource.Gvk.Kind == bean.FluxAppKustomizationKind &&
 				// skip kustomization if it targets a remote clusters
 				fluxKsSpecKubeConfig == false {
-
-				//resp, err := impl.k8sUtil.GetResource(context.Background(), AppDto.Namespace, AppDto.Name, bean.GvkForKustomizationFluxApp, restConfig)
-				//if err != nil {
-				//	fmt.Println(err)
-				//}
-				//if resp != nil && resp.Manifest.Object != nil {
-				//	appDetail.Manifest = resp.Manifest.Object
-				//	fluxObjectMap := getInventoryMap(resp.Manifest.Object)
-				//	fluxKsSpecKubeConfig = false
-				//	appDetail.
-				//	fluxChildKsTree := bean.FluxKustomization{
-				//		AppDetailDto: ,
-				//		Resources: bean.FluxK8sResource{
-				//			ParentKsApp: AppDto.Name,
-				//		},
-				//	}
-				//
-				//}
 				fluxKsAppChild := &bean.FluxKsAppDetail{
 					Name:      fluxResource.Name,
 					Namespace: fluxResource.Namespace,
@@ -377,13 +354,17 @@ func (impl *FluxApplicationServiceImpl) getFluxManagedResourceTree(fluxKsApp *be
 					AppKsDetailDto: fluxKsAppChild,
 					ParentKsApp:    fluxResource.Name,
 				}
-				err = impl.getFluxManagedResourceTree(fluxKsAppChild, config, fluxChildTree)
+				err := impl.getFluxManagedResourceTree(fluxKsAppChild, config, fluxChildTree)
+				if err != nil {
+					fmt.Println(err)
+				}
 				fluxAppTree.Kustomizations = append(fluxAppTree.Kustomizations, fluxChildTree)
 
 			}
 
 		}
-		fluxAppTree.Resources = fluxK8sResources
+		fluxAppTree.Resources = externalResourcesList
+		fluxAppTree.FluxHelmReleases = fluxHelmResources
 	}
 	return nil
 }
@@ -435,6 +416,40 @@ func parseObjMetadata(s string) (bean.FluxResource, error) {
 	return id, nil
 }
 
+func getReleaseNameNamespaceVersion(obj map[string]interface{}) (string, string, string) {
+
+	//var releaseName, storageNamespace string
+	//var version string
+	//
+	//if statusRawObj, ok := obj[bean.STATUS]; ok {
+	//	statusObj := statusRawObj.(map[string]interface{})
+	//	if storagens, ok6 := statusObj["storageNamespace"]; ok6 {
+	//		storageNamespace = storagens.(string)
+	//	}
+	//	if historyRawObj, ok1 := statusObj["history"]; ok1 {
+	//		historyObj := historyRawObj.([]interface{})
+	//
+	//		firstvalOfHistoryRaw := historyObj[0]
+	//		firstvalOfHistory := firstvalOfHistoryRaw.(map[string]interface{})
+	//
+	//		if chartName, ok3 := firstvalOfHistory["name"]; ok3 {
+	//			releaseName = chartName.(string)
+	//		}
+	//		if cVersion, ok4 := firstvalOfHistory["chartVersion"]; ok4 {
+	//			version = cVersion.(string)
+	//
+	//		}
+	//		//if ns, ok7 := firstvalOfHistory["namespace"]; ok7 {
+	//		//	storageNamespace = ns.(string)
+	//		//}
+	//	}
+	//
+	//}
+	//releaseName = fmt.Sprintf("sh.helm.release.v1.%s.v%v", releaseName, version)
+
+	return "test14-testrelease14", "flux-system", "version"
+}
+
 func getInventoryMap(obj map[string]interface{}) map[string]string {
 
 	fluxManagedResourcesMap := make(map[string]string)
@@ -456,7 +471,7 @@ func getInventoryMap(obj map[string]interface{}) map[string]string {
 						metadataVersion := metadataVersionRaw.(string)
 						matadataCompact.Version = metadataVersion
 					}
-					fluxManagedResourcesMap[matadataCompact.Version] = matadataCompact.Id
+					fluxManagedResourcesMap[matadataCompact.Id] = matadataCompact.Version
 				}
 			}
 		}
@@ -465,141 +480,117 @@ func getInventoryMap(obj map[string]interface{}) map[string]string {
 
 }
 
-//func (impl *FluxApplicationServiceImpl) getHelmReleaseInventory(name string, namespace string, config *client.ClusterConfig) ([]bean.FluxHelmResource, error) {
-//
-//	k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(config)
-//	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
-//	resp, err := impl.k8sUtil.GetResource(context.Background(), namespace, name, bean.GvkForHelmreleaseFluxApp, restConfig)
-//	if err != nil {
-//		impl.logger.Errorw("error in getting resource list", "err", err)
-//
-//	}
-//
-//	//fmt.Println("spec-install-crds", hr.Spec.Install, "upgrade-data-crds", hr.Spec.Upgrade, "ns", hr.Namespace, "typemeta", hr.TypeMeta, "objectmeta", hr.ObjectMeta, "status", hr.Status)
-//	// skip release if it targets a remote clusters
-//	hrSpecKubeConfig := false
-//	if hrSpecKubeConfig  {
-//		return nil, nil
-//	}
-//	hrStatusStorageNamespace := "flux-system"
-//
-//	storageNamespace := hrStatusStorageNamespace
-//	hrStatusHistoryLatest := "flux-system"
-//
-//	latestNamespace := hrStatusHistoryLatest
-//	latest := "abcc"
-//
-//	if len(storageNamespace) == 0 || latest == "" {
-//		// Skip release if it has no current
-//		return nil, nil
-//	}
-//
-//	storageKey := client.ObjectKey{
-//		Namespace: storageNamespace,
-//		Name:      fmt.Sprintf("sh.helm.release.v1.%s.v%v", latest.Name, latest.Version),
-//	}
-//
-//	// to be implement using the helm secret code part
-//
-//	storageSecret := &corev1.Secret{}
-//	if err := kubeClient.Get(ctx, storageKey, storageSecret); err != nil {
-//		// skip release if it has no storage
-//		if apierrors.IsNotFound(err) {
-//			return nil, nil
-//		}
-//		return nil, fmt.Errorf("failed to find the Helm storage object for HelmRelease '%s': %w", objectKey.String(), err)
-//	}
-//
-//	releaseData, releaseFound := storageSecret.Data["release"]
-//	if !releaseFound {
-//		return nil, fmt.Errorf("failed to decode the Helm storage object for HelmRelease '%s'", objectKey.String())
-//	}
-//
-//	// adapted from https://github.com/helm/helm/blob/02685e94bd3862afcb44f6cd7716dbeb69743567/pkg/storage/driver/util.go
-//	var b64 = base64.StdEncoding
-//	b, err := b64.DecodeString(string(releaseData))
+func (impl *FluxApplicationServiceImpl) getHelmReleaseInventory(name string, namespace string, config *client.ClusterConfig) (*client.AppDetailRequest, error) {
+
+	k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(config)
+	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
+	resp, err := impl.k8sUtil.GetResource(context.Background(), namespace, name, bean.GvkForHelmreleaseFluxApp, restConfig)
+	if err != nil {
+		impl.logger.Errorw("error in getting resource list", "err", err)
+	}
+
+	fmt.Println(resp)
+
+	releaseName, _namespace, version := getReleaseNameNamespaceVersion(resp.Manifest.Object)
+	fmt.Println(releaseName, _namespace, version)
+	req := &client.AppDetailRequest{
+		ClusterConfig: config,
+		Namespace:     _namespace,
+		ReleaseName:   releaseName,
+	}
+	return req, nil
+
+}
+
+//buildAppTree, err := impl.helmAppService.BuildAppDetail(req)
+//if err != nil {
+//	impl.logger.Errorw("error in building resource tree ", "err", err)
+//	return err
+//}
+//fmt.Println(buildAppTree)
+
+// adapted from https://github.com/helm/helm/blob/02685e94bd3862afcb44f6cd7716dbeb69743567/pkg/storage/driver/util.go
+//var b64 = base64.StdEncoding
+//b, err := b64.DecodeString(string(releaseData))
+//if err != nil {
+//	return nil, err
+//}
+//var magicGzip = []byte{0x1f, 0x8b, 0x08}
+//if bytes.Equal(b[0:3], magicGzip) {
+//	r, err := gzip.NewReader(bytes.NewReader(b))
 //	if err != nil {
 //		return nil, err
 //	}
-//	var magicGzip = []byte{0x1f, 0x8b, 0x08}
-//	if bytes.Equal(b[0:3], magicGzip) {
-//		r, err := gzip.NewReader(bytes.NewReader(b))
-//		if err != nil {
-//			return nil, err
-//		}
-//		defer r.Close()
-//		b2, err := io.ReadAll(r)
-//		if err != nil {
-//			return nil, err
-//		}
-//		b = b2
-//	}
-//
-//	// extract objects from Helm storage
-//	var rls hrStorage
-//	if err := json.Unmarshal(b, &rls); err != nil {
-//		return nil, fmt.Errorf("failed to decode the Helm storage object for HelmRelease '%s': %w", objectKey.String(), err)
-//	}
-//
-//	objects, err := ssautil.ReadObjects(strings.NewReader(rls.Manifest))
+//	defer r.Close()
+//	b2, err := io.ReadAll(r)
 //	if err != nil {
-//		return nil, fmt.Errorf("failed to read the Helm storage object for HelmRelease '%s': %w", objectKey.String(), err)
+//		return nil, err
 //	}
+//	b = b2
+//}
 //
-//	// set the namespace on namespaced objects
-//	for _, obj := range objects {
-//		if obj.GetNamespace() == "" {
-//			if isNamespaced, _ := apiutil.IsObjectNamespaced(obj, kubeClient.Scheme(), kubeClient.RESTMapper()); isNamespaced {
-//				obj.SetNamespace(latest.Namespace)
-//			}
+//// extract objects from Helm storage
+//var rls hrStorage
+//if err := json.Unmarshal(b, &rls); err != nil {
+//	return nil, fmt.Errorf("failed to decode the Helm storage object for HelmRelease '%s': %w", objectKey.String(), err)
+//}
+//
+//objects, err := ssautil.ReadObjects(strings.NewReader(rls.Manifest))
+//if err != nil {
+//	return nil, fmt.Errorf("failed to read the Helm storage object for HelmRelease '%s': %w", objectKey.String(), err)
+//}
+//
+//// set the namespace on namespaced objects
+//for _, obj := range objects {
+//	if obj.GetNamespace() == "" {
+//		if isNamespaced, _ := apiutil.IsObjectNamespaced(obj, kubeClient.Scheme(), kubeClient.RESTMapper()); isNamespaced {
+//			obj.SetNamespace(latest.Namespace)
 //		}
 //	}
+//}
 //
-//	result := object2.UnstructuredSetToObjMetadataSet(objects)
-//	//fmt.Println("resources of helmrelease", objectKey.Name, objectKey.Namespace)
+//result := object2.UnstructuredSetToObjMetadataSet(objects)
+////fmt.Println("resources of helmrelease", objectKey.Name, objectKey.Namespace)
 //
-//	//for _, obj := range result {
-//	//	fmt.Println("kind", obj.GroupKind.Kind, "Group", obj.GroupKind.Group, "Namespace", obj.Namespace, "Name", obj.Name)
-//	//}
-//	//fmt.Println("resources end  of helmrelease", objectKey.Name, objectKey.Namespace)
-//	// search for CRDs managed by the HelmRelease if installing or upgrading CRDs is enabled in spec
-//	if (hr.Spec.Install != nil && len(hr.Spec.Install.CRDs) > 0 && hr.Spec.Install.CRDs != helmv2.Skip) ||
-//		(hr.Spec.Upgrade != nil && len(hr.Spec.Upgrade.CRDs) > 0 && hr.Spec.Upgrade.CRDs != helmv2.Skip) {
-//		selector := client.MatchingLabels{
-//			fmt.Sprintf("%s/name", helmv2.GroupVersion.Group):      hr.GetName(),
-//			fmt.Sprintf("%s/namespace", helmv2.GroupVersion.Group): hr.GetNamespace(),
-//		}
-//		//fmt.Println(hr.GetName(), hr.GetNamespace())
-//		crdKind := "CustomResourceDefinition"
-//		var list apiextensionsv1.CustomResourceDefinitionList
-//		if err := kubeClient.List(ctx, &list, selector); err == nil {
-//			for _, crd := range list.Items {
-//				found := false
-//				for _, r := range result {
-//					if r.Name == crd.GetName() && r.GroupKind.Kind == crdKind {
-//						//fmt.Println(r.Name)
-//						found = true
-//						break
-//					}
+////for _, obj := range result {
+////	fmt.Println("kind", obj.GroupKind.Kind, "Group", obj.GroupKind.Group, "Namespace", obj.Namespace, "Name", obj.Name)
+////}
+////fmt.Println("resources end  of helmrelease", objectKey.Name, objectKey.Namespace)
+//// search for CRDs managed by the HelmRelease if installing or upgrading CRDs is enabled in spec
+//if (hr.Spec.Install != nil && len(hr.Spec.Install.CRDs) > 0 && hr.Spec.Install.CRDs != helmv2.Skip) ||
+//	(hr.Spec.Upgrade != nil && len(hr.Spec.Upgrade.CRDs) > 0 && hr.Spec.Upgrade.CRDs != helmv2.Skip) {
+//	selector := client.MatchingLabels{
+//		fmt.Sprintf("%s/name", helmv2.GroupVersion.Group):      hr.GetName(),
+//		fmt.Sprintf("%s/namespace", helmv2.GroupVersion.Group): hr.GetNamespace(),
+//	}
+//	//fmt.Println(hr.GetName(), hr.GetNamespace())
+//	crdKind := "CustomResourceDefinition"
+//	var list apiextensionsv1.CustomResourceDefinitionList
+//	if err := kubeClient.List(ctx, &list, selector); err == nil {
+//		for _, crd := range list.Items {
+//			found := false
+//			for _, r := range result {
+//				if r.Name == crd.GetName() && r.GroupKind.Kind == crdKind {
+//					//fmt.Println(r.Name)
+//					found = true
+//					break
 //				}
-//
-//				if !found {
-//					result = append(result, object2.ObjMetadata{
-//						Name: crd.GetName(),
-//						GroupKind: schema.GroupKind{
-//							Group: apiextensionsv1.GroupName,
-//							Kind:  crdKind,
-//						},
-//					})
-//				}
-//				fmt.Println(crd.Name, crd.Namespace)
 //			}
+//
+//			if !found {
+//				result = append(result, object2.ObjMetadata{
+//					Name: crd.GetName(),
+//					GroupKind: schema.GroupKind{
+//						Group: apiextensionsv1.GroupName,
+//						Kind:  crdKind,
+//					},
+//				})
+//			}
+//			fmt.Println(crd.Name, crd.Namespace)
 //		}
 //	}
-//	for _, obj := range result {
-//		fmt.Println("kind", obj.GroupKind.Kind, "Group", obj.GroupKind.Group, "Namespace", obj.Namespace, "Name", obj.Name)
-//	}
-//	//fmt.Println(result)
-//
-//	return result, nil
+//}
+
+//	x := make([]bean.FluxHelmResource, 0)
+//	return x, nil
 //}

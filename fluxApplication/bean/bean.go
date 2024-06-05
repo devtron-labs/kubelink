@@ -1,6 +1,7 @@
 package bean
 
 import (
+	client "github.com/devtron-labs/kubelink/grpc"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -75,12 +76,12 @@ type FluxpplicationDetailDto struct {
 }
 
 type FluxKustomization struct {
-	AppKsDetailDto   *FluxKsAppDetail          `json:"appDetailDto"`
-	Resources        []*FluxResource           `json:"fluxResource"`
-	Kustomizations   []*FluxKustomization      `json:"kustomizations"`
-	FluxHelmReleases []*FluxHelmReleases       `json:"fluxHelmReleases"`
-	ParentKsApp      string                    `json:"parentKsApp"`
-	Manifest         unstructured.Unstructured `json:"manifest"`
+	AppKsDetailDto   *FluxKsAppDetail                    `json:"appDetailDto"`
+	Resources        *client.ExternalResourceTreeRequest `json:"fluxResource"`
+	Kustomizations   []*FluxKustomization                `json:"kustomizations"`
+	FluxHelmReleases []*client.AppDetailRequest          `json:"fluxHelmReleases"`
+	ParentKsApp      string                              `json:"parentKsApp"`
+	Manifest         unstructured.Unstructured           `json:"manifest"`
 }
 
 type FluxResource struct {
@@ -90,15 +91,14 @@ type FluxResource struct {
 }
 
 type FluxHelmReleases struct {
-	Resources   []*FluxHelmResource
-	ParentKsApp string
+	ReleaseName string
 	Name        string
 	Namespace   string
 }
 type FluxHelmResource struct {
-	Gvk       schema.GroupVersionKind
-	Name      string
-	Namespace string
+	ReleaseName string
+	Name        string
+	Namespace   string
 }
 
 type FluxKsAppDetail struct {
