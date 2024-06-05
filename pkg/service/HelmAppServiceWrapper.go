@@ -579,20 +579,14 @@ func (impl *ApplicationServiceServerImpl) PushHelmChartToOCIRegistry(ctx context
 func (impl *ApplicationServiceServerImpl) ListFluxApplications(req *client.AppListRequest, res client.ApplicationService_ListFluxApplicationsServer) error {
 	impl.Logger.Info("List Flux Application Request")
 	clusterConfigs := req.GetClusters()
-	allApps := make([]*client.FluxApplicationList, 0)
 	eg := new(errgroup.Group)
 	for _, config := range clusterConfigs {
 		clusterConfig := *config
 		eg.Go(func() error {
 			apps := impl.FluxAppService.GetFluxApplicationListForCluster(&clusterConfig)
-			allApps = append(allApps, apps)
-			return nil
+			err := res.Send(apps)
+			return err
 		})
-		allClusterApp := &client.RepeatedFluxApplicationList{
-			FluxApplicationList: allApps,
-		}
-		err := res.Send(allClusterApp)
-		return err
 	}
 	if err := eg.Wait(); err != nil {
 		impl.Logger.Errorw("Error in fetching application list", "err", err)
