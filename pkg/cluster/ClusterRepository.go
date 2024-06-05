@@ -24,7 +24,6 @@ type Cluster struct {
 	AgentInstallationStage   int               `sql:"agent_installation_stage"`
 	K8sVersion               string            `sql:"k8s_version"`
 	ErrorInConnecting        string            `sql:"error_in_connecting"`
-	IsVirtualCluster         bool              `sql:"is_virtual_cluster"`
 	InsecureSkipTlsVerify    bool              `sql:"insecure_skip_tls_verify"`
 	ProxyUrl                 string            `sql:"proxy_url"`
 	ToConnectWithSSHTunnel   bool              `sql:"to_connect_with_ssh_tunnel"`
@@ -52,7 +51,6 @@ type ClusterRepository interface {
 	FindAllActive() ([]*Cluster, error)
 	FindById(id int) (*Cluster, error)
 	FindByIdWithActiveFalse(id int) (*Cluster, error)
-	FindByIds(id []int) ([]*Cluster, error)
 }
 
 func (impl ClusterRepositoryImpl) FindAllActive() ([]*Cluster, error) {
@@ -85,15 +83,4 @@ func (impl ClusterRepositoryImpl) FindByIdWithActiveFalse(id int) (*Cluster, err
 		Where("cluster.active =?", false).
 		Select()
 	return &cluster, err
-}
-
-func (impl ClusterRepositoryImpl) FindByIds(id []int) ([]*Cluster, error) {
-	var cluster []*Cluster
-	err := impl.dbConnection.
-		Model(&cluster).
-		Column("cluster.*", "RemoteConnectionConfig").
-		Where("cluster.id in(?)", pg.In(id)).
-		Where("cluster.active =?", true).
-		Select()
-	return cluster, err
 }
