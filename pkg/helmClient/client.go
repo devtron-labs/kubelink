@@ -31,7 +31,7 @@ var storage = repo.File{}
 const (
 	CHART_WORKING_DIR_PATH      = "/tmp/charts/"
 	defaultCachePath            = "/home/devtron/devtroncd/.helmcache"
-	defaultRepositoryConfigPath = "/tmp/home/devtron/devtroncd/.helmrepo"
+	defaultRepositoryConfigPath = "/home/devtron/devtroncd/.helmrepo"
 )
 
 // NewClientFromRestConf returns a new Helm client constructed with the provided REST config options
