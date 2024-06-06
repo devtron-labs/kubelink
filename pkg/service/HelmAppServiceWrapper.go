@@ -6,6 +6,7 @@ import (
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/internals/lock"
+	"github.com/devtron-labs/kubelink/pkg/service/FluxApplicationService"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
@@ -18,7 +19,7 @@ type ApplicationServiceServerImpl struct {
 	Logger                *zap.SugaredLogger
 	ChartRepositoryLocker *lock.ChartRepositoryLocker
 	HelmAppService        HelmAppService
-	FluxAppService        FluxApplicationService
+	FluxAppService        FluxApplicationService.FluxApplicationService
 }
 
 func (impl *ApplicationServiceServerImpl) MustEmbedUnimplementedApplicationServiceServer() {
@@ -26,7 +27,7 @@ func (impl *ApplicationServiceServerImpl) MustEmbedUnimplementedApplicationServi
 }
 
 func NewApplicationServiceServerImpl(logger *zap.SugaredLogger, chartRepositoryLocker *lock.ChartRepositoryLocker,
-	HelmAppService HelmAppService, FluxAppService FluxApplicationService) *ApplicationServiceServerImpl {
+	HelmAppService HelmAppService, FluxAppService FluxApplicationService.FluxApplicationService) *ApplicationServiceServerImpl {
 	return &ApplicationServiceServerImpl{
 		Logger:                logger,
 		ChartRepositoryLocker: chartRepositoryLocker,
@@ -577,7 +578,7 @@ func (impl *ApplicationServiceServerImpl) PushHelmChartToOCIRegistry(ctx context
 }
 
 func (impl *ApplicationServiceServerImpl) ListFluxApplications(req *client.AppListRequest, res client.ApplicationService_ListFluxApplicationsServer) error {
-	impl.Logger.Info("List Flux Application Request")
+	impl.Logger.Infow("List Flux Application Request", "req", req)
 	clusterConfigs := req.GetClusters()
 	eg := new(errgroup.Group)
 	for _, config := range clusterConfigs {

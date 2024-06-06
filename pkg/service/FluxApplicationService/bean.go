@@ -1,4 +1,4 @@
-package bean
+package FluxApplicationService
 
 import (
 	client "github.com/devtron-labs/kubelink/grpc"
@@ -54,3 +54,9 @@ type FluxKsAppDetail struct {
 	Namespace string
 	GroupKind schema.GroupKind
 }
+
+type FluxAppType string
+
+const (
+	HelmReleaseFluxAppType FluxAppType = "HelmRelease"
+)
