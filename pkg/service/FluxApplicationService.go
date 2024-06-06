@@ -47,27 +47,32 @@ func (impl *FluxApplicationServiceImpl) GetFluxApplicationListForCluster(config 
 		impl.logger.Errorw("Error in building rest config ", "clusterId", config.ClusterId, "err", err)
 		return &client.FluxApplicationList{}
 	}
-	restConfig2, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
-	if err != nil {
-		impl.logger.Errorw("error in getting rest config ", "err", err, "clusterId", config.ClusterId)
-		return &client.FluxApplicationList{}
-	}
-
 	kustomizationResp, _, err := impl.k8sUtil.GetResourceList(context.Background(), restConfig, bean.GvkForKustomizationFluxApp, bean.AllNamespaces, true, nil)
-	if err == nil {
+	if err != nil {
+		impl.logger.Errorw("Error in fetching kustomizationList Resource", "err", err)
+		return &client.FluxApplicationList{}
+	} else {
 		kustomizationAppLists := getApplicationListDtos(kustomizationResp.Resources.Object, config.ClusterName, int(config.ClusterId), "")
 		if len(kustomizationAppLists) > 0 {
 			appListFinal = append(appListFinal, kustomizationAppLists...)
 		}
 	}
 
-	helmReleaseResp, _, err := impl.k8sUtil.GetResourceList(context.Background(), restConfig2, bean.GvkForHelmreleaseFluxApp, bean.AllNamespaces, true, nil)
-	if err == nil {
+	restConfig, err = impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
+	if err != nil {
+		impl.logger.Errorw("error in getting rest config ", "err", err, "clusterId", config.ClusterId)
+		return &client.FluxApplicationList{}
+	}
+
+	helmReleaseResp, _, err := impl.k8sUtil.GetResourceList(context.Background(), restConfig, bean.GvkForHelmreleaseFluxApp, bean.AllNamespaces, true, nil)
+	if err != nil {
+		impl.logger.Errorw("Error in fetching helmReleaseList Resources", "err", err)
+		return &client.FluxApplicationList{}
+	} else {
 		helmReleaseAppLists := getApplicationListDtos(helmReleaseResp.Resources.Object, config.ClusterName, int(config.ClusterId), "HelmRelease")
 		if len(helmReleaseAppLists) > 0 {
 			appListFinal = append(appListFinal, helmReleaseAppLists...)
 		}
-
 	}
 
 	appListFinalDto := make([]*client.FluxApplicationDetail, 0)
