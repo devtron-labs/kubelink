@@ -7,6 +7,7 @@ import (
 	client "github.com/devtron-labs/kubelink/grpc"
 	clusterRepository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"go.uber.org/zap"
+	"k8s.io/client-go/rest"
 )
 
 type FluxApplicationService interface {
@@ -43,32 +44,29 @@ func (impl *FluxApplicationServiceImpl) GetFluxApplicationListForCluster(config 
 		impl.logger.Errorw("Error in building rest config ", "clusterId", config.ClusterId, "err", err)
 		return &client.FluxApplicationList{}
 	}
+
+	var restConfig2 rest.Config
+	restConfig2 = *restConfig
 	kustomizationResp, _, err := impl.k8sUtil.GetResourceList(context.Background(), restConfig, GvkForKustomizationFluxApp, AllNamespaces, true, nil)
 	if err != nil {
 		impl.logger.Errorw("Error in fetching kustomizationList Resource", "err", err)
 		return &client.FluxApplicationList{}
 	} else {
 		if kustomizationResp != nil {
-			kustomizationAppLists := getApplicationListDtos(kustomizationResp.Resources.Object, config.ClusterName, int(config.ClusterId), "")
+			kustomizationAppLists := getApplicationListDtos(kustomizationResp.Resources, config.ClusterName, int(config.ClusterId), "")
 			if len(kustomizationAppLists) > 0 {
 				appListFinal = append(appListFinal, kustomizationAppLists...)
 			}
 		}
 	}
 
-	restConfig, err = impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
-	if err != nil {
-		impl.logger.Errorw("error in getting rest config ", "err", err, "clusterId", config.ClusterId)
-		return &client.FluxApplicationList{}
-	}
-
-	helmReleaseResp, _, err := impl.k8sUtil.GetResourceList(context.Background(), restConfig, GvkForHelmreleaseFluxApp, AllNamespaces, true, nil)
+	helmReleaseResp, _, err := impl.k8sUtil.GetResourceList(context.Background(), &restConfig2, GvkForHelmreleaseFluxApp, AllNamespaces, true, nil)
 	if err != nil {
 		impl.logger.Errorw("Error in fetching helmReleaseList Resources", "err", err)
 		return &client.FluxApplicationList{}
 	} else {
 		if helmReleaseResp != nil {
-			helmReleaseAppLists := getApplicationListDtos(helmReleaseResp.Resources.Object, config.ClusterName, int(config.ClusterId), HelmReleaseFluxAppType)
+			helmReleaseAppLists := getApplicationListDtos(helmReleaseResp.Resources, config.ClusterName, int(config.ClusterId), HelmReleaseFluxAppType)
 			if len(helmReleaseAppLists) > 0 {
 				appListFinal = append(appListFinal, helmReleaseAppLists...)
 			}

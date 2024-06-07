@@ -14,6 +14,9 @@ const (
 	FluxHelmReleaseGroup     = "helm.toolkit.fluxcd.io"
 	FluxAppHelmreleaseKind   = "HelmRelease"
 	FluxHelmReleaseVersion   = "v2"
+	FluxLabel                = "labels"
+	KustomizeNameLabel       = "kustomize.toolkit.fluxcd.io/name"
+	KustomizeNamespaceLabel  = "kustomize.toolkit.fluxcd.io/namespace"
 )
 
 var GvkForKustomizationFluxApp = schema.GroupVersionKind{
@@ -59,4 +62,8 @@ type FluxAppType string
 
 const (
 	HelmReleaseFluxAppType FluxAppType = "HelmRelease"
+	NameKey                            = "Name"
+	StatusKey                          = "Status"
+	ReadyKey                           = "Ready"
+	ColumnNameKey                      = "name"
 )
