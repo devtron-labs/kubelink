@@ -49,7 +49,20 @@ func NewApp(Logger *zap.SugaredLogger, ServerImpl *service.ApplicationServiceSer
 
 func (app *App) Start() {
 	port := 50051 //TODO: extract from environment variable
-
+	//ClusterConfig := &client.ClusterConfig{
+	//	Token:        "",
+	//	ApiServerUrl: "https://kubernetes.default.svc",
+	//}
+	//
+	//req := FluxApplicationService.FluxAppDetailRequest{
+	//	Namespace:   "flux-system",
+	//	Name:        "flux-system",
+	//	IsKustomize: true,
+	//	Config:      ClusterConfig,
+	//}
+	//
+	//ans, err := app.ServerImpl.FluxAppService.BuildFluxAppDetail(req)
+	//fmt.Println(ans, err)
 	httpPort := 50052
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {

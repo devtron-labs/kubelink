@@ -99,6 +99,7 @@ type HelmAppService interface {
 	// PushHelmChartToOCIRegistryRepo Pushes the helm chart to the OCI registry and returns the generated digest and pushedUrl
 	PushHelmChartToOCIRegistryRepo(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error)
 	GetResourceTreeForExternalResources(req *client.ExternalResourceTreeRequest) (*bean.ResourceTreeResponse, error)
+	BuildResourceTree(appDetailRequest *client.AppDetailRequest, release *release.Release) (*bean.ResourceTreeResponse, error)
 }
 
 type HelmAppServiceImpl struct {
@@ -294,7 +295,7 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 		}
 		return nil, err
 	}
-	resourceTreeResponse, err := impl.buildResourceTree(req, helmRelease)
+	resourceTreeResponse, err := impl.BuildResourceTree(req, helmRelease)
 	if err != nil {
 		impl.logger.Errorw("error in building resource tree ", "err", err)
 		return nil, err
@@ -1284,7 +1285,7 @@ func (impl *HelmAppServiceImpl) getNodes(appDetailRequest *client.AppDetailReque
 	return nodes, healthStatusArray, nil
 }
 
-func (impl HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDetailRequest, release *release.Release) (*bean.ResourceTreeResponse, error) {
+func (impl HelmAppServiceImpl) BuildResourceTree(appDetailRequest *client.AppDetailRequest, release *release.Release) (*bean.ResourceTreeResponse, error) {
 	conf, err := impl.getRestConfigForClusterConfig(appDetailRequest.ClusterConfig)
 	if err != nil {
 		return nil, err
