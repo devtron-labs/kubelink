@@ -6,7 +6,6 @@ import (
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/internals/lock"
-	"github.com/devtron-labs/kubelink/pkg/service/FluxApplicationService"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
@@ -19,7 +18,7 @@ type ApplicationServiceServerImpl struct {
 	Logger                *zap.SugaredLogger
 	ChartRepositoryLocker *lock.ChartRepositoryLocker
 	HelmAppService        HelmAppService
-	FluxAppService        FluxApplicationService.FluxApplicationService
+	FluxAppService        FluxApplicationService
 }
 
 func (impl *ApplicationServiceServerImpl) MustEmbedUnimplementedApplicationServiceServer() {
@@ -27,7 +26,7 @@ func (impl *ApplicationServiceServerImpl) MustEmbedUnimplementedApplicationServi
 }
 
 func NewApplicationServiceServerImpl(logger *zap.SugaredLogger, chartRepositoryLocker *lock.ChartRepositoryLocker,
-	HelmAppService HelmAppService, FluxAppService FluxApplicationService.FluxApplicationService) *ApplicationServiceServerImpl {
+	HelmAppService HelmAppService, FluxAppService FluxApplicationService) *ApplicationServiceServerImpl {
 	return &ApplicationServiceServerImpl{
 		Logger:                logger,
 		ChartRepositoryLocker: chartRepositoryLocker,

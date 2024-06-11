@@ -30,7 +30,6 @@ import (
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
-	"github.com/devtron-labs/kubelink/pkg/service/FluxApplicationService"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 	"github.com/google/wire"
 )
@@ -46,12 +45,14 @@ func InitializeApp() (*App, error) {
 		lock.NewChartRepositoryLocker,
 		service.NewK8sServiceImpl,
 		wire.Bind(new(service.K8sService), new(*service.K8sServiceImpl)),
+		service.NewCommonUtilsImpl,
+		wire.Bind(new(service.CommonUtilsI), new(*service.CommonUtils)),
 		service.NewHelmAppServiceImpl,
 		wire.Bind(new(service.HelmAppService), new(*service.HelmAppServiceImpl)),
 		converter.NewConverterImpl,
 		wire.Bind(new(converter.ClusterBeanConverter), new(*converter.ClusterBeanConverterImpl)),
-		FluxApplicationService.NewFluxApplicationServiceImpl,
-		wire.Bind(new(FluxApplicationService.FluxApplicationService), new(*FluxApplicationService.FluxApplicationServiceImpl)),
+		service.NewFluxApplicationServiceImpl,
+		wire.Bind(new(service.FluxApplicationService), new(*service.FluxApplicationServiceImpl)),
 		service.NewApplicationServiceServerImpl,
 		router.NewRouter,
 		k8sInformer.Newk8sInformerImpl,
