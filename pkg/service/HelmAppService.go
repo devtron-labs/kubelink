@@ -20,10 +20,10 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	registry2 "github.com/devtron-labs/common-lib/helmLib/registry"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	k8sObjectUtils "github.com/devtron-labs/common-lib/utils/k8sObjectsUtil"
 	"github.com/devtron-labs/kubelink/converter"
@@ -35,14 +35,11 @@ import (
 	"helm.sh/helm/v3/pkg/storage/driver"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"net/url"
 	"path"
+	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ecr"
 	"sync"
 
 	"github.com/devtron-labs/common-lib/pubsub-lib"
@@ -71,7 +68,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 )
 
 const (
@@ -108,10 +104,6 @@ type HelmAppService interface {
 	UpgradeReleaseWithCustomChart(ctx context.Context, request *client.UpgradeReleaseRequest) (bool, error)
 	// ValidateOCIRegistryLogin Validates the OCI registry credentials by login
 	ValidateOCIRegistryLogin(ctx context.Context, OCIRegistryRequest *client.RegistryCredential) (*client.OCIRegistryResponse, error)
-	// ExtractCredentialsForRegistry Takes client.RegistryCredential and extracts credentials for the provided registry details
-	ExtractCredentialsForRegistry(registryCredential *client.RegistryCredential) (string, string, error)
-	// OCIRegistryLogin Takes client.OCIRegistryRequest and helm client, Performs registry login for the given client session and return err if fails
-	OCIRegistryLogin(client *registry.Client, registryCredential *client.RegistryCredential) error
 	// PushHelmChartToOCIRegistryRepo Pushes the helm chart to the OCI registry and returns the generated digest and pushedUrl
 	PushHelmChartToOCIRegistryRepo(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error)
 	GetResourceTreeForExternalResources(req *client.ExternalResourceTreeRequest) (*bean.ResourceTreeResponse, error)
@@ -127,12 +119,15 @@ type HelmAppServiceImpl struct {
 	pubsubClient      *pubsub_lib.PubSubClientServiceImpl
 	clusterRepository repository.ClusterRepository
 	converter         converter.ClusterBeanConverter
+	registrySettings  registry2.SettingsFactory
 }
 
 func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 	k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *HelmReleaseConfig,
 	k8sUtil k8sUtils.K8sService, converter converter.ClusterBeanConverter,
-	clusterRepository repository.ClusterRepository) (*HelmAppServiceImpl, error) {
+	clusterRepository repository.ClusterRepository,
+	registrySettings registry2.SettingsFactory,
+) (*HelmAppServiceImpl, error) {
 
 	var pubsubClient *pubsub_lib.PubSubClientServiceImpl
 	var err error
@@ -152,6 +147,7 @@ func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService K8sService,
 		k8sUtil:           k8sUtil,
 		clusterRepository: clusterRepository,
 		converter:         converter,
+		registrySettings:  registrySettings,
 	}
 	err = os.MkdirAll(helmReleaseConfig.ChartWorkingDirectory, os.ModePerm)
 	if err != nil {
@@ -777,10 +773,17 @@ func (impl HelmAppServiceImpl) InstallRelease(ctx context.Context, request *clie
 
 }
 
-func (impl HelmAppServiceImpl) GetOCIChartName(registryUrl, repoName string) string {
+func parseOCIChartName(registryUrl, repoName string) (string, error) {
 	// helm package expects chart name to be in this format
-	chartName := fmt.Sprintf("%s://%s/%s", "oci", registryUrl, repoName)
-	return chartName
+	if !strings.Contains(strings.ToLower(registryUrl), "https") && !strings.Contains(strings.ToLower(registryUrl), "http") {
+		registryUrl = fmt.Sprintf("//%s", registryUrl)
+	}
+	parsedUrl, err := url.Parse(registryUrl)
+	if err != nil {
+		return registryUrl, err
+	}
+	chartName := fmt.Sprintf("%s://%s/%s", "oci", parsedUrl.Host, repoName)
+	return chartName, nil
 }
 
 func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *client.InstallReleaseRequest, dryRun bool) (*release.Release, error) {
@@ -788,25 +791,50 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	if err != nil {
+		impl.logger.Errorw("error in creating helm client object", "releaseIdentifier", releaseIdentifier, "err", err)
 		return nil, err
 	}
 
-	// oci registry client
-	registryClient, err := registry.NewClient()
+	registryConfig, err := NewRegistryConfig(request.RegistryCredential)
+	defer func() {
+		if registryConfig != nil {
+			err := registry2.DeleteCertificateFolder(registryConfig.RegistryCAFilePath)
+			if err != nil {
+				impl.logger.Errorw("error in deleting certificate folder", "registryName", registryConfig.RegistryId, "err", err)
+			}
+		}
+	}()
 	if err != nil {
-		impl.logger.Errorw(HELM_CLIENT_ERROR, "err", err)
+		impl.logger.Errorw("error in getting registry config from registry proto", "registryName", request.RegistryCredential.RegistryName, "err", err)
 		return nil, err
 	}
+	// oci registry client
+	var registryClient *registry.Client
+	if registryConfig != nil {
+		settingsGetter, err := impl.registrySettings.GetSettings(registryConfig)
+		if err != nil {
+			impl.logger.Errorw("error in getting registry settings", "registryName", request.RegistryCredential.RegistryName, "err", err)
+			return nil, err
+		}
+		settings, err := settingsGetter.GetRegistrySettings(registryConfig)
+		if err != nil {
+			impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", request.RegistryCredential.RegistryName, "err", err)
+			return nil, err
+		}
+		registryClient = settings.RegistryClient
+		request.RegistryCredential.RegistryUrl = settings.RegistryHostURL
+	}
+
 	var chartName string
 	switch request.IsOCIRepo {
 	case true:
-		chartName = impl.GetOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
-		if request.RegistryCredential != nil && !request.RegistryCredential.IsPublic {
-			err = impl.OCIRegistryLogin(registryClient, request.RegistryCredential)
-			if err != nil {
-				return nil, err
-			}
+
+		chartName, err = parseOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+		if err != nil {
+			impl.logger.Errorw("error in parsing oci chart name", "registryUrl", request.RegistryCredential.RegistryUrl, "repoName", request.RegistryCredential.RepoName, "err", err)
+			return nil, err
 		}
+
 	case false:
 		chartRepoRequest := request.ChartRepository
 		chartRepoName := chartRepoRequest.Name
@@ -881,6 +909,7 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 					return
 				}
 				_ = impl.pubsubClient.Publish(pubsub_lib.HELM_CHART_INSTALL_STATUS_TOPIC, string(data))
+				return
 			}
 
 			_, err = helmClientObj.InstallChart(context.Background(), chartSpec)
@@ -945,29 +974,50 @@ func (impl HelmAppServiceImpl) GetNotes(ctx context.Context, request *client.Ins
 }
 
 func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, request *client.InstallReleaseRequest) (*client.UpgradeReleaseResponse, error) {
+
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	if err != nil {
 		return nil, err
 	}
-	var registryClient *registry.Client
-	var chartName string
 
-	switch request.IsOCIRepo {
-	case true:
-		registryClient, err = registry.NewClient()
-		if err != nil {
-			impl.logger.Errorw(HELM_CLIENT_ERROR, "err", err)
-			return nil, err
-		}
-		if request.RegistryCredential != nil && !request.RegistryCredential.IsPublic {
-			err = impl.OCIRegistryLogin(registryClient, request.RegistryCredential)
+	registryConfig, err := NewRegistryConfig(request.RegistryCredential)
+	defer func() {
+		if registryConfig != nil {
+			err := registry2.DeleteCertificateFolder(registryConfig.RegistryCAFilePath)
 			if err != nil {
-				impl.logger.Errorw("error in oci registry login", "chartName", request.ChartName, "err", err)
-				return nil, err
+				impl.logger.Errorw("error in deleting certificate folder", "registryName", registryConfig.RegistryId, "err", err)
 			}
 		}
-		chartName = fmt.Sprintf("%s://%s/%s", "oci", request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+	}()
+	if err != nil {
+		impl.logger.Errorw("error in getting registry config from registry proto", "registryName", request.RegistryCredential.RegistryName, "err", err)
+		return nil, err
+	}
+	var registryClient *registry.Client
+	if registryConfig != nil {
+		settingsGetter, err := impl.registrySettings.GetSettings(registryConfig)
+		if err != nil {
+			impl.logger.Errorw("error in getting registry settings", "registryName", request.RegistryCredential.RegistryName, "err", err)
+			return nil, err
+		}
+		settings, err := settingsGetter.GetRegistrySettings(registryConfig)
+		if err != nil {
+			impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", request.RegistryCredential.RegistryName, "err", err)
+			return nil, err
+		}
+		registryClient = settings.RegistryClient
+		request.RegistryCredential.RegistryUrl = settings.RegistryHostURL
+	}
+
+	var chartName string
+	switch request.IsOCIRepo {
+	case true:
+		chartName, err = parseOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+		if err != nil {
+			impl.logger.Errorw("error in parsing oci chart name", "registryUrl", request.RegistryCredential.RegistryUrl, "repoName", request.RegistryCredential.RepoName, "err", err)
+			return nil, err
+		}
 	case false:
 		chartRepoRequest := request.ChartRepository
 		chartRepoName := chartRepoRequest.Name
@@ -1131,24 +1181,47 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	if err != nil {
 		impl.logger.Errorw("error in getting helm app client")
+		return "", nil, err
 	}
 
-	registryClient, err := registry.NewClient()
+	registryConfig, err := NewRegistryConfig(request.RegistryCredential)
+	defer func() {
+		if registryConfig != nil {
+			err := registry2.DeleteCertificateFolder(registryConfig.RegistryCAFilePath)
+			if err != nil {
+				impl.logger.Errorw("error in deleting certificate folder", "registryName", registryConfig.RegistryId, "err", err)
+			}
+		}
+	}()
 	if err != nil {
-		impl.logger.Errorw(HELM_CLIENT_ERROR, "err", err)
+		impl.logger.Errorw("error in getting registry config from registry proto", "registryName", request.RegistryCredential.RegistryName, "err", err)
 		return "", nil, err
+	}
+
+	var registryClient *registry.Client
+	if registryConfig != nil {
+		settingsGetter, err := impl.registrySettings.GetSettings(registryConfig)
+		if err != nil {
+			impl.logger.Errorw("error in getting registry settings", "registryName", request.RegistryCredential.RegistryName, "err", err)
+			return "", nil, err
+		}
+		settings, err := settingsGetter.GetRegistrySettings(registryConfig)
+		if err != nil {
+			impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", request.RegistryCredential.RegistryName, "err", err)
+			return "", nil, err
+		}
+		registryClient = settings.RegistryClient
+		request.RegistryCredential.RegistryUrl = settings.RegistryHostURL
 	}
 
 	var chartName, repoURL string
 	switch request.IsOCIRepo {
 	case true:
-		if request.RegistryCredential != nil && !request.RegistryCredential.IsPublic {
-			err = impl.OCIRegistryLogin(registryClient, request.RegistryCredential)
-			if err != nil {
-				return "", nil, err
-			}
+		chartName, err = parseOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+		if err != nil {
+			impl.logger.Errorw("error in parsing oci chart name", "registryUrl", request.RegistryCredential.RegistryUrl, "repoName", request.RegistryCredential.RepoName, "err", err)
+			return "", nil, err
 		}
-		chartName = impl.GetOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
 	case false:
 		chartName = request.ChartName
 		repoURL = request.ChartRepository.Url
@@ -1968,86 +2041,37 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Context
 	return true, nil
 }
 
-func (impl HelmAppServiceImpl) ExtractCredentialsForRegistry(registryCredential *client.RegistryCredential) (string, string, error) {
-	username := registryCredential.Username
-	pwd := registryCredential.Password
-	if (registryCredential.RegistryType == REGISTRYTYPE_GCR || registryCredential.RegistryType == REGISTRYTYPE_ARTIFACT_REGISTRY) && username == JSON_KEY_USERNAME {
-		if strings.HasPrefix(pwd, "'") {
-			pwd = pwd[1:]
-		}
-		if strings.HasSuffix(pwd, "'") {
-			pwd = pwd[:len(pwd)-1]
-		}
-	}
-	if registryCredential.RegistryType == REGISTRY_TYPE_ECR {
-		accessKey, secretKey := registryCredential.AccessKey, registryCredential.SecretKey
-		var creds *credentials.Credentials
-
-		if len(registryCredential.AccessKey) == 0 || len(registryCredential.SecretKey) == 0 {
-			sess, err := session.NewSession(&aws.Config{
-				Region: &registryCredential.AwsRegion,
-			})
-			if err != nil {
-				impl.logger.Errorw("Error in creating AWS client", "err", err)
-				return "", "", err
-			}
-			creds = ec2rolecreds.NewCredentials(sess)
-		} else {
-			creds = credentials.NewStaticCredentials(accessKey, secretKey, "")
-		}
-		sess, err := session.NewSession(&aws.Config{
-			Region:      &registryCredential.AwsRegion,
-			Credentials: creds,
-		})
-		if err != nil {
-			impl.logger.Errorw("Error in creating AWS client session", "err", err)
-			return "", "", err
-		}
-		svc := ecr.New(sess)
-		input := &ecr.GetAuthorizationTokenInput{}
-		authData, err := svc.GetAuthorizationToken(input)
-		if err != nil {
-			impl.logger.Errorw("Error fetching authData", "err", err)
-			return "", "", err
-		}
-		// decode token
-		token := authData.AuthorizationData[0].AuthorizationToken
-		decodedToken, err := base64.StdEncoding.DecodeString(*token)
-		if err != nil {
-			impl.logger.Errorw("Error in decoding auth token", "err", err)
-			return "", "", err
-		}
-		credsSlice := strings.Split(string(decodedToken), ":")
-		username = credsSlice[0]
-		pwd = credsSlice[1]
-
-	}
-	return username, pwd, nil
-}
-
-func (impl HelmAppServiceImpl) OCIRegistryLogin(client *registry.Client, registryCredential *client.RegistryCredential) error {
-	username, pwd, err := impl.ExtractCredentialsForRegistry(registryCredential)
-	if err != nil {
-		return err
-	}
-	// helm registry login --username "" --password ""
-	err = client.Login(registryCredential.RegistryUrl,
-		registry.LoginOptBasicAuth(username, pwd), registry.LoginOptInsecure(false))
-	if err != nil {
-		impl.logger.Errorw("Failed to login to registry", "registryURL", registryCredential.RegistryUrl, "err", err)
-		return err
-	}
-	return nil
-}
-
 func (impl HelmAppServiceImpl) ValidateOCIRegistryLogin(ctx context.Context, OCIRegistryRequest *client.RegistryCredential) (*client.OCIRegistryResponse, error) {
-	helmClient, err := registry.NewClient()
+	registryClient, err := registry.NewClient()
 	if err != nil {
 		impl.logger.Errorw(HELM_CLIENT_ERROR, "err", err)
 		return nil, err
 	}
-	err = impl.OCIRegistryLogin(helmClient, OCIRegistryRequest)
+	var caFilePath string
+	if OCIRegistryRequest.Connection == registry2.SECURE_WITH_CERT {
+		caFilePath, err = registry2.CreateCertificateFile(OCIRegistryRequest.RegistryName, OCIRegistryRequest.RegistryCertificate)
+		if err != nil {
+			impl.logger.Errorw("error in creating certificate file path", "registryName", OCIRegistryRequest.RegistryName, "err", err)
+			return nil, err
+		}
+	}
+	registryConfig, err := NewRegistryConfig(OCIRegistryRequest)
+	defer func() {
+		if registryConfig != nil {
+			err := registry2.DeleteCertificateFolder(registryConfig.RegistryCAFilePath)
+			if err != nil {
+				impl.logger.Errorw("error in deleting certificate folder", "registryName", registryConfig.RegistryId, "err", err)
+			}
+		}
+	}()
 	if err != nil {
+		impl.logger.Errorw("error in getting registry config from registry proto", "registryName", OCIRegistryRequest.RegistryName, "err", err)
+		return nil, err
+	}
+	registryConfig.RegistryCAFilePath = caFilePath
+	registryClient, err = registry2.GetLoggedInClient(registryClient, registryConfig)
+	if err != nil {
+		impl.logger.Errorw("error in registry login", "registryName", OCIRegistryRequest.RegistryName, "err", err)
 		return nil, err
 	}
 	return &client.OCIRegistryResponse{
@@ -2056,19 +2080,36 @@ func (impl HelmAppServiceImpl) ValidateOCIRegistryLogin(ctx context.Context, OCI
 }
 
 func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error) {
-	// Login to OCI registry
+
 	registryPushResponse := &client.OCIRegistryResponse{}
-	helmClient, err := registry.NewClient()
+
+	registryConfig, err := NewRegistryConfig(OCIRegistryRequest.RegistryCredential)
+	defer func() {
+		if registryConfig != nil {
+			err := registry2.DeleteCertificateFolder(registryConfig.RegistryCAFilePath)
+			if err != nil {
+				impl.logger.Errorw("error in deleting certificate folder", "registryName", registryConfig.RegistryId, "err", err)
+			}
+		}
+	}()
 	if err != nil {
-		impl.logger.Errorw(HELM_CLIENT_ERROR, "err", err)
+		impl.logger.Errorw("error in getting registry config from registry proto", "registryName", OCIRegistryRequest.RegistryCredential.RegistryName, "err", err)
 		return nil, err
 	}
-	err = impl.OCIRegistryLogin(helmClient, OCIRegistryRequest.RegistryCredential)
+
+	settingsGetter, err := impl.registrySettings.GetSettings(registryConfig)
 	if err != nil {
-		registryPushResponse.IsLoggedIn = false
-		return registryPushResponse, err
+		impl.logger.Errorw("error in getting registry settings", "err", err)
+		return nil, err
 	}
-	// LoggedIn successfully
+	settings, err := settingsGetter.GetRegistrySettings(registryConfig)
+	if err != nil {
+		impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", OCIRegistryRequest.RegistryCredential.RegistryName, "err", err)
+		return nil, err
+	}
+	registryClient := settings.RegistryClient
+	OCIRegistryRequest.RegistryCredential.RegistryUrl = settings.RegistryHostURL
+
 	registryPushResponse.IsLoggedIn = true
 
 	var pushOpts []registry.PushOption
@@ -2093,20 +2134,30 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 			impl.logger.Errorw("Error in loading chart bytes", "err", err)
 			return nil, err
 		}
+		trimmedURL := TrimSchemeFromURL(repoURL)
+		if err != nil {
+			impl.logger.Errorw("err in getting repo url without scheme", "repoURL", repoURL, "err", err)
+			return nil, err
+		}
 		// add chart name and version from the chart metadata
 		ref = fmt.Sprintf("%s:%s",
-			path.Join(strings.TrimPrefix(repoURL, fmt.Sprintf("%s://", registry.OCIScheme)), meta.Metadata.Name),
+			path.Join(trimmedURL, meta.Metadata.Name),
 			meta.Metadata.Version)
 	} else {
 		// disable strict mode for configuring chartName in repo
 		withStrictMode = registry.PushOptStrictMode(false)
+		trimmedURL := TrimSchemeFromURL(repoURL)
+		if err != nil {
+			impl.logger.Errorw("err in getting repo url without scheme", "repoURL", repoURL, "err", err)
+			return nil, err
+		}
 		// add chartName and version to url
 		ref = fmt.Sprintf("%s:%s",
-			path.Join(strings.TrimPrefix(repoURL, fmt.Sprintf("%s://", registry.OCIScheme)), OCIRegistryRequest.ChartName),
+			path.Join(trimmedURL, OCIRegistryRequest.ChartName),
 			OCIRegistryRequest.ChartVersion)
 	}
 
-	pushResult, err := helmClient.Push(OCIRegistryRequest.Chart, ref, withStrictMode)
+	pushResult, err := registryClient.Push(OCIRegistryRequest.Chart, ref, withStrictMode)
 	if err != nil {
 		impl.logger.Errorw("Error in pushing helm chart to OCI registry", "err", err)
 		return registryPushResponse, err
@@ -2116,6 +2167,19 @@ func (impl HelmAppServiceImpl) PushHelmChartToOCIRegistryRepo(ctx context.Contex
 		PushedURL: pushResult.Ref,
 	}
 	return registryPushResponse, err
+}
+
+func TrimSchemeFromURL(registryUrl string) string {
+	if !strings.Contains(strings.ToLower(registryUrl), "https") && !strings.Contains(strings.ToLower(registryUrl), "http") {
+		registryUrl = fmt.Sprintf("//%s", registryUrl)
+	}
+	parsedUrl, err := url.Parse(registryUrl)
+	if err != nil {
+		return registryUrl
+	}
+	urlWithoutScheme := parsedUrl.Host + parsedUrl.Path
+	urlWithoutScheme = strings.TrimPrefix(urlWithoutScheme, "/")
+	return urlWithoutScheme
 }
 
 func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallError(ctx context.Context, helmInstallMessage HelmReleaseStatusConfig, releaseIdentifier *client.ReleaseIdentifier, installationErr error) (string, error) {

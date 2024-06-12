@@ -21,6 +21,7 @@ package main
 
 import (
 	"github.com/devtron-labs/authenticator/client"
+	"github.com/devtron-labs/common-lib/helmLib/registry"
 	"github.com/devtron-labs/common-lib/monitoring"
 	"github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/kubelink/api/router"
@@ -61,6 +62,12 @@ func InitializeApp() (*App, error) {
 		//cache.NewClusterCacheImpl,
 		//wire.Bind(new(cache.ClusterCache), new(*cache.ClusterCacheImpl)),
 		//cache.GetClusterCacheConfig,
+		registry.NewSettingsFactoryImpl,
+		wire.Bind(new(registry.SettingsFactory), new(*registry.SettingsFactoryImpl)),
+
+		registry.NewDefaultSettingsGetter,
+		wire.Bind(new(registry.DefaultSettingsGetter), new(*registry.DefaultSettingsGetterImpl)),
+
 		monitoring.NewMonitoringRouter,
 	)
 	return &App{}, nil
