@@ -44,9 +44,12 @@ func (impl *FluxApplicationServiceImpl) GetFluxApplicationListForCluster(config 
 		impl.logger.Errorw("Error in building rest config ", "clusterId", config.ClusterId, "err", err)
 		return &client.FluxApplicationList{}
 	}
+	/*	copying the restConfig for getting it reused again for the listing FluxCd HelmReleases
+		After getting first call for kustomization list, same rest config cannot be used again due to wrap transport issue that changes the response header type.
+	*/
+	var restConfigForHrList rest.Config
+	restConfigForHrList = *restConfig
 
-	var restConfig2 rest.Config
-	restConfig2 = *restConfig
 	kustomizationResp, _, err := impl.k8sUtil.GetResourceList(context.Background(), restConfig, GvkForKustomizationFluxApp, AllNamespaces, true, nil)
 	if err != nil {
 		impl.logger.Errorw("Error in fetching kustomizationList Resource", "err", err)
@@ -60,7 +63,7 @@ func (impl *FluxApplicationServiceImpl) GetFluxApplicationListForCluster(config 
 		}
 	}
 
-	helmReleaseResp, _, err := impl.k8sUtil.GetResourceList(context.Background(), &restConfig2, GvkForHelmreleaseFluxApp, AllNamespaces, true, nil)
+	helmReleaseResp, _, err := impl.k8sUtil.GetResourceList(context.Background(), &restConfigForHrList, GvkForHelmreleaseFluxApp, AllNamespaces, true, nil)
 	if err != nil {
 		impl.logger.Errorw("Error in fetching helmReleaseList Resources", "err", err)
 		return &client.FluxApplicationList{}
