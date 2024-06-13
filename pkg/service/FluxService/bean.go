@@ -1,6 +1,7 @@
-package FluxApplicationService
+package FluxService
 
 import (
+	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -44,7 +45,7 @@ type EnvironmentDetail struct {
 	Namespace   string `json:"namespace"`
 }
 type FluxKustomization struct {
-	AppKsDetailDto   *FluxKsAppDetail                    `json:"appDetailDto"`
+	AppKsDetailDto   *FluxKsResourceDetail               `json:"appDetailDto"`
 	Resources        *client.ExternalResourceTreeRequest `json:"fluxResource"`
 	Kustomizations   []*FluxKustomization                `json:"kustomizations"`
 	FluxHelmReleases []*client.AppDetailRequest          `json:"fluxHelmReleases"`
@@ -52,7 +53,7 @@ type FluxKustomization struct {
 	Manifest         unstructured.Unstructured           `json:"manifest"`
 }
 
-type FluxKsAppDetail struct {
+type FluxKsResourceDetail struct {
 	Name      string
 	Namespace string
 	Group     string
@@ -76,10 +77,18 @@ type FluxAppDetailRequest struct {
 	Namespace   string `json: "namespace"`
 	IsKustomize bool   `json: "isKustomize"`
 }
-
-type FluxK8sResource struct {
-	FluxHr       []*FluxHr
-	K8sResources []*FluxKsAppDetail
+type FluxKsAppDetail struct {
+	Name              string
+	IsKustomize       bool
+	EnvironmentDetail *EnvironmentDetail
+	AppStatusDto      *FluxAppStatusDetail
+	TreeResponse      []*bean.ResourceTreeResponse
+	Manifest          map[string]interface{}
+}
+type FluxAppStatusDetail struct {
+	Status  string
+	Reason  string
+	Message string
 }
 type FluxHr struct {
 	Name      string
@@ -91,7 +100,7 @@ const (
 	INVENTORY = "inventory"
 	ENTRIES   = "entries"
 	ID        = "id"
-	VERSION   = "version"
+	VERSION   = "v"
 )
 
 type ObjectMetadataCompact struct {
@@ -104,4 +113,4 @@ const (
 	ColonTranscoded = "__"
 )
 
-var NilObjMetadata = FluxKsAppDetail{}
+var NilObjMetadata = FluxKsResourceDetail{}

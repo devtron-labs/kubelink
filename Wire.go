@@ -30,6 +30,9 @@ import (
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
+	service3 "github.com/devtron-labs/kubelink/pkg/service/CommonHelperService"
+	service2 "github.com/devtron-labs/kubelink/pkg/service/FluxService"
+	service4 "github.com/devtron-labs/kubelink/pkg/service/HelmApplicationService"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 	"github.com/google/wire"
 )
@@ -43,23 +46,23 @@ func InitializeApp() (*App, error) {
 		k8s.NewK8sUtil,
 		wire.Bind(new(k8s.K8sService), new(*k8s.K8sServiceImpl)),
 		lock.NewChartRepositoryLocker,
-		service.NewK8sServiceImpl,
-		wire.Bind(new(service.K8sService), new(*service.K8sServiceImpl)),
-		service.NewCommonUtilsImpl,
-		wire.Bind(new(service.CommonUtilsI), new(*service.CommonUtils)),
-		service.NewHelmAppServiceImpl,
-		wire.Bind(new(service.HelmAppService), new(*service.HelmAppServiceImpl)),
+		service3.NewK8sServiceImpl,
+		wire.Bind(new(service3.K8sService), new(*service3.K8sServiceImpl)),
+		service3.NewCommonUtilsImpl,
+		wire.Bind(new(service3.CommonUtilsI), new(*service3.CommonUtils)),
+		service4.NewHelmAppServiceImpl,
+		wire.Bind(new(service4.HelmAppService), new(*service4.HelmAppServiceImpl)),
 		converter.NewConverterImpl,
 		wire.Bind(new(converter.ClusterBeanConverter), new(*converter.ClusterBeanConverterImpl)),
-		service.NewFluxApplicationServiceImpl,
-		wire.Bind(new(service.FluxApplicationService), new(*service.FluxApplicationServiceImpl)),
+		service2.NewFluxApplicationServiceImpl,
+		wire.Bind(new(service2.FluxApplicationService), new(*service2.FluxApplicationServiceImpl)),
 		service.NewApplicationServiceServerImpl,
 		router.NewRouter,
 		k8sInformer.Newk8sInformerImpl,
 		wire.Bind(new(k8sInformer.K8sInformer), new(*k8sInformer.K8sInformerImpl)),
 		repository.NewClusterRepositoryImpl,
 		wire.Bind(new(repository.ClusterRepository), new(*repository.ClusterRepositoryImpl)),
-		service.GetHelmReleaseConfig,
+		service3.GetHelmReleaseConfig,
 		k8sInformer.GetHelmReleaseConfig,
 		//pubsub_lib.NewPubSubClientServiceImpl,
 		//cache.NewClusterCacheImpl,

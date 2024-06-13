@@ -11,6 +11,7 @@ import (
 	"github.com/devtron-labs/kubelink/internals/middleware"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
+	"github.com/devtron-labs/kubelink/pkg/service/FluxService"
 	"github.com/go-pg/pg"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -49,20 +50,21 @@ func NewApp(Logger *zap.SugaredLogger, ServerImpl *service.ApplicationServiceSer
 
 func (app *App) Start() {
 	port := 50051 //TODO: extract from environment variable
-	//ClusterConfig := &client.ClusterConfig{
-	//	Token:        "",
-	//	ApiServerUrl: "https://kubernetes.default.svc",
-	//}
-	//
-	//req := FluxApplicationService.FluxAppDetailRequest{
-	//	Namespace:   "flux-system",
-	//	Name:        "flux-system",
-	//	IsKustomize: true,
-	//	Config:      ClusterConfig,
-	//}
-	//
-	//ans, err := app.ServerImpl.FluxAppService.BuildFluxAppDetail(req)
-	//fmt.Println(ans, err)
+	ClusterConfig := &client.ClusterConfig{
+		Token:        "",
+		ApiServerUrl: "https://kubernetes.default.svc",
+	}
+
+	req := FluxService.FluxAppDetailRequest{
+		Namespace:   "flux-system",
+		Name:        "mynewkshavinghr",
+		IsKustomize: true,
+		Config:      ClusterConfig,
+	}
+	//a := app.ServerImpl.FluxAppService.GetFluxApplicationListForCluster(ClusterConfig)
+	//fmt.Println(a)
+	ans, err2 := app.ServerImpl.FluxAppService.BuildFluxAppDetail(req)
+	fmt.Println(ans, err2)
 	httpPort := 50052
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {

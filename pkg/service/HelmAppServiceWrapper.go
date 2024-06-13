@@ -6,6 +6,8 @@ import (
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/internals/lock"
+	"github.com/devtron-labs/kubelink/pkg/service/FluxService"
+	"github.com/devtron-labs/kubelink/pkg/service/HelmApplicationService"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
@@ -17,8 +19,8 @@ type ApplicationServiceServerImpl struct {
 	client.UnimplementedApplicationServiceServer
 	Logger                *zap.SugaredLogger
 	ChartRepositoryLocker *lock.ChartRepositoryLocker
-	HelmAppService        HelmAppService
-	FluxAppService        FluxApplicationService
+	HelmAppService        HelmApplicationService.HelmAppService
+	FluxAppService        FluxService.FluxApplicationService
 }
 
 func (impl *ApplicationServiceServerImpl) MustEmbedUnimplementedApplicationServiceServer() {
@@ -26,7 +28,7 @@ func (impl *ApplicationServiceServerImpl) MustEmbedUnimplementedApplicationServi
 }
 
 func NewApplicationServiceServerImpl(logger *zap.SugaredLogger, chartRepositoryLocker *lock.ChartRepositoryLocker,
-	HelmAppService HelmAppService, FluxAppService FluxApplicationService) *ApplicationServiceServerImpl {
+	HelmAppService HelmApplicationService.HelmAppService, FluxAppService FluxService.FluxApplicationService) *ApplicationServiceServerImpl {
 	return &ApplicationServiceServerImpl{
 		Logger:                logger,
 		ChartRepositoryLocker: chartRepositoryLocker,
@@ -594,4 +596,49 @@ func (impl *ApplicationServiceServerImpl) ListFluxApplications(req *client.AppLi
 	}
 	impl.Logger.Info("List Flux Application Request served")
 	return nil
+}
+
+func (impl *ApplicationServiceServerImpl) GetFluxAppDetail(ctx context.Context, req *client.FluxAppDetailRequest) (*client.FluxAppDetail, error) {
+	fluxAppDetail, err := impl.FluxAppService.BuildFluxAppDetail(req)
+	if err != nil {
+		impl.Logger.Errorw("error in getting resource tree for external resources", "err", err)
+		return nil, err
+	}
+	fluxAppDetailResponse := impl.FluxAppDetailAdapter(fluxAppDetail)
+	return fluxAppDetailResponse, nil
+}
+
+func (impl *ApplicationServiceServerImpl) FluxAppDetailAdapter(req *FluxService.FluxKsAppDetail) *client.FluxAppDetail {
+	resourceNodes := make([]*client.ResourceNode, 0)
+	podMetaData := make([]*client.PodMetadata, 0)
+	for _, reqTree := range req.TreeResponse {
+		resTreeResponse := impl.ResourceTreeAdapter(reqTree)
+		if resTreeResponse != nil {
+			resourceNodes = append(resourceNodes, resTreeResponse.Nodes...)
+			podMetaData = append(podMetaData, resTreeResponse.PodMetadata...)
+		}
+
+	}
+
+	treeResponse := &client.ResourceTreeResponse{
+		PodMetadata: podMetaData,
+		Nodes:       resourceNodes,
+	}
+
+	return &client.FluxAppDetail{
+		FluxAppStatusDetail: &client.FluxAppStatusDetail{
+			Status:  req.AppStatusDto.Status,
+			Message: req.AppStatusDto.Message,
+			Reason:  req.AppStatusDto.Reason,
+		},
+		EnvironmentDetails: &client.EnvironmentDetails{
+			ClusterId:   int32(req.EnvironmentDetail.ClusterId),
+			Namespace:   req.EnvironmentDetail.Namespace,
+			ClusterName: req.EnvironmentDetail.ClusterName,
+		},
+		IsKustomizeApp: req.IsKustomize,
+		Name:           req.Name,
+
+		ResourceTreeResponse: treeResponse,
+	}
 }

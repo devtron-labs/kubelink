@@ -12,7 +12,7 @@ import (
 	"github.com/devtron-labs/kubelink/pkg/cache"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	k8sInformer2 "github.com/devtron-labs/kubelink/pkg/k8sInformer"
-	"github.com/devtron-labs/kubelink/pkg/service"
+	service2 "github.com/devtron-labs/kubelink/pkg/service/CommonHelperService"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 	"github.com/go-pg/pg"
 	"github.com/stretchr/testify/assert"
@@ -353,10 +353,10 @@ func GetDbConnAndLoggerService(t *testing.T) (*zap.SugaredLogger, *pg.DB) {
 	return logger, dbConnection
 }
 
-func getHelmAppServiceDependencies(t *testing.T) (*zap.SugaredLogger, *k8sInformer2.K8sInformerImpl, *service.HelmReleaseConfig,
-	*k8sUtils.K8sUtil, *repository.ClusterRepositoryImpl, *service.K8sServiceImpl) {
+func getHelmAppServiceDependencies(t *testing.T) (*zap.SugaredLogger, *k8sInformer2.K8sInformerImpl, *service2.HelmReleaseConfig,
+	*k8sUtils.K8sUtil, *repository.ClusterRepositoryImpl, *service2.K8sServiceImpl) {
 	logger, dbConnection := GetDbConnAndLoggerService(t)
-	helmReleaseConfig := &service.HelmReleaseConfig{
+	helmReleaseConfig := &service2.HelmReleaseConfig{
 		EnableHelmReleaseCache:    false,
 		MaxCountForHelmRelease:    0,
 		ManifestFetchBatchSize:    0,
@@ -367,6 +367,6 @@ func getHelmAppServiceDependencies(t *testing.T) (*zap.SugaredLogger, *k8sInform
 	runTimeConfig := &client2.RuntimeConfig{LocalDevMode: false}
 	k8sUtil := k8sUtils.NewK8sUtil(logger, runTimeConfig)
 	k8sInformer := k8sInformer2.Newk8sInformerImpl(logger, clusterRepository, helmReleaseConfig2, k8sUtil)
-	k8sServiceImpl := service.NewK8sServiceImpl(logger)
+	k8sServiceImpl := service2.NewK8sServiceImpl(logger)
 	return logger, k8sInformer, helmReleaseConfig, k8sUtil, clusterRepository, k8sServiceImpl
 }

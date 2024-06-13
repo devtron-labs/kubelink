@@ -46,6 +46,7 @@ service ApplicationService {
   rpc ValidateOCIRegistry(RegistryCredential) returns(OCIRegistryResponse) {}
   rpc PushHelmChartToOCIRegistry(OCIRegistryRequest) returns(OCIRegistryResponse) {}
   rpc GetResourceTreeForExternalResources(ExternalResourceTreeRequest) returns(ResourceTreeResponse){}
+  rpc GetExternalFluxAppDetail(FluxAppDetailRequest)returns(FluxAppDetail){}
 }
 
 message ExternalResourceTreeRequest{
@@ -69,6 +70,8 @@ message DeployedAppList {
   bool errored = 4;
 }
 
+//---------------flux app list-------
+
 message FluxApplicationList {
   int32 clusterId = 1;
   repeated FluxApplicationDetail FluxApplicationDetail =2;
@@ -80,6 +83,33 @@ message FluxApplicationDetail{
   EnvironmentDetails environmentDetail = 4;
   bool IsKustomizeApp=5;
 }
+
+//---------------flux external app detail-------
+
+message FluxAppDetailRequest{
+  ClusterConfig clusterConfig = 1;
+  string namespace = 2;
+  string name = 3;
+  bool IsKustomizeApp =4;
+}
+
+message FluxAppDetail{
+  FluxAppStatusDetail FluxAppStatusDetail = 1;
+  ResourceTreeResponse resourceTreeResponse = 2;
+  EnvironmentDetails environmentDetails = 3;
+  bool IsKustomizeApp = 4;
+  string name =5;
+
+}
+
+message FluxAppStatusDetail{
+  string Status = 1;
+  string Reason = 2;
+  string Message = 3;
+}
+
+//---------------flux external app detail ends here-------
+
 
 message DeployedAppDetail {
   string appId = 1;

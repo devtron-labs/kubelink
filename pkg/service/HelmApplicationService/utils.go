@@ -1,4 +1,4 @@
-package service
+package HelmApplicationService
 
 import (
 	client "github.com/devtron-labs/kubelink/grpc"

@@ -1,4 +1,4 @@
-package service
+package CommonHelperService
 
 import (
 	"github.com/devtron-labs/common-lib/utils/k8s/commonBean"

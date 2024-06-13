@@ -1,8 +1,9 @@
-package FluxApplicationService
+package FluxService
 
 import (
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	client "github.com/devtron-labs/kubelink/grpc"
+	//"github.com/devtron-labs/kubelink/pkg/service/FluxService"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -84,7 +85,7 @@ func createFluxApplicationDto(rowDataMap map[string]interface{}, columnDefinitio
 	}
 }
 
-func getApplicationListDtos(resources unstructured.UnstructuredList, clusterName string, clusterId int, FluxAppType FluxAppType) []*FluxApplicationDto {
+func GetApplicationListDtos(resources unstructured.UnstructuredList, clusterName string, clusterId int, FluxAppType FluxAppType) []*FluxApplicationDto {
 	manifestObj := resources.Object
 	fluxAppDetailArray := make([]*FluxApplicationDto, 0)
 	columnDefinitions := extractColumnDefinitions(manifestObj[k8sCommonBean.K8sClusterResourceColumnDefinitionKey])
@@ -103,7 +104,7 @@ func getApplicationListDtos(resources unstructured.UnstructuredList, clusterName
 	return fluxAppDetailArray
 }
 
-func getFluxAppDetailDto(appDetail *FluxApplicationDto) *client.FluxApplicationDetail {
+func GetFluxAppDetailDto(appDetail *FluxApplicationDto) *client.FluxApplicationDetail {
 	return &client.FluxApplicationDetail{
 		Name:           appDetail.Name,
 		HealthStatus:   appDetail.HealthStatus,

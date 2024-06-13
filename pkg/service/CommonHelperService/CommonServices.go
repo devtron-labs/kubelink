@@ -1,4 +1,4 @@
-package service
+package CommonHelperService
 
 import (
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
@@ -207,7 +207,7 @@ func (impl *CommonUtils) BuildNodes(restConfig *rest.Config, desiredOrLiveManife
 			_namespace = releaseNamespace
 		}
 		ports := util.GetPorts(manifest, gvk)
-		resourceRef := buildResourceRef(gvk, *manifest, _namespace)
+		resourceRef := BuildResourceRef(gvk, *manifest, _namespace)
 
 		if impl.k8sService.CanHaveChild(gvk) {
 			children, err := impl.k8sService.GetChildObjects(restConfig, _namespace, gvk, manifest.GetName(), manifest.GetAPIVersion())
@@ -656,4 +656,16 @@ func getMatchingNodes(nodes []*bean.ResourceNode, kind string) []*bean.ResourceN
 		}
 	}
 	return nodesRes
+}
+func BuildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstructured, namespace string) *bean.ResourceRef {
+	resourceRef := &bean.ResourceRef{
+		Group:     gvk.Group,
+		Version:   gvk.Version,
+		Kind:      gvk.Kind,
+		Namespace: namespace,
+		Name:      manifest.GetName(),
+		UID:       string(manifest.GetUID()),
+		Manifest:  manifest,
+	}
+	return resourceRef
 }
