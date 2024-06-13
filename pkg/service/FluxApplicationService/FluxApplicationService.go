@@ -56,7 +56,7 @@ func (impl *FluxApplicationServiceImpl) GetFluxApplicationListForCluster(config 
 		return &client.FluxApplicationList{}
 	} else {
 		if kustomizationResp != nil {
-			kustomizationAppLists := getApplicationListDtos(kustomizationResp.Resources, config.ClusterName, int(config.ClusterId), "")
+			kustomizationAppLists := getApplicationListDtos(kustomizationResp.Resources, config.ClusterName, int(config.ClusterId), FluxAppKustomizationKind)
 			if len(kustomizationAppLists) > 0 {
 				appListFinal = append(appListFinal, kustomizationAppLists...)
 			}
@@ -76,15 +76,15 @@ func (impl *FluxApplicationServiceImpl) GetFluxApplicationListForCluster(config 
 		}
 	}
 
-	appListFinalDto := make([]*client.FluxApplicationDetail, 0)
+	appListFinalDto := make([]*client.FluxApplication, 0)
 
 	for _, appDetail := range appListFinal {
 		fluxAppDetailDto := getFluxAppDetailDto(appDetail)
 		appListFinalDto = append(appListFinalDto, fluxAppDetailDto)
 	}
 	finalAppListDto := &client.FluxApplicationList{
-		ClusterId:             config.ClusterId,
-		FluxApplicationDetail: appListFinalDto,
+		ClusterId:       config.ClusterId,
+		FluxApplication: appListFinalDto,
 	}
 	return finalAppListDto
 }

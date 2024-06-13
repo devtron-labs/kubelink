@@ -36,7 +36,7 @@ type FluxApplicationDto struct {
 	HealthStatus       string             `json:"appStatus"`
 	SyncStatus         string             `json:"syncStatus"`
 	EnvironmentDetails *EnvironmentDetail `json:"environmentDetail"`
-	IsKustomizeApp     bool               `json:"isKustomizeApp"`
+	AppType            string             `json:"appType"`
 }
 type EnvironmentDetail struct {
 	ClusterId   int    `json:"clusterId"`

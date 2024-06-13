@@ -80,7 +80,7 @@ func createFluxApplicationDto(rowDataMap map[string]interface{}, columnDefinitio
 			ClusterName: clusterName,
 			Namespace:   namespace,
 		},
-		IsKustomizeApp: (FluxAppType != FluxAppHelmreleaseKind),
+		AppType: string(FluxAppType),
 	}
 }
 
@@ -103,12 +103,12 @@ func getApplicationListDtos(resources unstructured.UnstructuredList, clusterName
 	return fluxAppDetailArray
 }
 
-func getFluxAppDetailDto(appDetail *FluxApplicationDto) *client.FluxApplicationDetail {
-	return &client.FluxApplicationDetail{
-		Name:           appDetail.Name,
-		HealthStatus:   appDetail.HealthStatus,
-		SyncStatus:     appDetail.SyncStatus,
-		IsKustomizeApp: appDetail.IsKustomizeApp,
+func getFluxAppDetailDto(appDetail *FluxApplicationDto) *client.FluxApplication {
+	return &client.FluxApplication{
+		Name:         appDetail.Name,
+		HealthStatus: appDetail.HealthStatus,
+		SyncStatus:   appDetail.SyncStatus,
+		AppType:      appDetail.AppType,
 		EnvironmentDetail: &client.EnvironmentDetails{
 			ClusterName: appDetail.EnvironmentDetails.ClusterName,
 			ClusterId:   int32(appDetail.EnvironmentDetails.ClusterId),
