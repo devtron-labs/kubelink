@@ -108,7 +108,7 @@ func (impl *FluxApplicationServiceImpl) BuildFluxAppDetail(request *client.FluxA
 		fluxAppTreeResponse, appStatus, err = impl.buildFluxAppDetailForHelmRelease(req)
 	}
 
-	if err != nil || appStatus != nil {
+	if err != nil && appStatus != nil {
 
 		if appStatus != nil {
 			return &FluxKsAppDetail{
