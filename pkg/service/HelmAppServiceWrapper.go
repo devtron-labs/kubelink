@@ -611,13 +611,15 @@ func (impl *ApplicationServiceServerImpl) GetFluxAppDetail(ctx context.Context, 
 func (impl *ApplicationServiceServerImpl) FluxAppDetailAdapter(req *FluxService.FluxKsAppDetail) *client.FluxAppDetail {
 	resourceNodes := make([]*client.ResourceNode, 0)
 	podMetaData := make([]*client.PodMetadata, 0)
-	for _, reqTree := range req.TreeResponse {
-		resTreeResponse := impl.ResourceTreeAdapter(reqTree)
-		if resTreeResponse != nil {
-			resourceNodes = append(resourceNodes, resTreeResponse.Nodes...)
-			podMetaData = append(podMetaData, resTreeResponse.PodMetadata...)
-		}
+	if len(req.TreeResponse) > 0 {
+		for _, reqTree := range req.TreeResponse {
+			resTreeResponse := impl.ResourceTreeAdapter(reqTree)
+			if resTreeResponse != nil {
+				resourceNodes = append(resourceNodes, resTreeResponse.Nodes...)
+				podMetaData = append(podMetaData, resTreeResponse.PodMetadata...)
+			}
 
+		}
 	}
 
 	treeResponse := &client.ResourceTreeResponse{

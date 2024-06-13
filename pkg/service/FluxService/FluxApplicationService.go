@@ -108,7 +108,20 @@ func (impl *FluxApplicationServiceImpl) BuildFluxAppDetail(request *client.FluxA
 		fluxAppTreeResponse, appStatus, err = impl.buildFluxAppDetailForHelmRelease(req)
 	}
 
-	if err != nil {
+	if err != nil || appStatus != nil {
+
+		if appStatus != nil {
+			return &FluxKsAppDetail{
+				Name: request.Name,
+				EnvironmentDetail: &EnvironmentDetail{
+					ClusterId:   int(req.Config.ClusterId),
+					ClusterName: req.Config.ClusterName,
+					Namespace:   req.Namespace,
+				},
+				IsKustomize:  req.IsKustomize,
+				AppStatusDto: appStatus,
+			}, nil
+		}
 		return nil, err
 	}
 
@@ -137,7 +150,7 @@ func (impl *FluxApplicationServiceImpl) buildFluxAppDetailForHelmRelease(request
 
 	helmRelease, err := impl.common.GetHelmRelease(request.Config, namespace, releaseName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get Helm release: %v", err)
+		return nil, appStatus, fmt.Errorf("failed to get Helm release: %v", err)
 	}
 
 	appDetailRequest := &client.AppDetailRequest{
@@ -148,7 +161,7 @@ func (impl *FluxApplicationServiceImpl) buildFluxAppDetailForHelmRelease(request
 
 	resourceTreeResponse, err := impl.common.BuildResourceTree(appDetailRequest, helmRelease)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to build resource tree for Helm release: %v", err)
+		return nil, appStatus, fmt.Errorf("failed to build resource tree for Helm release: %v", err)
 	}
 	fluxAppTreeResponse = append(fluxAppTreeResponse, resourceTreeResponse)
 
@@ -171,24 +184,27 @@ func (impl *FluxApplicationServiceImpl) buildFluxAppDetailForKustomize(request *
 	if resp == nil || resp.Manifest.Object == nil {
 		return nil, nil, fmt.Errorf("response or manifest object is nil")
 	}
-
+	appStatus, err := getKsAppStatus(resp.Manifest.Object)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get Kustomize app status: %v", err)
+	}
 	fluxK8sResourceList := make([]*client.ExternalResourceDetail, 0)
 	fluxHrList := make([]*FluxHr, 0)
 
 	err = impl.getFluxResourceAndFluxHrList(request, &fluxK8sResourceList, &fluxHrList, resp.Manifest.Object)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get Flux resources and Helm releases: %v", err)
+		return nil, appStatus, fmt.Errorf("failed to get Flux resources and Helm releases: %v", err)
 	}
 
 	for _, fluxHr := range fluxHrList {
 		releaseName, namespace, _, err := impl.getHelmReleaseInventory(fluxHr.Name, fluxHr.Namespace, request.Config)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to get Helm release inventory: %v", err)
+			return nil, appStatus, fmt.Errorf("failed to get Helm release inventory: %v", err)
 		}
 
 		helmRelease, err := impl.common.GetHelmRelease(request.Config, namespace, releaseName)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to get Helm release: %v", err)
+			return nil, appStatus, fmt.Errorf("failed to get Helm release: %v", err)
 		}
 
 		appDetailRequest := &client.AppDetailRequest{
@@ -199,7 +215,7 @@ func (impl *FluxApplicationServiceImpl) buildFluxAppDetailForKustomize(request *
 
 		resourceTreeResponse, err := impl.common.BuildResourceTree(appDetailRequest, helmRelease)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to build resource tree for Helm release: %v", err)
+			return nil, appStatus, fmt.Errorf("failed to build resource tree for Helm release: %v", err)
 		}
 		fluxAppTreeResponse = append(fluxAppTreeResponse, resourceTreeResponse)
 	}
@@ -212,15 +228,10 @@ func (impl *FluxApplicationServiceImpl) buildFluxAppDetailForKustomize(request *
 
 		resourceTreeResponse, err := impl.common.GetResourceTreeForExternalResources(req)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to get resource tree for external resources: %v", err)
+			return nil, appStatus, fmt.Errorf("failed to get resource tree for external resources: %v", err)
 		}
 
 		fluxAppTreeResponse = append(fluxAppTreeResponse, resourceTreeResponse)
-	}
-
-	appStatus, err := getKsAppStatus(resp.Manifest.Object)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get Kustomize app status: %v", err)
 	}
 
 	return fluxAppTreeResponse, appStatus, nil
