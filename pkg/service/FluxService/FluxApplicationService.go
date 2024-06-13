@@ -345,30 +345,13 @@ func (impl *FluxApplicationServiceImpl) buildFluxAppDetailForKustomize(request *
 
 	return fluxAppTreeResponse, appStatus, nil
 }
-func (impl *FluxApplicationServiceImpl) getAppStatus(request FluxAppDetailRequest) (*FluxAppStatusDetail, error) {
-	// Assuming resp is accessible here after fetch
-	resp, err := impl.k8sUtil.GetResource(context.Background(), request.Namespace, request.Name, GvkForKustomizationFluxApp, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch resource for app status: %v", err)
-	}
-	if resp == nil || resp.Manifest.Object == nil {
-		return nil, fmt.Errorf("response or manifest object is nil")
-	}
-
-	appStatus, err := getKsAppStatus(resp.Manifest.Object)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Kustomize app status: %v", err)
-	}
-
-	return appStatus, nil
-}
 func (impl *FluxApplicationServiceImpl) getFluxResourceAndFluxHrList(app *FluxAppDetailRequest, fluxK8sResourceList *[]*client.ExternalResourceDetail, fluxHrList *[]*FluxHr, obj map[string]interface{}) error {
 
 	inventoryMap, err := getInventoryMap(obj)
 	if err != nil {
 		return err
 	}
-	fluxKsSpecKubeConfig := getFluxKsSpecKubeConfig(obj)
+	fluxKsSpecKubeConfig := getFluxSpecKubeConfig(obj)
 
 	for id, version := range inventoryMap {
 		var fluxResource FluxKsResourceDetail
@@ -475,9 +458,17 @@ func (impl *FluxApplicationServiceImpl) getHelmReleaseInventory(name string, nam
 	return releaseName, _namespace, appStatus, nil
 
 }
-func getFluxKsSpecKubeConfig(obj map[string]interface{}) bool {
-
-	return false
+func getFluxSpecKubeConfig(obj map[string]interface{}) bool {
+	if statusRawObj, ok := obj["spec"]; ok {
+		statusObj := statusRawObj.(map[string]interface{})
+		if _, ok2 := statusObj["kubeConfig"]; ok2 {
+			return true
+		} else {
+			return false
+		}
+	} else {
+		return false
+	}
 }
 func parseObjMetadata(s string) (FluxKsResourceDetail, error) {
 	index := strings.Index(s, FieldSeparator)

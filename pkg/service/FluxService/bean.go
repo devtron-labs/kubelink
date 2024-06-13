@@ -83,7 +83,6 @@ type FluxKsAppDetail struct {
 	EnvironmentDetail *EnvironmentDetail
 	AppStatusDto      *FluxAppStatusDetail
 	TreeResponse      []*bean.ResourceTreeResponse
-	Manifest          map[string]interface{}
 }
 type FluxAppStatusDetail struct {
 	Status  string

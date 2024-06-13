@@ -63,7 +63,14 @@ func (app *App) Start() {
 	}
 	//a := app.ServerImpl.FluxAppService.GetFluxApplicationListForCluster(ClusterConfig)
 	//fmt.Println(a)
-	ans, err2 := app.ServerImpl.FluxAppService.BuildFluxAppDetail(req)
+
+	req1 := &client.FluxAppDetailRequest{
+		ClusterConfig:  ClusterConfig,
+		Namespace:      "flux-system",
+		IsKustomizeApp: true,
+		Name:           req.Name,
+	}
+	ans, err2 := app.ServerImpl.FluxAppService.BuildFluxAppDetail(req1)
 	fmt.Println(ans, err2)
 	httpPort := 50052
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))

@@ -46,7 +46,7 @@ service ApplicationService {
   rpc ValidateOCIRegistry(RegistryCredential) returns(OCIRegistryResponse) {}
   rpc PushHelmChartToOCIRegistry(OCIRegistryRequest) returns(OCIRegistryResponse) {}
   rpc GetResourceTreeForExternalResources(ExternalResourceTreeRequest) returns(ResourceTreeResponse){}
-  rpc GetExternalFluxAppDetail(FluxAppDetailRequest)returns(FluxAppDetail){}
+  rpc GetFluxAppDetail(FluxAppDetailRequest)returns(FluxAppDetail){}
 }
 
 message ExternalResourceTreeRequest{
