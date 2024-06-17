@@ -48,22 +48,23 @@ func extractNamespace(metadata map[string]interface{}) string {
 }
 
 func shouldProcessApp(FluxAppType FluxAppType, metadata map[string]interface{}) bool {
-	if FluxAppType == FluxAppHelmreleaseKind {
+	if FluxAppType == FluxAppHelmReleaseKind {
 		if labels, exists := metadata[FluxLabel].(map[string]interface{}); exists {
 			nameLabel, nameExists := labels[KustomizeNameLabel].(string)
 			namespaceLabel, namespaceExists := labels[KustomizeNamespaceLabel].(string)
 			if nameExists && nameLabel != "" && namespaceExists && namespaceLabel != "" {
+
 				return false
 			}
 		}
 	}
 	return true
 }
-func createFluxApplicationDto(rowDataMap map[string]interface{}, columnDefinitions map[string]int, clusterId int, clusterName string, FluxAppType FluxAppType) *FluxApplicationDto {
+func createFluxApplicationDto(rowDataMap map[string]interface{}, columnDefinitions map[string]int, clusterId int, clusterName string, fluxAppType FluxAppType) *FluxApplicationDto {
 	rowObject := rowDataMap[k8sCommonBean.K8sClusterResourceObjectKey].(map[string]interface{})
 	metadata := rowObject[k8sCommonBean.K8sClusterResourceMetadataKey].(map[string]interface{})
 
-	if !shouldProcessApp(FluxAppType, metadata) {
+	if !shouldProcessApp(fluxAppType, metadata) {
 		return nil
 	}
 	rowCells := rowDataMap[k8sCommonBean.K8sClusterResourceCellKey].([]interface{})
@@ -80,7 +81,7 @@ func createFluxApplicationDto(rowDataMap map[string]interface{}, columnDefinitio
 			ClusterName: clusterName,
 			Namespace:   namespace,
 		},
-		AppType: string(FluxAppType),
+		FluxAppDeploymentType: fluxAppType,
 	}
 }
 
@@ -105,10 +106,10 @@ func getApplicationListDtos(resources unstructured.UnstructuredList, clusterName
 
 func getFluxAppDetailDto(appDetail *FluxApplicationDto) *client.FluxApplication {
 	return &client.FluxApplication{
-		Name:         appDetail.Name,
-		HealthStatus: appDetail.HealthStatus,
-		SyncStatus:   appDetail.SyncStatus,
-		AppType:      appDetail.AppType,
+		Name:                  appDetail.Name,
+		HealthStatus:          appDetail.HealthStatus,
+		SyncStatus:            appDetail.SyncStatus,
+		FluxAppDeploymentType: string(appDetail.FluxAppDeploymentType),
 		EnvironmentDetail: &client.EnvironmentDetails{
 			ClusterName: appDetail.EnvironmentDetails.ClusterName,
 			ClusterId:   int32(appDetail.EnvironmentDetails.ClusterId),

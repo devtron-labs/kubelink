@@ -69,7 +69,7 @@ func (impl *FluxApplicationServiceImpl) GetFluxApplicationListForCluster(config 
 		return &client.FluxApplicationList{}
 	} else {
 		if helmReleaseResp != nil {
-			helmReleaseAppLists := getApplicationListDtos(helmReleaseResp.Resources, config.ClusterName, int(config.ClusterId), HelmReleaseFluxAppType)
+			helmReleaseAppLists := getApplicationListDtos(helmReleaseResp.Resources, config.ClusterName, int(config.ClusterId), FluxAppHelmReleaseKind)
 			if len(helmReleaseAppLists) > 0 {
 				appListFinal = append(appListFinal, helmReleaseAppLists...)
 			}
