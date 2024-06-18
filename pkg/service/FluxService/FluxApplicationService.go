@@ -11,7 +11,6 @@ import (
 	"github.com/devtron-labs/kubelink/pkg/service/CommonHelperService"
 	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
-	"strings"
 )
 
 type FluxApplicationService interface {
@@ -60,7 +59,7 @@ func (impl *FluxApplicationServiceImpl) GetFluxApplicationListForCluster(config 
 		return &client.FluxApplicationList{}
 	} else {
 		if kustomizationResp != nil {
-			kustomizationAppLists := GetApplicationListDtos(kustomizationResp.Resources, config.ClusterName, int(config.ClusterId), "")
+			kustomizationAppLists := GetApplicationListDtos(kustomizationResp.Resources, config.ClusterName, int(config.ClusterId), FluxAppKustomizationKind)
 			if len(kustomizationAppLists) > 0 {
 				appListFinal = append(appListFinal, kustomizationAppLists...)
 			}
@@ -80,15 +79,15 @@ func (impl *FluxApplicationServiceImpl) GetFluxApplicationListForCluster(config 
 		}
 	}
 
-	appListFinalDto := make([]*client.FluxApplicationDetail, 0)
+	appListFinalDto := make([]*client.FluxApplication, 0)
 
 	for _, appDetail := range appListFinal {
 		fluxAppDetailDto := GetFluxAppDetailDto(appDetail)
 		appListFinalDto = append(appListFinalDto, fluxAppDetailDto)
 	}
 	finalAppListDto := &client.FluxApplicationList{
-		ClusterId:             config.ClusterId,
-		FluxApplicationDetail: appListFinalDto,
+		ClusterId:       config.ClusterId,
+		FluxApplication: appListFinalDto,
 	}
 	return finalAppListDto
 }
@@ -96,6 +95,7 @@ func (impl *FluxApplicationServiceImpl) BuildFluxAppDetail(request *client.FluxA
 	var fluxAppTreeResponse []*bean.ResourceTreeResponse
 	var err error
 	var appStatus *FluxAppStatusDetail
+	var deploymentType FluxAppType
 	req := &FluxAppDetailRequest{
 		Name:        request.Name,
 		Config:      request.ClusterConfig,
@@ -103,22 +103,29 @@ func (impl *FluxApplicationServiceImpl) BuildFluxAppDetail(request *client.FluxA
 		IsKustomize: request.IsKustomizeApp,
 	}
 	if request.IsKustomizeApp {
+		deploymentType = FluxAppKustomizationKind
 		fluxAppTreeResponse, appStatus, err = impl.buildFluxAppDetailForKustomize(req)
 	} else {
+		deploymentType = FluxAppHelmreleaseKind
 		fluxAppTreeResponse, appStatus, err = impl.buildFluxAppDetailForHelmRelease(req)
 	}
 
 	if err != nil && appStatus != nil {
 
 		if appStatus != nil {
+
 			return &FluxKsAppDetail{
-				Name: request.Name,
-				EnvironmentDetail: &EnvironmentDetail{
-					ClusterId:   int(req.Config.ClusterId),
-					ClusterName: req.Config.ClusterName,
-					Namespace:   req.Namespace,
+				FluxApplicationDto: &FluxApplicationDto{
+					Name:         request.Name,
+					HealthStatus: appStatus.Status,
+					SyncStatus:   appStatus.Message,
+					EnvironmentDetails: &EnvironmentDetail{
+						ClusterId:   int(req.Config.ClusterId),
+						ClusterName: req.Config.ClusterName,
+						Namespace:   req.Namespace,
+					},
+					FluxAppDeploymentType: deploymentType,
 				},
-				IsKustomize:  req.IsKustomize,
 				AppStatusDto: appStatus,
 			}, nil
 		}
@@ -126,13 +133,17 @@ func (impl *FluxApplicationServiceImpl) BuildFluxAppDetail(request *client.FluxA
 	}
 
 	fluxKsAppDetail := &FluxKsAppDetail{
-		Name: request.Name,
-		EnvironmentDetail: &EnvironmentDetail{
-			ClusterId:   int(req.Config.ClusterId),
-			ClusterName: req.Config.ClusterName,
-			Namespace:   req.Namespace,
+		FluxApplicationDto: &FluxApplicationDto{
+			Name:         request.Name,
+			HealthStatus: appStatus.Status,
+			SyncStatus:   appStatus.Message,
+			EnvironmentDetails: &EnvironmentDetail{
+				ClusterId:   int(req.Config.ClusterId),
+				ClusterName: req.Config.ClusterName,
+				Namespace:   req.Namespace,
+			},
+			FluxAppDeploymentType: deploymentType,
 		},
-		IsKustomize:  req.IsKustomize,
 		AppStatusDto: appStatus,
 		TreeResponse: fluxAppTreeResponse,
 	}
@@ -348,144 +359,4 @@ func (impl *FluxApplicationServiceImpl) getHelmReleaseInventory(name string, nam
 
 	return releaseName, _namespace, appStatus, nil
 
-}
-func getFluxSpecKubeConfig(obj map[string]interface{}) bool {
-	if statusRawObj, ok := obj["spec"]; ok {
-		statusObj := statusRawObj.(map[string]interface{})
-		if _, ok2 := statusObj["kubeConfig"]; ok2 {
-			return true
-		} else {
-			return false
-		}
-	} else {
-		return false
-	}
-}
-func parseObjMetadata(s string) (FluxKsResourceDetail, error) {
-	index := strings.Index(s, FieldSeparator)
-	if index == -1 {
-		return NilObjMetadata, fmt.Errorf("unable to parse stored object metadata: %s", s)
-	}
-	namespace := s[:index]
-	s = s[index+1:]
-	// Next, parse last field kind
-	index = strings.LastIndex(s, FieldSeparator)
-	if index == -1 {
-		return NilObjMetadata, fmt.Errorf("unable to parse stored object metadata: %s", s)
-	}
-	kind := s[index+1:]
-	s = s[:index]
-	// Next, parse next to last field group
-	index = strings.LastIndex(s, FieldSeparator)
-	if index == -1 {
-		return NilObjMetadata, fmt.Errorf("unable to parse stored object metadata: %s", s)
-	}
-	group := s[index+1:]
-	// Finally, second field name. Name may contain colon transcoded as double underscore.
-	name := s[:index]
-	name = strings.ReplaceAll(name, ColonTranscoded, ":")
-	// Check that there are no extra fields by search for fieldSeparator.
-	if strings.Contains(name, FieldSeparator) {
-		return NilObjMetadata, fmt.Errorf("too many fields within: %s", s)
-	}
-	// Create the ObjMetadata object from the four parsed fields.
-	id := FluxKsResourceDetail{
-		Namespace: namespace,
-		Name:      name,
-		Group:     group,
-		Kind:      kind,
-	}
-	return id, nil
-}
-func getInventoryMap(obj map[string]interface{}) (map[string]string, error) {
-	fluxManagedResourcesMap := make(map[string]string)
-	if statusRawObj, ok := obj[STATUS]; ok {
-		statusObj := statusRawObj.(map[string]interface{})
-		if inventoryRawObj, ok2 := statusObj[INVENTORY]; ok2 {
-			inventoryObj := inventoryRawObj.(map[string]interface{})
-			if entriesRawObj, ok3 := inventoryObj[ENTRIES]; ok3 {
-				entriesObj := entriesRawObj.([]interface{})
-				for _, itemRawObj := range entriesObj {
-					itemObj := itemRawObj.(map[string]interface{})
-					var matadataCompact ObjectMetadataCompact
-					if metadataRaw, ok4 := itemObj[ID]; ok4 {
-						metadata := metadataRaw.(string)
-						matadataCompact.Id = metadata
-					}
-					if metadataVersionRaw, ok5 := itemObj[VERSION]; ok5 {
-						metadataVersion := metadataVersionRaw.(string)
-						matadataCompact.Version = metadataVersion
-					}
-					fluxManagedResourcesMap[matadataCompact.Id] = matadataCompact.Version
-				}
-			}
-		} else {
-			return nil, fmt.Errorf("inventory not found for flux application service2 inventory")
-		}
-
-	}
-	return fluxManagedResourcesMap, nil
-}
-func getReleaseNameNamespace(obj map[string]interface{}) (string, string) {
-
-	var releaseName, storageNamespace string
-
-	if statusRawObj, ok := obj[STATUS]; ok {
-		statusObj := statusRawObj.(map[string]interface{})
-		if storagens, ok6 := statusObj["storageNamespace"]; ok6 {
-			storageNamespace = storagens.(string)
-		}
-		if historyRawObj, ok1 := statusObj["history"]; ok1 {
-			historyObj := historyRawObj.([]interface{})
-
-			lastValOfHistoryRaw := historyObj[len(historyObj)-1]
-			lastValOfHistory := lastValOfHistoryRaw.(map[string]interface{})
-
-			if chartName, ok3 := lastValOfHistory["name"]; ok3 {
-				releaseName = chartName.(string)
-			}
-			//if cVersion, ok4 := firstvalOfHistory["chartVersion"]; ok4 {
-			//	version = cVersion.(string)
-			//
-			//}
-			//if ns, ok7 := firstvalOfHistory["namespace"]; ok7 {
-			//	storageNamespace = ns.(string)
-			//}
-		}
-
-	}
-	//releaseName = fmt.Sprintf("sh.helm.release.v1.%s", releaseName)
-
-	return releaseName, storageNamespace
-}
-func getKsAppStatus(obj map[string]interface{}) (*FluxAppStatusDetail, error) {
-	var status, reason, message string
-
-	if statusRawObj, ok := obj[STATUS]; ok {
-		statusObj := statusRawObj.(map[string]interface{})
-		if conditionsRawObj, ok2 := statusObj["conditions"]; ok2 {
-			conditionsObj := conditionsRawObj.([]interface{})
-			lastIndex := len(conditionsObj)
-			itemRawObj := conditionsObj[lastIndex-1]
-			itemObj := itemRawObj.(map[string]interface{})
-			if statusValRaw, ok4 := itemObj["status"]; ok4 {
-				status = statusValRaw.(string)
-			}
-			if reasonRawVal, ok5 := itemObj["reason"]; ok5 {
-				reason = reasonRawVal.(string)
-			}
-			if messageRaw, ok6 := itemObj["message"]; ok6 {
-				message = messageRaw.(string)
-			}
-		} else {
-			return nil, fmt.Errorf("inventory not found for flux application service2 inventory")
-		}
-
-	}
-
-	return &FluxAppStatusDetail{
-		Status:  status,
-		Reason:  reason,
-		Message: message,
-	}, nil
 }

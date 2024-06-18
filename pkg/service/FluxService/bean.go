@@ -33,11 +33,11 @@ var GvkForHelmreleaseFluxApp = schema.GroupVersionKind{
 }
 
 type FluxApplicationDto struct {
-	Name               string             `json:"appName"`
-	HealthStatus       string             `json:"appStatus"`
-	SyncStatus         string             `json:"syncStatus"`
-	EnvironmentDetails *EnvironmentDetail `json:"environmentDetail"`
-	IsKustomizeApp     bool               `json:"isKustomizeApp"`
+	Name                  string             `json:"appName"`
+	HealthStatus          string             `json:"appStatus"`
+	SyncStatus            string             `json:"syncStatus"`
+	EnvironmentDetails    *EnvironmentDetail `json:"environmentDetail"`
+	FluxAppDeploymentType FluxAppType        `json:"fluxAppDeploymentType"`
 }
 type EnvironmentDetail struct {
 	ClusterId   int    `json:"clusterId"`
@@ -78,11 +78,9 @@ type FluxAppDetailRequest struct {
 	IsKustomize bool   `json: "isKustomize"`
 }
 type FluxKsAppDetail struct {
-	Name              string
-	IsKustomize       bool
-	EnvironmentDetail *EnvironmentDetail
-	AppStatusDto      *FluxAppStatusDetail
-	TreeResponse      []*bean.ResourceTreeResponse
+	*FluxApplicationDto
+	AppStatusDto *FluxAppStatusDetail
+	TreeResponse []*bean.ResourceTreeResponse
 }
 type FluxAppStatusDetail struct {
 	Status  string

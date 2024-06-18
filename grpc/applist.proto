@@ -74,14 +74,14 @@ message DeployedAppList {
 
 message FluxApplicationList {
   int32 clusterId = 1;
-  repeated FluxApplicationDetail FluxApplicationDetail =2;
+  repeated FluxApplication FluxApplication =2;
 }
-message FluxApplicationDetail{
-  string Name=1;
-  string HealthStatus=2;
-  string SyncStatus=3;
+message FluxApplication{
+  string name=1;
+  string healthStatus=2;
+  string syncStatus=3;
   EnvironmentDetails environmentDetail = 4;
-  bool IsKustomizeApp=5;
+  string fluxAppDeploymentType=5;
 }
 
 //---------------flux external app detail-------
@@ -94,12 +94,9 @@ message FluxAppDetailRequest{
 }
 
 message FluxAppDetail{
-  FluxAppStatusDetail FluxAppStatusDetail = 1;
-  ResourceTreeResponse resourceTreeResponse = 2;
-  EnvironmentDetails environmentDetails = 3;
-  bool IsKustomizeApp = 4;
-  string name =5;
-
+  FluxApplication fluxApplication=1;
+  FluxAppStatusDetail FluxAppStatusDetail = 2;
+  ResourceTreeResponse resourceTreeResponse =3;
 }
 
 message FluxAppStatusDetail{

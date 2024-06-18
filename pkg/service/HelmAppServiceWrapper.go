@@ -628,19 +628,22 @@ func (impl *ApplicationServiceServerImpl) FluxAppDetailAdapter(req *FluxService.
 	}
 
 	return &client.FluxAppDetail{
+		FluxApplication: &client.FluxApplication{
+			Name:         req.Name,
+			HealthStatus: req.HealthStatus,
+			SyncStatus:   req.SyncStatus,
+			EnvironmentDetail: &client.EnvironmentDetails{
+				ClusterId:   int32(req.EnvironmentDetails.ClusterId),
+				Namespace:   req.EnvironmentDetails.Namespace,
+				ClusterName: req.EnvironmentDetails.ClusterName,
+			},
+			FluxAppDeploymentType: string(req.FluxAppDeploymentType),
+		},
 		FluxAppStatusDetail: &client.FluxAppStatusDetail{
 			Status:  req.AppStatusDto.Status,
 			Message: req.AppStatusDto.Message,
 			Reason:  req.AppStatusDto.Reason,
 		},
-		EnvironmentDetails: &client.EnvironmentDetails{
-			ClusterId:   int32(req.EnvironmentDetail.ClusterId),
-			Namespace:   req.EnvironmentDetail.Namespace,
-			ClusterName: req.EnvironmentDetail.ClusterName,
-		},
-		IsKustomizeApp: req.IsKustomize,
-		Name:           req.Name,
-
 		ResourceTreeResponse: treeResponse,
 	}
 }
