@@ -83,7 +83,6 @@ message FluxApplication{
   EnvironmentDetails environmentDetail = 4;
   string fluxAppDeploymentType=5;
 }
-
 //---------------flux external app detail-------
 
 message FluxAppDetailRequest{
