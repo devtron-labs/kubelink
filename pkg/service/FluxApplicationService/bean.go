@@ -5,28 +5,28 @@ import (
 )
 
 const (
-	FluxKustomizationGroup   = "kustomize.toolkit.fluxcd.io"
-	FluxAppKustomizationKind = "Kustomization"
-	FluxKustomizationVersion = "v1"
-	AllNamespaces            = ""
-	FluxHelmReleaseGroup     = "helm.toolkit.fluxcd.io"
-	FluxAppHelmReleaseKind   = "HelmRelease"
-	FluxHelmReleaseVersion   = "v2"
-	FluxLabel                = "labels"
-	KustomizeNameLabel       = "kustomize.toolkit.fluxcd.io/name"
-	KustomizeNamespaceLabel  = "kustomize.toolkit.fluxcd.io/namespace"
+	FluxKustomizationGroup     = "kustomize.toolkit.fluxcd.io"
+	FluxAppKustomizationKind   = "Kustomization"
+	FluxKustomizationVersionV1 = "v1"
+	AllNamespaces              = ""
+	FluxHelmReleaseGroup       = "helm.toolkit.fluxcd.io"
+	FluxAppHelmReleaseKind     = "HelmRelease"
+	FluxHelmReleaseVersionV2   = "v2"
+	FluxLabel                  = "labels"
+	KustomizeNameLabel         = "kustomize.toolkit.fluxcd.io/name"
+	KustomizeNamespaceLabel    = "kustomize.toolkit.fluxcd.io/namespace"
 )
 
 var GvkForKustomizationFluxApp = schema.GroupVersionKind{
 	Group:   FluxKustomizationGroup,
 	Kind:    FluxAppKustomizationKind,
-	Version: FluxKustomizationVersion,
+	Version: FluxKustomizationVersionV1,
 }
 
 var GvkForHelmreleaseFluxApp = schema.GroupVersionKind{
 	Group:   FluxHelmReleaseGroup,
 	Kind:    FluxAppHelmReleaseKind,
-	Version: FluxHelmReleaseVersion,
+	Version: FluxHelmReleaseVersionV2,
 }
 
 type FluxApplicationDto struct {
