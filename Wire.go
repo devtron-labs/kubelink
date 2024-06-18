@@ -31,6 +31,7 @@ import (
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
+	"github.com/devtron-labs/kubelink/pkg/service/FluxApplicationService"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 	"github.com/google/wire"
 )
@@ -48,6 +49,8 @@ func InitializeApp() (*App, error) {
 		wire.Bind(new(service.K8sService), new(*service.K8sServiceImpl)),
 		service.NewHelmAppServiceImpl,
 		wire.Bind(new(service.HelmAppService), new(*service.HelmAppServiceImpl)),
+		FluxApplicationService.NewFluxApplicationServiceImpl,
+		wire.Bind(new(FluxApplicationService.FluxApplicationService), new(*FluxApplicationService.FluxApplicationServiceImpl)),
 		converter.NewConverterImpl,
 		wire.Bind(new(converter.ClusterBeanConverter), new(*converter.ClusterBeanConverterImpl)),
 		service.NewApplicationServiceServerImpl,

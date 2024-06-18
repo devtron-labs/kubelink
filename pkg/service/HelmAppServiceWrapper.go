@@ -22,6 +22,7 @@ import (
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/internals/lock"
+	"github.com/devtron-labs/kubelink/pkg/service/FluxApplicationService"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
@@ -34,6 +35,7 @@ type ApplicationServiceServerImpl struct {
 	Logger                *zap.SugaredLogger
 	ChartRepositoryLocker *lock.ChartRepositoryLocker
 	HelmAppService        HelmAppService
+	FluxAppService        FluxApplicationService.FluxApplicationService
 }
 
 func (impl *ApplicationServiceServerImpl) MustEmbedUnimplementedApplicationServiceServer() {
@@ -41,11 +43,12 @@ func (impl *ApplicationServiceServerImpl) MustEmbedUnimplementedApplicationServi
 }
 
 func NewApplicationServiceServerImpl(logger *zap.SugaredLogger, chartRepositoryLocker *lock.ChartRepositoryLocker,
-	HelmAppService HelmAppService) *ApplicationServiceServerImpl {
+	HelmAppService HelmAppService, FluxAppService FluxApplicationService.FluxApplicationService) *ApplicationServiceServerImpl {
 	return &ApplicationServiceServerImpl{
 		Logger:                logger,
 		ChartRepositoryLocker: chartRepositoryLocker,
 		HelmAppService:        HelmAppService,
+		FluxAppService:        FluxAppService,
 	}
 }
 
@@ -588,4 +591,24 @@ func (impl *ApplicationServiceServerImpl) PushHelmChartToOCIRegistry(ctx context
 		return nil, err
 	}
 	return registryPushResponse, nil
+}
+
+func (impl *ApplicationServiceServerImpl) ListFluxApplications(req *client.AppListRequest, res client.ApplicationService_ListFluxApplicationsServer) error {
+	impl.Logger.Infow("List Flux Application Request", "req", req)
+	clusterConfigs := req.GetClusters()
+	eg := new(errgroup.Group)
+	for _, config := range clusterConfigs {
+		clusterConfig := *config
+		eg.Go(func() error {
+			apps := impl.FluxAppService.GetFluxApplicationListForCluster(&clusterConfig)
+			err := res.Send(apps)
+			return err
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		impl.Logger.Errorw("Error in fetching application list", "err", err)
+		return err
+	}
+	impl.Logger.Info("List Flux Application Request served")
+	return nil
 }
