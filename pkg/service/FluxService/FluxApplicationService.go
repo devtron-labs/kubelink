@@ -358,5 +358,4 @@ func (impl *FluxApplicationServiceImpl) getHelmReleaseInventory(name string, nam
 	}
 
 	return releaseName, _namespace, appStatus, nil
-
 }

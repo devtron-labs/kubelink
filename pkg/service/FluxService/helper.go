@@ -10,27 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func getRowsData(manifestObj map[string]interface{}, key string) []interface{} {
-	if rowsDataRaw, exists := manifestObj[key]; exists {
-		return rowsDataRaw.([]interface{})
-	}
-	return nil
-}
-
-func extractColumnDefinitions(columnsDataRaw interface{}) map[string]int {
-	columnDefinitions := make(map[string]int)
-	if columns, ok := columnsDataRaw.([]interface{}); ok {
-		for index, column := range columns {
-			if columnMap, ok := column.(map[string]interface{}); ok {
-				if name, exists := columnMap[ColumnNameKey].(string); exists {
-					columnDefinitions[name] = index
-				}
-			}
-		}
-	}
-	return columnDefinitions
-}
-
 func extractValuesFromRowCells(rowCells []interface{}, columnDefinitions map[string]int) (string, string, string) {
 	var name, syncStatus, healthStatus string
 	for key, index := range columnDefinitions {
@@ -46,11 +25,9 @@ func extractValuesFromRowCells(rowCells []interface{}, columnDefinitions map[str
 	}
 	return name, syncStatus, healthStatus
 }
-
 func extractNamespace(metadata map[string]interface{}) string {
 	return metadata[k8sCommonBean.K8sClusterResourceNamespaceKey].(string)
 }
-
 func shouldProcessApp(FluxAppType FluxAppType, metadata map[string]interface{}) bool {
 	if FluxAppType == FluxAppHelmreleaseKind {
 		if labels, exists := metadata[FluxLabel].(map[string]interface{}); exists {
@@ -87,7 +64,6 @@ func createFluxApplicationDto(rowDataMap map[string]interface{}, columnDefinitio
 		FluxAppDeploymentType: FluxAppType,
 	}
 }
-
 func GetApplicationListDtos(resources unstructured.UnstructuredList, clusterName string, clusterId int, FluxAppType FluxAppType) []*FluxApplicationDto {
 	manifestObj := resources.Object
 	fluxAppDetailArray := make([]*FluxApplicationDto, 0)
@@ -106,7 +82,6 @@ func GetApplicationListDtos(resources unstructured.UnstructuredList, clusterName
 
 	return fluxAppDetailArray
 }
-
 func GetFluxAppDetailDto(appDetail *FluxApplicationDto) *client.FluxApplication {
 	return &client.FluxApplication{
 		Name:                  appDetail.Name,
@@ -120,7 +95,6 @@ func GetFluxAppDetailDto(appDetail *FluxApplicationDto) *client.FluxApplication 
 		},
 	}
 }
-
 func getFluxSpecKubeConfig(obj map[string]interface{}) bool {
 	if statusRawObj, ok := obj["spec"]; ok {
 		statusObj := statusRawObj.(map[string]interface{})
@@ -260,4 +234,24 @@ func getKsAppStatus(obj map[string]interface{}) (*FluxAppStatusDetail, error) {
 		Reason:  reason,
 		Message: message,
 	}, nil
+}
+
+func getRowsData(manifestObj map[string]interface{}, key string) []interface{} {
+	if rowsDataRaw, exists := manifestObj[key]; exists {
+		return rowsDataRaw.([]interface{})
+	}
+	return nil
+}
+func extractColumnDefinitions(columnsDataRaw interface{}) map[string]int {
+	columnDefinitions := make(map[string]int)
+	if columns, ok := columnsDataRaw.([]interface{}); ok {
+		for index, column := range columns {
+			if columnMap, ok := column.(map[string]interface{}); ok {
+				if name, exists := columnMap[ColumnNameKey].(string); exists {
+					columnDefinitions[name] = index
+				}
+			}
+		}
+	}
+	return columnDefinitions
 }
