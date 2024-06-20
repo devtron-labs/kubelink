@@ -846,7 +846,7 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 			Password: chartRepoRequest.Password,
 			// Since helm 3.6.1 it is necessary to pass 'PassCredentialsAll = true'.
 			PassCredentialsAll:    true,
-			InsecureSkipTLSverify: !chartRepoRequest.GetAllowInsecureConnection(),
+			InsecureSkipTLSverify: chartRepoRequest.GetAllowInsecureConnection(),
 		}
 		impl.logger.Debug("Adding/Updating Chart repo")
 		err = helmClientObj.AddOrUpdateChartRepo(chartRepo)
@@ -1032,7 +1032,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 			Password: chartRepoRequest.Password,
 			// Since helm 3.6.1 it is necessary to pass 'PassCredentialsAll = true'.
 			PassCredentialsAll:    true,
-			InsecureSkipTLSverify: !chartRepoRequest.GetAllowInsecureConnection(),
+			InsecureSkipTLSverify: chartRepoRequest.GetAllowInsecureConnection(),
 		}
 		impl.logger.Debug("Adding/Updating Chart repo")
 		err = helmClientObj.AddOrUpdateChartRepo(chartRepo)
