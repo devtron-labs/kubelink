@@ -49,8 +49,11 @@ type HelmClient struct {
 
 // ChartSpec defines the values of a helm chart
 type ChartSpec struct {
-	ReleaseName string `json:"release"`
-	ChartName   string `json:"chart"`
+	ReleaseName             string `json:"release"`
+	ChartName               string `json:"chart"`
+	Username                string `json:"username"`
+	Password                string `json:"password"`
+	AllowInsecureConnection bool   `json:"allowInsecureConnection"`
 	// Namespace where the chart release is deployed.
 	// Note that helmclient.Options.Namespace should ideally match the namespace configured here.
 	Namespace string `json:"namespace"`

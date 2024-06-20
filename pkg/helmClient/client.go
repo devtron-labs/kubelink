@@ -543,8 +543,12 @@ func (c *HelmClient) GetNotes(spec *ChartSpec, options *HelmTemplateOptions) ([]
 		client.Version = ">0.0.0-0"
 	}
 	ChartPathOptions := action.ChartPathOptions{
-		RepoURL: spec.RepoURL,
-		Version: spec.Version,
+		RepoURL:               spec.RepoURL,
+		Username:              spec.Username,
+		Password:              spec.Password,
+		InsecureSkipTLSverify: spec.AllowInsecureConnection,
+		Version:               spec.Version,
+		PassCredentialsAll:    true,
 	}
 	client.ChartPathOptions = ChartPathOptions
 	helmChart, chartPath, err := c.getChart(spec.ChartName, &client.ChartPathOptions)
@@ -739,6 +743,9 @@ func mergeInstallOptions(chartSpec *ChartSpec, installOptions *action.Install) {
 	installOptions.WaitForJobs = chartSpec.WaitForJobs
 	installOptions.ChartPathOptions.RepoURL = chartSpec.RepoURL
 	installOptions.ChartPathOptions.Version = chartSpec.Version
+	installOptions.ChartPathOptions.Username = chartSpec.Username
+	installOptions.ChartPathOptions.Password = chartSpec.Password
+	installOptions.ChartPathOptions.InsecureSkipTLSverify = chartSpec.AllowInsecureConnection
 }
 
 // updateDependencies checks dependencies for given helmChart and updates dependencies with metadata if dependencyUpdate is true. returns updated HelmChart
