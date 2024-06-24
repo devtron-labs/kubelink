@@ -6,7 +6,7 @@ require (
 	//github.com/argoproj/gitops-engine v0.7.1-0.20231013183858-f15cf615b814
 	github.com/aws/aws-sdk-go v1.44.285 // indirect
 	github.com/caarlos0/env v3.5.0+incompatible
-	github.com/devtron-labs/common-lib v0.0.20-0.20240624084400-555b0938dee8
+	github.com/devtron-labs/common-lib v0.0.20-0.20240624105554-349c152dcbe7
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/go-pg/pg v6.15.1+incompatible
