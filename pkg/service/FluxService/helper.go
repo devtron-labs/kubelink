@@ -13,14 +13,21 @@ import (
 func extractValuesFromRowCells(rowCells []interface{}, columnDefinitions map[string]int) (string, string, string) {
 	var name, syncStatus, healthStatus string
 	for key, index := range columnDefinitions {
-		resolvedValueFromRowCell := rowCells[index].(string)
+		vari := ""
+		resolvedValueFromRowCell := rowCells[index]
+		if resolvedValueFromRowCell == nil {
+			vari = "Unknown"
+		} else {
+			vari = resolvedValueFromRowCell.(string)
+		}
+
 		switch key {
 		case NameKey:
-			name = resolvedValueFromRowCell
+			name = vari
 		case StatusKey:
-			syncStatus = resolvedValueFromRowCell
+			syncStatus = vari
 		case ReadyKey:
-			healthStatus = resolvedValueFromRowCell
+			healthStatus = vari
 		}
 	}
 	return name, syncStatus, healthStatus
@@ -79,7 +86,6 @@ func GetApplicationListDtos(resources unstructured.UnstructuredList, clusterName
 			}
 		}
 	}
-
 	return fluxAppDetailArray
 }
 func GetFluxAppDetailDto(appDetail *FluxApplicationDto) *client.FluxApplication {
@@ -143,6 +149,15 @@ func parseObjMetadata(s string) (FluxKsResourceDetail, error) {
 	}
 	return id, nil
 }
+func inventoryExists(obj map[string]interface{}) bool {
+	if statusRawObj, ok := obj[STATUS]; ok {
+		statusObj := statusRawObj.(map[string]interface{})
+		if _, ok2 := statusObj[INVENTORY]; ok2 {
+			return true
+		}
+	}
+	return false
+}
 func getInventoryMap(obj map[string]interface{}) (map[string]string, error) {
 	fluxManagedResourcesMap := make(map[string]string)
 	if statusRawObj, ok := obj[STATUS]; ok {
@@ -172,41 +187,35 @@ func getInventoryMap(obj map[string]interface{}) (map[string]string, error) {
 	}
 	return fluxManagedResourcesMap, nil
 }
-func getReleaseNameNamespace(obj map[string]interface{}) (string, string) {
+func getReleaseNameNamespace(obj map[string]interface{}, name string) (string, string) {
 
-	var releaseName, storageNamespace string
+	var releaseName, storageNamespace, targetNamespace string
 
 	if statusRawObj, ok := obj[STATUS]; ok {
 		statusObj := statusRawObj.(map[string]interface{})
-		if storagens, ok6 := statusObj["storageNamespace"]; ok6 {
-			storageNamespace = storagens.(string)
+		if storageNamespaceRaw, ok6 := statusObj["storageNamespace"]; ok6 {
+			storageNamespace = storageNamespaceRaw.(string)
 		}
-		if historyRawObj, ok1 := statusObj["history"]; ok1 {
-			historyObj := historyRawObj.([]interface{})
-
-			lastValOfHistoryRaw := historyObj[len(historyObj)-1]
-			lastValOfHistory := lastValOfHistoryRaw.(map[string]interface{})
-
-			if chartName, ok3 := lastValOfHistory["name"]; ok3 {
-				releaseName = chartName.(string)
+	}
+	if specRawObj, ok := obj["spec"]; ok {
+		specObj := specRawObj.(map[string]interface{})
+		if releaseNameRaw, ok2 := specObj["releaseName"]; ok2 {
+			releaseName = releaseNameRaw.(string)
+			return releaseName, storageNamespace
+		} else {
+			if targetNamespaceRaw, ok3 := specObj["targetNamespace"]; ok3 {
+				targetNamespace = targetNamespaceRaw.(string)
 			}
-			//if cVersion, ok4 := firstvalOfHistory["chartVersion"]; ok4 {
-			//	version = cVersion.(string)
-			//
-			//}
-			//if ns, ok7 := firstvalOfHistory["namespace"]; ok7 {
-			//	storageNamespace = ns.(string)
-			//}
 		}
-
+	}
+	if targetNamespace != "" {
+		return targetNamespace + "-" + name, storageNamespace
 	}
 	//releaseName = fmt.Sprintf("sh.helm.release.v1.%s", releaseName)
-
-	return releaseName, storageNamespace
+	return name, storageNamespace
 }
 func getKsAppStatus(obj map[string]interface{}) (*FluxAppStatusDetail, error) {
 	var status, reason, message string
-
 	if statusRawObj, ok := obj[STATUS]; ok {
 		statusObj := statusRawObj.(map[string]interface{})
 		if conditionsRawObj, ok2 := statusObj["conditions"]; ok2 {
@@ -235,7 +244,6 @@ func getKsAppStatus(obj map[string]interface{}) (*FluxAppStatusDetail, error) {
 		Message: message,
 	}, nil
 }
-
 func getRowsData(manifestObj map[string]interface{}, key string) []interface{} {
 	if rowsDataRaw, exists := manifestObj[key]; exists {
 		return rowsDataRaw.([]interface{})
