@@ -750,7 +750,7 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 			Password: chartRepoRequest.Password,
 			// Since helm 3.6.1 it is necessary to pass 'PassCredentialsAll = true'.
 			PassCredentialsAll:    true,
-			InsecureSkipTLSverify: true,
+			InsecureSkipTLSverify: chartRepoRequest.GetAllowInsecureConnection(),
 		}
 		impl.logger.Debug("Adding/Updating Chart repo")
 		err = helmClientObj.AddOrUpdateChartRepo(chartRepo)
@@ -845,14 +845,17 @@ func (impl HelmAppServiceImpl) GetNotes(ctx context.Context, request *client.Ins
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 	chartSpec := &helmClient.ChartSpec{
-		ReleaseName:   releaseIdentifier.ReleaseName,
-		Namespace:     releaseIdentifier.ReleaseNamespace,
-		ChartName:     request.ChartName,
-		CleanupOnFail: true, // allow deletion of new resources created in this rollback when rollback fails
-		MaxHistory:    0,    // limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
-		RepoURL:       request.ChartRepository.Url,
-		Version:       request.ChartVersion,
-		ValuesYaml:    request.ValuesYaml,
+		ReleaseName:             releaseIdentifier.ReleaseName,
+		Namespace:               releaseIdentifier.ReleaseNamespace,
+		ChartName:               request.ChartName,
+		CleanupOnFail:           true, // allow deletion of new resources created in this rollback when rollback fails
+		MaxHistory:              0,    // limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
+		RepoURL:                 request.ChartRepository.Url,
+		Version:                 request.ChartVersion,
+		ValuesYaml:              request.ValuesYaml,
+		Username:                request.ChartRepository.Username,
+		Password:                request.ChartRepository.Password,
+		AllowInsecureConnection: request.ChartRepository.AllowInsecureConnection,
 	}
 	HelmTemplateOptions := &helmClient.HelmTemplateOptions{}
 	if request.K8SVersion != "" {
@@ -933,7 +936,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 			Password: chartRepoRequest.Password,
 			// Since helm 3.6.1 it is necessary to pass 'PassCredentialsAll = true'.
 			PassCredentialsAll:    true,
-			InsecureSkipTLSverify: true,
+			InsecureSkipTLSverify: chartRepoRequest.GetAllowInsecureConnection(),
 		}
 		impl.logger.Debug("Adding/Updating Chart repo")
 		err = helmClientObj.AddOrUpdateChartRepo(chartRepo)
@@ -1132,15 +1135,18 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 	}
 
 	chartSpec := &helmClient.ChartSpec{
-		ReleaseName:    releaseIdentifier.ReleaseName,
-		Namespace:      releaseIdentifier.ReleaseNamespace,
-		ChartName:      chartName,
-		CleanupOnFail:  true, // allow deletion of new resources created in this rollback when rollback fails
-		MaxHistory:     0,    // limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
-		RepoURL:        repoURL,
-		Version:        request.ChartVersion,
-		ValuesYaml:     request.ValuesYaml,
-		RegistryClient: registryClient,
+		ReleaseName:             releaseIdentifier.ReleaseName,
+		Namespace:               releaseIdentifier.ReleaseNamespace,
+		ChartName:               chartName,
+		CleanupOnFail:           true, // allow deletion of new resources created in this rollback when rollback fails
+		MaxHistory:              0,    // limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
+		RepoURL:                 repoURL,
+		Version:                 request.ChartVersion,
+		ValuesYaml:              request.ValuesYaml,
+		RegistryClient:          registryClient,
+		Username:                request.ChartRepository.Username,
+		Password:                request.ChartRepository.Password,
+		AllowInsecureConnection: request.ChartRepository.AllowInsecureConnection,
 	}
 
 	HelmTemplateOptions := &helmClient.HelmTemplateOptions{}
