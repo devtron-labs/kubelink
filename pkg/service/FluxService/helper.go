@@ -75,7 +75,6 @@ func GetApplicationListDtos(resources unstructured.UnstructuredList, clusterName
 	manifestObj := resources.Object
 	fluxAppDetailArray := make([]*FluxApplicationDto, 0)
 	columnDefinitions := extractColumnDefinitions(manifestObj[k8sCommonBean.K8sClusterResourceColumnDefinitionKey])
-
 	rowsData := getRowsData(manifestObj, k8sCommonBean.K8sClusterResourceRowsKey)
 	if rowsData != nil {
 		for _, rowData := range rowsData {
@@ -100,6 +99,14 @@ func GetFluxAppDetailDto(appDetail *FluxApplicationDto) *client.FluxApplication 
 			Namespace:   appDetail.EnvironmentDetails.Namespace,
 		},
 	}
+}
+func ConvertFluxAppDetailsToDtos(appDetails []*FluxApplicationDto) []*client.FluxApplication {
+	var appListFinalDto []*client.FluxApplication
+	for _, appDetail := range appDetails {
+		fluxAppDetailDto := GetFluxAppDetailDto(appDetail)
+		appListFinalDto = append(appListFinalDto, fluxAppDetailDto)
+	}
+	return appListFinalDto
 }
 func getFluxSpecKubeConfig(obj map[string]interface{}) bool {
 	if statusRawObj, ok := obj["spec"]; ok {
@@ -233,7 +240,7 @@ func getKsAppStatus(obj map[string]interface{}) (*FluxAppStatusDetail, error) {
 				message = messageRaw.(string)
 			}
 		} else {
-			return nil, fmt.Errorf("inventory not found for flux application service2 inventory")
+			return nil, fmt.Errorf("inventory not found for flux application inventory")
 		}
 
 	}
@@ -262,4 +269,21 @@ func extractColumnDefinitions(columnsDataRaw interface{}) map[string]int {
 		}
 	}
 	return columnDefinitions
+}
+func parseObjMetadataList(obj map[string]interface{}) ([]FluxKsResourceDetail, error) {
+	inventoryMap, err := getInventoryMap(obj)
+	if err != nil {
+		return nil, err
+	}
+	resourceList := make([]FluxKsResourceDetail, 0)
+	for id, version := range inventoryMap {
+		var fluxResource FluxKsResourceDetail
+		fluxResource, err := parseObjMetadata(id)
+		if err != nil {
+			return resourceList, err
+		}
+		fluxResource.Version = version
+		resourceList = append(resourceList, fluxResource)
+	}
+	return resourceList, nil
 }
