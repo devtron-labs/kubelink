@@ -81,6 +81,7 @@ func (app *App) Start() {
 	}
 	recoveryOption := recovery.WithRecoveryHandler(grpcPanicRecoveryHandler)
 	opts := []grpc.ServerOption{
+		grpc.MaxRecvMsgSize(20 * 1024 * 1024),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionAge: 10 * time.Second,
 		}),
