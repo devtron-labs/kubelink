@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package CommonHelperService
+package commonHelmService
 
 import (
 	"github.com/devtron-labs/common-lib/utils/k8s/commonBean"

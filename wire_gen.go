@@ -18,9 +18,9 @@ import (
 	"github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
-	"github.com/devtron-labs/kubelink/pkg/service/CommonHelperService"
-	"github.com/devtron-labs/kubelink/pkg/service/FluxService"
-	"github.com/devtron-labs/kubelink/pkg/service/HelmApplicationService"
+	"github.com/devtron-labs/kubelink/pkg/service/commonHelmService"
+	"github.com/devtron-labs/kubelink/pkg/service/fluxService"
+	"github.com/devtron-labs/kubelink/pkg/service/helmApplicationService"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 )
 
@@ -29,11 +29,11 @@ import (
 func InitializeApp() (*App, error) {
 	sugaredLogger := logger.NewSugaredLogger()
 	chartRepositoryLocker := lock.NewChartRepositoryLocker(sugaredLogger)
-	helmReleaseConfig, err := CommonHelperService.GetHelmReleaseConfig()
+	helmReleaseConfig, err := commonHelmService.GetHelmReleaseConfig()
 	if err != nil {
 		return nil, err
 	}
-	k8sServiceImpl, err := CommonHelperService.NewK8sServiceImpl(sugaredLogger, helmReleaseConfig)
+	k8sServiceImpl, err := commonHelmService.NewK8sServiceImpl(sugaredLogger, helmReleaseConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -57,14 +57,14 @@ func InitializeApp() (*App, error) {
 	k8sK8sServiceImpl := k8s.NewK8sUtil(sugaredLogger, runtimeConfig)
 	clusterBeanConverterImpl := converter.NewConverterImpl()
 	k8sInformerImpl := k8sInformer.Newk8sInformerImpl(sugaredLogger, clusterRepositoryImpl, k8sInformerHelmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl)
-	commonUtils := CommonHelperService.NewCommonUtilsImpl(sugaredLogger, k8sK8sServiceImpl, clusterBeanConverterImpl, k8sServiceImpl, helmReleaseConfig)
+	commonHelmServiceImpl := commonHelmService.NewCommonHelmServiceImpl(sugaredLogger, k8sK8sServiceImpl, clusterBeanConverterImpl, k8sServiceImpl, helmReleaseConfig)
 	defaultSettingsGetterImpl := registry.NewDefaultSettingsGetter(sugaredLogger)
 	settingsFactoryImpl := registry.NewSettingsFactoryImpl(defaultSettingsGetterImpl)
-	helmAppServiceImpl, err := HelmApplicationService.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, helmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl, clusterRepositoryImpl, commonUtils, settingsFactoryImpl)
+	helmAppServiceImpl, err := helmApplicationService.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, helmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl, clusterRepositoryImpl, commonHelmServiceImpl, settingsFactoryImpl)
 	if err != nil {
 		return nil, err
 	}
-	fluxApplicationServiceImpl := FluxService.NewFluxApplicationServiceImpl(sugaredLogger, clusterRepositoryImpl, k8sK8sServiceImpl, clusterBeanConverterImpl, commonUtils)
+	fluxApplicationServiceImpl := fluxService.NewFluxApplicationServiceImpl(sugaredLogger, clusterRepositoryImpl, k8sK8sServiceImpl, clusterBeanConverterImpl, commonHelmServiceImpl)
 	applicationServiceServerImpl := service.NewApplicationServiceServerImpl(sugaredLogger, chartRepositoryLocker, helmAppServiceImpl, fluxApplicationServiceImpl)
 	monitoringRouter := monitoring.NewMonitoringRouter(sugaredLogger)
 	routerImpl := router.NewRouter(sugaredLogger, monitoringRouter)

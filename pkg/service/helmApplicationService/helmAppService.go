@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package HelmApplicationService
+package helmApplicationService
 
 import (
 	"bytes"
@@ -26,7 +26,7 @@ import (
 	"github.com/devtron-labs/kubelink/converter"
 	error2 "github.com/devtron-labs/kubelink/error"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
-	"github.com/devtron-labs/kubelink/pkg/service/CommonHelperService"
+	"github.com/devtron-labs/kubelink/pkg/service/commonHelmService"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -104,22 +104,22 @@ type HelmAppService interface {
 
 type HelmAppServiceImpl struct {
 	logger            *zap.SugaredLogger
-	k8sService        CommonHelperService.K8sService
+	k8sService        commonHelmService.K8sService
 	randSource        rand.Source
 	K8sInformer       k8sInformer.K8sInformer
-	helmReleaseConfig *CommonHelperService.HelmReleaseConfig
+	helmReleaseConfig *commonHelmService.HelmReleaseConfig
 	k8sUtil           k8sUtils.K8sService
 	pubsubClient      *pubsub_lib.PubSubClientServiceImpl
 	clusterRepository repository.ClusterRepository
 	converter         converter.ClusterBeanConverter
 	registrySettings  registry2.SettingsFactory
-	common            CommonHelperService.CommonUtilsI
+	common            commonHelmService.CommonHelmService
 }
 
-func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService CommonHelperService.K8sService,
-	k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *CommonHelperService.HelmReleaseConfig,
+func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService commonHelmService.K8sService,
+	k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *commonHelmService.HelmReleaseConfig,
 	k8sUtil k8sUtils.K8sService, converter converter.ClusterBeanConverter,
-	clusterRepository repository.ClusterRepository, common CommonHelperService.CommonUtilsI, registrySettings registry2.SettingsFactory) (*HelmAppServiceImpl, error) {
+	clusterRepository repository.ClusterRepository, common commonHelmService.CommonHelmService, registrySettings registry2.SettingsFactory) (*HelmAppServiceImpl, error) {
 
 	var pubsubClient *pubsub_lib.PubSubClientServiceImpl
 	var err error
@@ -790,7 +790,7 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 		return rel, nil
 	case true:
 		go func() {
-			helmInstallMessage := CommonHelperService.HelmReleaseStatusConfig{
+			helmInstallMessage := commonHelmService.HelmReleaseStatusConfig{
 				InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
 			}
 			// Checking release exist because there can be case when release already exist with same name
@@ -978,7 +978,7 @@ func (impl HelmAppServiceImpl) UpgradeReleaseWithChartInfo(ctx context.Context, 
 		go func() {
 			impl.logger.Debug("Upgrading release with chart info")
 			_, err = helmClientObj.UpgradeReleaseWithChartInfo(context.Background(), chartSpec)
-			helmInstallMessage := CommonHelperService.HelmReleaseStatusConfig{
+			helmInstallMessage := commonHelmService.HelmReleaseStatusConfig{
 				InstallAppVersionHistoryId: int(request.InstallAppVersionHistoryId),
 			}
 			var HelmInstallFailureNatsMessage string
@@ -1612,7 +1612,7 @@ func TrimSchemeFromURL(registryUrl string) string {
 	urlWithoutScheme = strings.TrimPrefix(urlWithoutScheme, "/")
 	return urlWithoutScheme
 }
-func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallError(ctx context.Context, helmInstallMessage CommonHelperService.HelmReleaseStatusConfig, releaseIdentifier *client.ReleaseIdentifier, installationErr error) (string, error) {
+func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallError(ctx context.Context, helmInstallMessage commonHelmService.HelmReleaseStatusConfig, releaseIdentifier *client.ReleaseIdentifier, installationErr error) (string, error) {
 	helmInstallMessage.Message = installationErr.Error()
 	isReleaseInstalled, err := impl.IsReleaseInstalled(ctx, releaseIdentifier)
 	if err != nil {
@@ -1633,7 +1633,7 @@ func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallError(ctx context.Con
 	return string(data), nil
 }
 
-func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallSuccess(helmInstallMessage CommonHelperService.HelmReleaseStatusConfig) (string, error) {
+func (impl HelmAppServiceImpl) GetNatsMessageForHelmInstallSuccess(helmInstallMessage commonHelmService.HelmReleaseStatusConfig) (string, error) {
 	helmInstallMessage.Message = RELEASE_INSTALLED
 	helmInstallMessage.IsReleaseInstalled = true
 	helmInstallMessage.ErrorInInstallation = false

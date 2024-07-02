@@ -1,4 +1,4 @@
-package FluxService
+package fluxService
 
 import (
 	"fmt"
@@ -7,59 +7,32 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strings"
 
-	//"github.com/devtron-labs/kubelink/pkg/service/FluxService"
+	//"github.com/devtron-labs/kubelink/pkg/service/fluxService"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func extractValuesFromRowCells(rowCells []interface{}, columnDefinitions map[string]int) (string, string, string) {
-	getValue := func(index int) string {
-		if index < len(rowCells) {
-			if value, ok := rowCells[index].(string); ok && value != "" {
-				return value
-			}
-		}
-		return "Unknown"
-	}
-	name := getValue(columnDefinitions[NameKey])
-	syncStatus := getValue(columnDefinitions[StatusKey])
-	healthStatus := getValue(columnDefinitions[ReadyKey])
+func isChildHelmRelease(rowDataMap map[string]interface{}) bool {
 
-	return name, syncStatus, healthStatus
-}
-func shouldProcessApp(fluxAppType FluxAppType, metadata map[string]interface{}) bool {
-	if fluxAppType == FluxAppHelmreleaseKind {
-		labels, found, err := unstructured.NestedMap(metadata, FluxLabel)
-		if err != nil || !found {
-			return true
-		}
-		nameLabel, _, errName := unstructured.NestedString(labels, KustomizeNameLabel)
-		namespaceLabel, _, errNamespace := unstructured.NestedString(labels, KustomizeNamespaceLabel)
-		if errName != nil || errNamespace != nil || nameLabel == "" || namespaceLabel == "" {
-			return true
-		}
+	nameLabel, _, errName := unstructured.NestedString(rowDataMap, ObjectField, MetaDataField, FluxLabel, KustomizeNameLabel)
+	namespaceLabel, _, errNamespace := unstructured.NestedString(rowDataMap, ObjectField, MetaDataField, FluxLabel, KustomizeNamespaceLabel)
+	if errName != nil || errNamespace != nil || nameLabel == "" || namespaceLabel == "" {
 		return false
 	}
 	return true
 }
 func createFluxApplicationDto(rowDataMap map[string]interface{}, columnDefinitions map[string]int, clusterId int, clusterName string, FluxAppType FluxAppType) *FluxApplicationDto {
-	rowObject, _, err := unstructured.NestedMap(rowDataMap, k8sCommonBean.K8sClusterResourceObjectKey)
-	if err != nil {
+
+	if FluxAppType == FluxAppHelmreleaseKind && isChildHelmRelease(rowDataMap) {
 		return nil
 	}
-	metadata, _, err := unstructured.NestedMap(rowObject, k8sCommonBean.K8sClusterResourceMetadataKey)
-	if err != nil {
-		return nil
-	}
-	if !shouldProcessApp(FluxAppType, metadata) {
-		return nil
-	}
+
 	rowCells, _, err := unstructured.NestedSlice(rowDataMap, k8sCommonBean.K8sClusterResourceCellKey)
 	if err != nil {
 		return nil
 	}
 	name, syncStatus, healthStatus := extractValuesFromRowCells(rowCells, columnDefinitions)
 
-	namespace, found, err := unstructured.NestedString(metadata, "namespace") // Replace "namespace" with actual key
+	namespace, found, err := unstructured.NestedString(rowDataMap, k8sCommonBean.K8sClusterResourceObjectKey, k8sCommonBean.K8sClusterResourceMetadataKey, NamespaceKey)
 	if err != nil || !found {
 		return nil
 	}
@@ -77,7 +50,7 @@ func createFluxApplicationDto(rowDataMap map[string]interface{}, columnDefinitio
 }
 func GetApplicationListDtos(resources unstructured.UnstructuredList, clusterName string, clusterId int, FluxAppType FluxAppType) []*FluxApplicationDto {
 	manifestObj := resources.Object
-	fluxAppDetailArray := make([]*FluxApplicationDto, 0)
+	var fluxAppDetailArray []*FluxApplicationDto
 
 	columnDefinitions, found, err := unstructured.NestedSlice(manifestObj, k8sCommonBean.K8sClusterResourceColumnDefinitionKey)
 	if err != nil || !found {
@@ -133,24 +106,30 @@ func getFluxSpecKubeConfig(obj map[string]interface{}) (bool, error) {
 	}
 	return true, nil
 }
-func parseObjMetadata(s string) (FluxKsResourceDetail, error) {
+
+/*
+this part of code logic belongs to flux cd for parsing their gvk in a kustomization inventory
+don't change the internal implementation of this parseObjMetadata function, before changing look into its implementation in fluxcd
+https://github.com/fluxcd/cli-utils/blob/7fd1e873041120a71a4c0e9d0df4fe00cd441b40/pkg/object/objmetadata.go#L70
+*/
+func parseObjMetadata(s string) (*ObjMetadata, error) {
 	index := strings.Index(s, FieldSeparator)
 	if index == -1 {
-		return NilObjMetadata, fmt.Errorf("unable to parse stored object metadata: %s", s)
+		return nil, fmt.Errorf("unable to parse stored object metadata: %s", s)
 	}
 	namespace := s[:index]
 	s = s[index+1:]
 	// Next, parse last field kind
 	index = strings.LastIndex(s, FieldSeparator)
 	if index == -1 {
-		return NilObjMetadata, fmt.Errorf("unable to parse stored object metadata: %s", s)
+		return nil, fmt.Errorf("unable to parse stored object metadata: %s", s)
 	}
 	kind := s[index+1:]
 	s = s[:index]
 	// Next, parse next to last field group
 	index = strings.LastIndex(s, FieldSeparator)
 	if index == -1 {
-		return NilObjMetadata, fmt.Errorf("unable to parse stored object metadata: %s", s)
+		return nil, fmt.Errorf("unable to parse stored object metadata: %s", s)
 	}
 	group := s[index+1:]
 	// Finally, second field name. Name may contain colon transcoded as double underscore.
@@ -158,41 +137,55 @@ func parseObjMetadata(s string) (FluxKsResourceDetail, error) {
 	name = strings.ReplaceAll(name, ColonTranscoded, ":")
 	// Check that there are no extra fields by search for fieldSeparator.
 	if strings.Contains(name, FieldSeparator) {
-		return NilObjMetadata, fmt.Errorf("too many fields within: %s", s)
+		return nil, fmt.Errorf("too many fields within: %s", s)
 	}
-	// Create the ObjMetadata object from the four parsed fields.
-	id := FluxKsResourceDetail{
-		Namespace: namespace,
+
+	return &ObjMetadata{
 		Name:      name,
+		Namespace: namespace,
 		Group:     group,
 		Kind:      kind,
+	}, nil
+}
+
+func decodeObjMetadata(s, version string) (*FluxKsResourceDetail, error) {
+	metadata, err := parseObjMetadata(s)
+	if err != nil {
+		return nil, err
+	}
+	// Create the ObjMetadata object from the four parsed fields.
+	id := &FluxKsResourceDetail{
+		Namespace: metadata.Namespace,
+		Name:      metadata.Name,
+		Group:     metadata.Group,
+		Kind:      metadata.Kind,
+		Version:   version,
 	}
 	return id, nil
 }
-func inventoryExists(obj map[string]interface{}) bool {
-	statusObj, found, err := unstructured.NestedMap(obj, STATUS)
+func inventoryExists(obj map[string]interface{}) (map[string]interface{}, bool) {
+	//statusObj, found, err := unstructured.NestedMap(obj, STATUS)
+	//if err != nil || !found {
+	//	return false
+	//}
+	inventory, found, err := unstructured.NestedMap(obj, STATUS, INVENTORY)
 	if err != nil || !found {
-		return false
+		return inventory, false
 	}
-	_, found, err = unstructured.NestedMap(statusObj, INVENTORY)
-	if err != nil || !found {
-		return false
-	}
-	return true
+	return inventory, true
 }
-func fetchInventoryList(obj map[string]interface{}) ([]FluxKsResourceDetail, error) {
-	var inventoryResources []FluxKsResourceDetail
-	childResourcesMap, err := getInventoryMap(obj)
+func fetchInventoryList(inventory map[string]interface{}) ([]*FluxKsResourceDetail, error) {
+	var inventoryResources []*FluxKsResourceDetail
+	childResourcesMap, err := getInventoryObjMetadata(inventory)
 	if err != nil {
 		return nil, err
 	}
 	for childResourceId, version := range childResourcesMap {
-		fluxResource, err := parseObjMetadata(childResourceId)
+		fluxResource, err := decodeObjMetadata(childResourceId, version)
 		if err != nil {
 			err = fmt.Errorf("unable to parse stored object metadata: %s", childResourceId)
 			return nil, err
 		}
-		fluxResource.Version = version
 		inventoryResources = append(inventoryResources, fluxResource)
 	}
 	return inventoryResources, nil
@@ -205,24 +198,22 @@ func convertFluxAppDetailsToDtos(appDetails []*FluxApplicationDto) []*client.Flu
 	}
 	return appListFinalDto
 }
-func getInventoryMap(obj map[string]interface{}) (map[string]string, error) {
-	fluxManagedResourcesMap := make(map[string]string)
-
-	status, found, err := unstructured.NestedMap(obj, STATUS)
-	if err != nil || !found {
-		return nil, fmt.Errorf("status not found")
-	}
-
-	inventory, found, err := unstructured.NestedMap(status, INVENTORY)
-	if err != nil || !found {
-		return nil, fmt.Errorf("inventory not found")
-	}
-
+func getInventoryObjMetadata(inventory map[string]interface{}) (map[string]string, error) {
+	var fluxManagedResourcesMap map[string]string
 	entries, found, err := unstructured.NestedSlice(inventory, ENTRIES)
 	if err != nil || !found {
 		return nil, fmt.Errorf("entries not found")
 	}
 
+	fluxManagedResourcesMap, err = getMapOfEntriesAndVersion(entries)
+	if err != nil {
+		return nil, err
+
+	}
+	return fluxManagedResourcesMap, nil
+}
+func getMapOfEntriesAndVersion(entries []interface{}) (map[string]string, error) {
+	fluxManagedResourcesMap := make(map[string]string)
 	for _, item := range entries {
 		itemMap, ok := item.(map[string]interface{})
 		if !ok {
@@ -243,6 +234,41 @@ func getInventoryMap(obj map[string]interface{}) (map[string]string, error) {
 		}
 		fluxManagedResourcesMap[metadataCompact.Id] = metadataCompact.Version
 	}
+	return fluxManagedResourcesMap, nil
+}
+func getInventoryObjMetadataFromResponseObj(obj map[string]interface{}) (map[string]string, error) {
+	fluxManagedResourcesMap := make(map[string]string)
+	entries, found, err := unstructured.NestedSlice(obj, STATUS, INVENTORY, ENTRIES)
+	if err != nil || !found {
+		return nil, fmt.Errorf("entries not found")
+	}
+	fluxManagedResourcesMap, err = getMapOfEntriesAndVersion(entries)
+	if err != nil {
+		return nil, err
+
+	}
+	return fluxManagedResourcesMap, nil
+
+	//for _, item := range entries {
+	//	itemMap, ok := item.(map[string]interface{})
+	//	if !ok {
+	//		return nil, fmt.Errorf("invalid item format")
+	//	}
+	//
+	//	metadataCompact := ObjectMetadataCompact{}
+	//	if id, found, err := unstructured.NestedString(itemMap, ID); found && err == nil {
+	//		metadataCompact.Id = id
+	//	} else if err != nil {
+	//		return nil, err
+	//	}
+	//
+	//	if version, found, err := unstructured.NestedString(itemMap, VERSION); found && err == nil {
+	//		metadataCompact.Version = version
+	//	} else if err != nil {
+	//		return nil, err
+	//	}
+	//	fluxManagedResourcesMap[metadataCompact.Id] = metadataCompact.Version
+	//}
 	return fluxManagedResourcesMap, nil
 }
 func getReleaseNameNamespace(obj map[string]interface{}, name string) (string, string, error) {

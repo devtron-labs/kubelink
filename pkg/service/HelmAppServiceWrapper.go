@@ -22,8 +22,8 @@ import (
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/internals/lock"
-	"github.com/devtron-labs/kubelink/pkg/service/FluxService"
-	"github.com/devtron-labs/kubelink/pkg/service/HelmApplicationService"
+	"github.com/devtron-labs/kubelink/pkg/service/fluxService"
+	"github.com/devtron-labs/kubelink/pkg/service/helmApplicationService"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
@@ -35,8 +35,8 @@ type ApplicationServiceServerImpl struct {
 	client.UnimplementedApplicationServiceServer
 	Logger                *zap.SugaredLogger
 	ChartRepositoryLocker *lock.ChartRepositoryLocker
-	HelmAppService        HelmApplicationService.HelmAppService
-	FluxAppService        FluxService.FluxApplicationService
+	HelmAppService        helmApplicationService.HelmAppService
+	FluxAppService        fluxService.FluxApplicationService
 }
 
 func (impl *ApplicationServiceServerImpl) MustEmbedUnimplementedApplicationServiceServer() {
@@ -44,7 +44,7 @@ func (impl *ApplicationServiceServerImpl) MustEmbedUnimplementedApplicationServi
 }
 
 func NewApplicationServiceServerImpl(logger *zap.SugaredLogger, chartRepositoryLocker *lock.ChartRepositoryLocker,
-	HelmAppService HelmApplicationService.HelmAppService, FluxAppService FluxService.FluxApplicationService) *ApplicationServiceServerImpl {
+	HelmAppService helmApplicationService.HelmAppService, FluxAppService fluxService.FluxApplicationService) *ApplicationServiceServerImpl {
 	return &ApplicationServiceServerImpl{
 		Logger:                logger,
 		ChartRepositoryLocker: chartRepositoryLocker,
@@ -624,7 +624,7 @@ func (impl *ApplicationServiceServerImpl) GetFluxAppDetail(ctx context.Context, 
 	return fluxAppDetailResponse, nil
 }
 
-func (impl *ApplicationServiceServerImpl) FluxAppDetailAdapter(req *FluxService.FluxKsAppDetail) *client.FluxAppDetail {
+func (impl *ApplicationServiceServerImpl) FluxAppDetailAdapter(req *fluxService.FluxKsAppDetail) *client.FluxAppDetail {
 	resourceNodes := make([]*client.ResourceNode, 0)
 	podMetaData := make([]*client.PodMetadata, 0)
 	if len(req.TreeResponse) > 0 {

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package HelmApplicationService
+package helmApplicationService
 
 import (
 	client "github.com/devtron-labs/kubelink/grpc"

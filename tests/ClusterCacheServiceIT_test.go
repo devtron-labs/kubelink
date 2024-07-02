@@ -28,7 +28,7 @@ import (
 	"github.com/devtron-labs/kubelink/pkg/cache"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	k8sInformer2 "github.com/devtron-labs/kubelink/pkg/k8sInformer"
-	service2 "github.com/devtron-labs/kubelink/pkg/service/CommonHelperService"
+	service2 "github.com/devtron-labs/kubelink/pkg/service/commonHelmService"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 	"github.com/go-pg/pg"
 	"github.com/stretchr/testify/assert"

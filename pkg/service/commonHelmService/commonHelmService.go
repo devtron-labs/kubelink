@@ -1,4 +1,4 @@
-package CommonHelperService
+package commonHelmService
 
 import (
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
@@ -24,14 +24,14 @@ import (
 	"sync"
 )
 
-type CommonUtilsI interface {
+type CommonHelmService interface {
 	GetHelmRelease(clusterConfig *client.ClusterConfig, namespace string, releaseName string) (*release.Release, error)
 	BuildResourceTree(appDetailRequest *client.AppDetailRequest, release *release.Release) (*bean.ResourceTreeResponse, error)
 	BuildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef) ([]*bean.ResourceNode, []*bean.HealthStatus, error)
 	GetResourceTreeForExternalResources(req *client.ExternalResourceTreeRequest) (*bean.ResourceTreeResponse, error)
 }
 
-type CommonUtils struct {
+type CommonHelmServiceImpl struct {
 	k8sService        K8sService
 	logger            *zap.SugaredLogger
 	k8sUtil           k8sUtils.K8sService
@@ -39,10 +39,10 @@ type CommonUtils struct {
 	helmReleaseConfig *HelmReleaseConfig
 }
 
-func NewCommonUtilsImpl(logger *zap.SugaredLogger,
+func NewCommonHelmServiceImpl(logger *zap.SugaredLogger,
 	k8sUtil k8sUtils.K8sService, converter converter.ClusterBeanConverter,
-	k8sService K8sService, helmReleaseConfig *HelmReleaseConfig) *CommonUtils {
-	return &CommonUtils{
+	k8sService K8sService, helmReleaseConfig *HelmReleaseConfig) *CommonHelmServiceImpl {
+	return &CommonHelmServiceImpl{
 		logger:            logger,
 		k8sUtil:           k8sUtil,
 		converter:         converter,
@@ -52,7 +52,7 @@ func NewCommonUtilsImpl(logger *zap.SugaredLogger,
 
 }
 
-func (impl *CommonUtils) GetHelmRelease(clusterConfig *client.ClusterConfig, namespace string, releaseName string) (*release.Release, error) {
+func (impl *CommonHelmServiceImpl) GetHelmRelease(clusterConfig *client.ClusterConfig, namespace string, releaseName string) (*release.Release, error) {
 
 	k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(clusterConfig)
 	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
@@ -75,7 +75,7 @@ func (impl *CommonUtils) GetHelmRelease(clusterConfig *client.ClusterConfig, nam
 	}
 	return release, nil
 }
-func (impl *CommonUtils) BuildResourceTree(appDetailRequest *client.AppDetailRequest, release *release.Release) (*bean.ResourceTreeResponse, error) {
+func (impl *CommonHelmServiceImpl) BuildResourceTree(appDetailRequest *client.AppDetailRequest, release *release.Release) (*bean.ResourceTreeResponse, error) {
 	conf, err := impl.getRestConfigForClusterConfig(appDetailRequest.ClusterConfig)
 	if err != nil {
 		return nil, err
@@ -110,7 +110,7 @@ func (impl *CommonUtils) BuildResourceTree(appDetailRequest *client.AppDetailReq
 	}
 	return resourceTreeResponse, nil
 }
-func (impl *CommonUtils) getRestConfigForClusterConfig(clusterConfig *client.ClusterConfig) (*rest.Config, error) {
+func (impl *CommonHelmServiceImpl) getRestConfigForClusterConfig(clusterConfig *client.ClusterConfig) (*rest.Config, error) {
 	k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(clusterConfig)
 	conf, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
@@ -119,7 +119,7 @@ func (impl *CommonUtils) getRestConfigForClusterConfig(clusterConfig *client.Clu
 	}
 	return conf, nil
 }
-func (impl *CommonUtils) getLiveManifests(config *rest.Config, helmRelease *release.Release) ([]*bean.DesiredOrLiveManifest, error) {
+func (impl *CommonHelmServiceImpl) getLiveManifests(config *rest.Config, helmRelease *release.Release) ([]*bean.DesiredOrLiveManifest, error) {
 	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
 	manifests = impl.addHookResourcesInManifest(helmRelease, manifests)
 	// get live manifests from kubernetes
@@ -130,7 +130,7 @@ func (impl *CommonUtils) getLiveManifests(config *rest.Config, helmRelease *rele
 	}
 	return desiredOrLiveManifests, nil
 }
-func (impl *CommonUtils) addHookResourcesInManifest(helmRelease *release.Release, manifests []unstructured.Unstructured) []unstructured.Unstructured {
+func (impl *CommonHelmServiceImpl) addHookResourcesInManifest(helmRelease *release.Release, manifests []unstructured.Unstructured) []unstructured.Unstructured {
 	for _, helmHook := range helmRelease.Hooks {
 		var hook unstructured.Unstructured
 		err := yaml.Unmarshal([]byte(helmHook.Manifest), &hook)
@@ -142,7 +142,7 @@ func (impl *CommonUtils) addHookResourcesInManifest(helmRelease *release.Release
 	}
 	return manifests
 }
-func (impl *CommonUtils) getDesiredOrLiveManifests(restConfig *rest.Config, desiredManifests []unstructured.Unstructured, releaseNamespace string) ([]*bean.DesiredOrLiveManifest, error) {
+func (impl *CommonHelmServiceImpl) getDesiredOrLiveManifests(restConfig *rest.Config, desiredManifests []unstructured.Unstructured, releaseNamespace string) ([]*bean.DesiredOrLiveManifest, error) {
 
 	totalManifestCount := len(desiredManifests)
 	desiredOrLiveManifestArray := make([]*bean.DesiredOrLiveManifest, totalManifestCount)
@@ -169,7 +169,7 @@ func (impl *CommonUtils) getDesiredOrLiveManifests(restConfig *rest.Config, desi
 
 	return desiredOrLiveManifestArray, nil
 }
-func (impl *CommonUtils) getManifestData(restConfig *rest.Config, releaseNamespace string, desiredManifest unstructured.Unstructured) *bean.DesiredOrLiveManifest {
+func (impl *CommonHelmServiceImpl) getManifestData(restConfig *rest.Config, releaseNamespace string, desiredManifest unstructured.Unstructured) *bean.DesiredOrLiveManifest {
 	gvk := desiredManifest.GroupVersionKind()
 	_namespace := desiredManifest.GetNamespace()
 	if _namespace == "" {
@@ -197,7 +197,7 @@ func (impl *CommonUtils) getManifestData(restConfig *rest.Config, releaseNamespa
 	return desiredOrLiveManifest
 }
 
-func (impl *CommonUtils) BuildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
+func (impl *CommonHelmServiceImpl) BuildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
 	var nodes []*bean.ResourceNode
 	var healthStatusArray []*bean.HealthStatus
 	for _, desiredOrLiveManifest := range desiredOrLiveManifests {
@@ -289,7 +289,7 @@ func (impl *CommonUtils) BuildNodes(restConfig *rest.Config, desiredOrLiveManife
 	return nodes, healthStatusArray, nil
 }
 
-func (impl *CommonUtils) filterNodes(resourceTreeFilter *client.ResourceTreeFilter, nodes []*bean.ResourceNode) []*bean.ResourceNode {
+func (impl *CommonHelmServiceImpl) filterNodes(resourceTreeFilter *client.ResourceTreeFilter, nodes []*bean.ResourceNode) []*bean.ResourceNode {
 	resourceFilters := resourceTreeFilter.ResourceFilters
 	globalFilter := resourceTreeFilter.GlobalFilter
 	if globalFilter == nil && (resourceFilters == nil || len(resourceFilters) == 0) {
@@ -334,7 +334,7 @@ func (impl *CommonUtils) filterNodes(resourceTreeFilter *client.ResourceTreeFilt
 	return filteredNodes
 }
 
-func (impl *CommonUtils) buildPodMetadata(nodes []*bean.ResourceNode, restConfig *rest.Config) ([]*bean.PodMetadata, error) {
+func (impl *CommonHelmServiceImpl) buildPodMetadata(nodes []*bean.ResourceNode, restConfig *rest.Config) ([]*bean.PodMetadata, error) {
 	deploymentPodHashMap, rolloutMap, uidVsExtraNodeInfoMap := getExtraNodeInfoMappings(nodes)
 	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
 	for _, node := range nodes {
@@ -408,7 +408,7 @@ func (impl *CommonUtils) buildPodMetadata(nodes []*bean.ResourceNode, restConfig
 	return podsMetadata, nil
 }
 
-func (impl *CommonUtils) GetResourceTreeForExternalResources(req *client.ExternalResourceTreeRequest) (*bean.ResourceTreeResponse, error) {
+func (impl *CommonHelmServiceImpl) GetResourceTreeForExternalResources(req *client.ExternalResourceTreeRequest) (*bean.ResourceTreeResponse, error) {
 	k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(req.ClusterConfig)
 	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
@@ -436,7 +436,7 @@ func (impl *CommonUtils) GetResourceTreeForExternalResources(req *client.Externa
 	}
 	return resourceTreeResponse, nil
 }
-func (impl *CommonUtils) getManifestsForExternalResources(restConfig *rest.Config, externalResourceDetails []*client.ExternalResourceDetail) []*bean.DesiredOrLiveManifest {
+func (impl *CommonHelmServiceImpl) getManifestsForExternalResources(restConfig *rest.Config, externalResourceDetails []*client.ExternalResourceDetail) []*bean.DesiredOrLiveManifest {
 	var manifests []*bean.DesiredOrLiveManifest
 	for _, resource := range externalResourceDetails {
 		gvk := &schema.GroupVersionKind{
@@ -470,7 +470,7 @@ func (impl *CommonUtils) getManifestsForExternalResources(restConfig *rest.Confi
 	return manifests
 }
 
-func (impl *CommonUtils) isPodNew(nodes []*bean.ResourceNode, node *bean.ResourceNode, deploymentPodHashMap map[string]string, rolloutMap map[string]*util.ExtraNodeInfo,
+func (impl *CommonHelmServiceImpl) isPodNew(nodes []*bean.ResourceNode, node *bean.ResourceNode, deploymentPodHashMap map[string]string, rolloutMap map[string]*util.ExtraNodeInfo,
 	uidVsExtraNodeInfoMap map[string]*util.ExtraNodeInfo, restConfig *rest.Config) (bool, error) {
 
 	isNew := false
@@ -539,7 +539,7 @@ func (impl *CommonUtils) isPodNew(nodes []*bean.ResourceNode, node *bean.Resourc
 	return isNew, nil
 }
 
-func (impl *CommonUtils) getReplicaSetObject(restConfig *rest.Config, replicaSetNode *bean.ResourceNode) (*v1beta1.ReplicaSet, error) {
+func (impl *CommonHelmServiceImpl) getReplicaSetObject(restConfig *rest.Config, replicaSetNode *bean.ResourceNode) (*v1beta1.ReplicaSet, error) {
 	gvk := &schema.GroupVersionKind{
 		Group:   replicaSetNode.Group,
 		Version: replicaSetNode.Version,
@@ -568,7 +568,7 @@ func (impl *CommonUtils) getReplicaSetObject(restConfig *rest.Config, replicaSet
 	return replicaSetObj, nil
 }
 
-func (impl *CommonUtils) getDeploymentCollisionCount(restConfig *rest.Config, deploymentInfo *bean.ResourceRef) (*int32, error) {
+func (impl *CommonHelmServiceImpl) getDeploymentCollisionCount(restConfig *rest.Config, deploymentInfo *bean.ResourceRef) (*int32, error) {
 	parentGvk := &schema.GroupVersionKind{
 		Group:   deploymentInfo.Group,
 		Version: deploymentInfo.Version,

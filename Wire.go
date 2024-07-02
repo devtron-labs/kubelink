@@ -31,9 +31,9 @@ import (
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
-	service3 "github.com/devtron-labs/kubelink/pkg/service/CommonHelperService"
-	service2 "github.com/devtron-labs/kubelink/pkg/service/FluxService"
-	service4 "github.com/devtron-labs/kubelink/pkg/service/HelmApplicationService"
+	commonHelmService "github.com/devtron-labs/kubelink/pkg/service/commonHelmService"
+	fluxService "github.com/devtron-labs/kubelink/pkg/service/fluxService"
+	helmApplicationService "github.com/devtron-labs/kubelink/pkg/service/helmApplicationService"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 	"github.com/google/wire"
 )
@@ -47,23 +47,23 @@ func InitializeApp() (*App, error) {
 		k8s.NewK8sUtil,
 		wire.Bind(new(k8s.K8sService), new(*k8s.K8sServiceImpl)),
 		lock.NewChartRepositoryLocker,
-		service3.NewK8sServiceImpl,
-		wire.Bind(new(service3.K8sService), new(*service3.K8sServiceImpl)),
-		service3.NewCommonUtilsImpl,
-		wire.Bind(new(service3.CommonUtilsI), new(*service3.CommonUtils)),
-		service4.NewHelmAppServiceImpl,
-		wire.Bind(new(service4.HelmAppService), new(*service4.HelmAppServiceImpl)),
+		commonHelmService.NewK8sServiceImpl,
+		wire.Bind(new(commonHelmService.K8sService), new(*commonHelmService.K8sServiceImpl)),
+		commonHelmService.NewCommonHelmServiceImpl,
+		wire.Bind(new(commonHelmService.CommonHelmService), new(*commonHelmService.CommonHelmServiceImpl)),
+		helmApplicationService.NewHelmAppServiceImpl,
+		wire.Bind(new(helmApplicationService.HelmAppService), new(*helmApplicationService.HelmAppServiceImpl)),
 		converter.NewConverterImpl,
 		wire.Bind(new(converter.ClusterBeanConverter), new(*converter.ClusterBeanConverterImpl)),
-		service2.NewFluxApplicationServiceImpl,
-		wire.Bind(new(service2.FluxApplicationService), new(*service2.FluxApplicationServiceImpl)),
+		fluxService.NewFluxApplicationServiceImpl,
+		wire.Bind(new(fluxService.FluxApplicationService), new(*fluxService.FluxApplicationServiceImpl)),
 		service.NewApplicationServiceServerImpl,
 		router.NewRouter,
 		k8sInformer.Newk8sInformerImpl,
 		wire.Bind(new(k8sInformer.K8sInformer), new(*k8sInformer.K8sInformerImpl)),
 		repository.NewClusterRepositoryImpl,
 		wire.Bind(new(repository.ClusterRepository), new(*repository.ClusterRepositoryImpl)),
-		service3.GetHelmReleaseConfig,
+		commonHelmService.GetHelmReleaseConfig,
 		k8sInformer.GetHelmReleaseConfig,
 		//pubsub_lib.NewPubSubClientServiceImpl,
 		//cache.NewClusterCacheImpl,
