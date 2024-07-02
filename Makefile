@@ -14,7 +14,7 @@ GOFLAGS:= $(GOFLAGS) -buildvcs=false
 include $(ENV_FILE)
 export
 
-build: clean
+build: clean wire
 	$(ENVVAR) GOOS=$(GOOS) go build \
 	    -o kubelink \
 

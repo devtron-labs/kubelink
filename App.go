@@ -64,11 +64,8 @@ func NewApp(Logger *zap.SugaredLogger, ServerImpl *service.ApplicationServiceSer
 }
 
 func (app *App) Start() {
-
 	port := 50051 //TODO: extract from environment variable
-
 	httpPort := 50052
-
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Panic(err)
