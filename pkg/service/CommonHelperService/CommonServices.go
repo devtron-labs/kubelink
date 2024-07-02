@@ -196,6 +196,7 @@ func (impl *CommonUtils) getManifestData(restConfig *rest.Config, releaseNamespa
 	}
 	return desiredOrLiveManifest
 }
+
 func (impl *CommonUtils) BuildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
 	var nodes []*bean.ResourceNode
 	var healthStatusArray []*bean.HealthStatus
@@ -287,6 +288,7 @@ func (impl *CommonUtils) BuildNodes(restConfig *rest.Config, desiredOrLiveManife
 
 	return nodes, healthStatusArray, nil
 }
+
 func (impl *CommonUtils) filterNodes(resourceTreeFilter *client.ResourceTreeFilter, nodes []*bean.ResourceNode) []*bean.ResourceNode {
 	resourceFilters := resourceTreeFilter.ResourceFilters
 	globalFilter := resourceTreeFilter.GlobalFilter
@@ -331,6 +333,7 @@ func (impl *CommonUtils) filterNodes(resourceTreeFilter *client.ResourceTreeFilt
 
 	return filteredNodes
 }
+
 func (impl *CommonUtils) buildPodMetadata(nodes []*bean.ResourceNode, restConfig *rest.Config) ([]*bean.PodMetadata, error) {
 	deploymentPodHashMap, rolloutMap, uidVsExtraNodeInfoMap := getExtraNodeInfoMappings(nodes)
 	podsMetadata := make([]*bean.PodMetadata, 0, len(nodes))
@@ -404,6 +407,7 @@ func (impl *CommonUtils) buildPodMetadata(nodes []*bean.ResourceNode, restConfig
 	}
 	return podsMetadata, nil
 }
+
 func (impl *CommonUtils) GetResourceTreeForExternalResources(req *client.ExternalResourceTreeRequest) (*bean.ResourceTreeResponse, error) {
 	k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(req.ClusterConfig)
 	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
@@ -465,6 +469,7 @@ func (impl *CommonUtils) getManifestsForExternalResources(restConfig *rest.Confi
 	}
 	return manifests
 }
+
 func (impl *CommonUtils) isPodNew(nodes []*bean.ResourceNode, node *bean.ResourceNode, deploymentPodHashMap map[string]string, rolloutMap map[string]*util.ExtraNodeInfo,
 	uidVsExtraNodeInfoMap map[string]*util.ExtraNodeInfo, restConfig *rest.Config) (bool, error) {
 
@@ -533,6 +538,7 @@ func (impl *CommonUtils) isPodNew(nodes []*bean.ResourceNode, node *bean.Resourc
 	}
 	return isNew, nil
 }
+
 func (impl *CommonUtils) getReplicaSetObject(restConfig *rest.Config, replicaSetNode *bean.ResourceNode) (*v1beta1.ReplicaSet, error) {
 	gvk := &schema.GroupVersionKind{
 		Group:   replicaSetNode.Group,
@@ -561,6 +567,7 @@ func (impl *CommonUtils) getReplicaSetObject(restConfig *rest.Config, replicaSet
 	}
 	return replicaSetObj, nil
 }
+
 func (impl *CommonUtils) getDeploymentCollisionCount(restConfig *rest.Config, deploymentInfo *bean.ResourceRef) (*int32, error) {
 	parentGvk := &schema.GroupVersionKind{
 		Group:   deploymentInfo.Group,
@@ -590,18 +597,6 @@ func (impl *CommonUtils) getDeploymentCollisionCount(restConfig *rest.Config, de
 	return deploymentObj.Status.CollisionCount, nil
 }
 
-//	func buildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstructured, namespace string) *bean.ResourceRef {
-//		resourceRef := &bean.ResourceRef{
-//			Group:     gvk.Group,
-//			Version:   gvk.Version,
-//			Kind:      gvk.Kind,
-//			Namespace: namespace,
-//			Name:      manifest.GetName(),
-//			UID:       string(manifest.GetUID()),
-//			Manifest:  manifest,
-//		}
-//		return resourceRef
-//	}
 func updateHookInfoForChildNodes(nodes []*bean.ResourceNode) {
 	hookUidToHookTypeMap := make(map[string]string)
 	for _, node := range nodes {

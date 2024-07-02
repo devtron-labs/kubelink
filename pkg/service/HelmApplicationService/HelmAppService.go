@@ -23,18 +23,13 @@ import (
 	"errors"
 	"fmt"
 	registry2 "github.com/devtron-labs/common-lib/helmLib/registry"
-	//k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
-	//k8sObjectUtils "github.com/devtron-labs/common-lib/utils/k8sObjectsUtil"
 	"github.com/devtron-labs/kubelink/converter"
 	error2 "github.com/devtron-labs/kubelink/error"
-	"github.com/devtron-labs/kubelink/pkg/cache"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/service/CommonHelperService"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/storage/driver"
-	//"k8s.io/api/extensions/v1beta1"
-	//"k8s.io/apimachinery/pkg/util/yaml"
 	"net/url"
 	"path"
 	"strings"
@@ -50,7 +45,6 @@ import (
 	"github.com/devtron-labs/kubelink/pkg/helmClient"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/util"
-	"github.com/devtron-labs/kubelink/pkg/util/argo"
 	jsonpatch "github.com/evanphx/json-patch"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -64,7 +58,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"math/rand"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -1252,7 +1245,7 @@ func (impl *HelmAppServiceImpl) getNodes(appDetailRequest *client.AppDetailReque
 		return nil, nil, err
 	}
 	// build resource nodes
-	nodes, healthStatusArray, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
+	nodes, healthStatusArray, err := impl.common.BuildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1312,98 +1305,6 @@ func (impl HelmAppServiceImpl) getManifestData(restConfig *rest.Config, releaseN
 		}
 	}
 	return desiredOrLiveManifest
-}
-
-func (impl HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
-	var nodes []*bean.ResourceNode
-	var healthStatusArray []*bean.HealthStatus
-	for _, desiredOrLiveManifest := range desiredOrLiveManifests {
-		manifest := desiredOrLiveManifest.Manifest
-		gvk := manifest.GroupVersionKind()
-		_namespace := manifest.GetNamespace()
-		if _namespace == "" {
-			_namespace = releaseNamespace
-		}
-		ports := util.GetPorts(manifest, gvk)
-		resourceRef := CommonHelperService.BuildResourceRef(gvk, *manifest, _namespace)
-
-		if impl.k8sService.CanHaveChild(gvk) {
-			children, err := impl.k8sService.GetChildObjects(restConfig, _namespace, gvk, manifest.GetName(), manifest.GetAPIVersion())
-			if err != nil {
-				return nil, nil, err
-			}
-			desiredOrLiveManifestsChildren := make([]*bean.DesiredOrLiveManifest, 0, len(children))
-			for _, child := range children {
-				desiredOrLiveManifestsChildren = append(desiredOrLiveManifestsChildren, &bean.DesiredOrLiveManifest{
-					Manifest: child,
-				})
-			}
-			childNodes, _, err := impl.buildNodes(restConfig, desiredOrLiveManifestsChildren, releaseNamespace, resourceRef)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			for _, childNode := range childNodes {
-				nodes = append(nodes, childNode)
-				healthStatusArray = append(healthStatusArray, childNode.Health)
-			}
-		}
-
-		creationTimeStamp := ""
-		val, found, err := unstructured.NestedString(manifest.Object, "metadata", "creationTimestamp")
-		if found && err == nil {
-			creationTimeStamp = val
-		}
-		node := &bean.ResourceNode{
-			ResourceRef:     resourceRef,
-			ResourceVersion: manifest.GetResourceVersion(),
-			NetworkingInfo: &bean.ResourceNetworkingInfo{
-				Labels: manifest.GetLabels(),
-			},
-			CreatedAt: creationTimeStamp,
-			Port:      ports,
-		}
-		node.IsHook, node.HookType = util.GetHookMetadata(manifest)
-
-		if parentResourceRef != nil {
-			node.ParentRefs = append(make([]*bean.ResourceRef, 0), parentResourceRef)
-		}
-
-		// set health of node
-		if desiredOrLiveManifest.IsLiveManifestFetchError {
-			if desiredOrLiveManifest.LiveManifestFetchErrorCode == http.StatusNotFound {
-				node.Health = &bean.HealthStatus{
-					Status:  bean.HealthStatusMissing,
-					Message: "Resource missing as live manifest not found",
-				}
-			} else {
-				node.Health = &bean.HealthStatus{
-					Status:  bean.HealthStatusUnknown,
-					Message: "Resource state unknown as error while fetching live manifest",
-				}
-			}
-		} else {
-			cache.SetHealthStatusForNode(node, manifest, gvk)
-		}
-
-		// hibernate set starts
-		if parentResourceRef == nil {
-
-			// set CanBeHibernated
-			cache.SetHibernationRules(node, &node.Manifest)
-		}
-		// hibernate set ends
-		if k8sUtils.IsPod(gvk) {
-			infoItems, _ := argo.PopulatePodInfo(manifest)
-			node.Info = infoItems
-		}
-		util.AddSelectiveInfoInResourceNode(node, gvk, manifest.Object)
-
-		nodes = append(nodes, node)
-		healthStatusArray = append(healthStatusArray, node.Health)
-	}
-
-	return nodes, healthStatusArray, nil
 }
 
 func (impl HelmAppServiceImpl) getHelmClient(clusterConfig *client.ClusterConfig, releaseNamespace string) (helmClient.Client, error) {
