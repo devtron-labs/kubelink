@@ -778,21 +778,18 @@ func parseOCIChartName(registryUrl, repoName string) (string, error) {
 	if !strings.Contains(strings.ToLower(registryUrl), "https") && !strings.Contains(strings.ToLower(registryUrl), "http") {
 		registryUrl = fmt.Sprintf("//%s", registryUrl)
 	}
+	registryUrl = strings.TrimSpace(registryUrl)
 	parsedUrl, err := url.Parse(registryUrl)
-	var chartName string
 	if err != nil {
 		return registryUrl, err
 	}
+	var chartName string
 	parsedUrlPath := strings.TrimSpace(parsedUrl.Path)
-	if parsedUrl.Path != "" {
-		// according to documentation url path may not have leading slash. One such case is relative paths
-		if !strings.HasPrefix(parsedUrlPath, "/") {
-			parsedUrlPath = "/" + parsedUrlPath
-		}
-		chartName = fmt.Sprintf("%s://%s%s/%s", "oci", parsedUrl.Host, parsedUrlPath, repoName)
-	} else {
-		chartName = fmt.Sprintf("%s://%s/%s", "oci", parsedUrl.Host, repoName)
-	}
+	parsedHost := strings.TrimSpace(parsedUrl.Host)
+	parsedRepoName := strings.TrimSpace(repoName)
+	// Join handles empty strings
+	uri := filepath.Join(parsedHost, parsedUrlPath, parsedRepoName)
+	chartName = fmt.Sprintf("%s://%s", "oci", uri)
 	return chartName, nil
 }
 
