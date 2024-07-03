@@ -22,6 +22,7 @@ package main
 import (
 	"github.com/devtron-labs/authenticator/client"
 	"github.com/devtron-labs/common-lib/monitoring"
+	"github.com/devtron-labs/common-lib/utils/grpc"
 	"github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/kubelink/api/router"
 	"github.com/devtron-labs/kubelink/converter"
@@ -57,6 +58,7 @@ func InitializeApp() (*App, error) {
 		wire.Bind(new(repository.ClusterRepository), new(*repository.ClusterRepositoryImpl)),
 		service.GetHelmReleaseConfig,
 		k8sInformer.GetHelmReleaseConfig,
+		grpc.GetConfiguration,
 		//pubsub_lib.NewPubSubClientServiceImpl,
 		//cache.NewClusterCacheImpl,
 		//wire.Bind(new(cache.ClusterCache), new(*cache.ClusterCacheImpl)),
