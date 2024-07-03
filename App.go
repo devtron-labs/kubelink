@@ -87,7 +87,6 @@ func (app *App) Start() {
 	}
 	recoveryOption := recovery.WithRecoveryHandler(grpcPanicRecoveryHandler)
 	opts := []grpc.ServerOption{
-		// TODO Asutosh: common-lib version update
 		grpc.MaxRecvMsgSize(app.cfg.KubelinkMaxRecvMsgSize * 1024 * 1024), // GRPC Request size
 		grpc.MaxSendMsgSize(app.cfg.KubelinkMaxSendMsgSize * 1024 * 1024), // GRPC Response size
 		grpc.KeepaliveParams(keepalive.ServerParameters{
