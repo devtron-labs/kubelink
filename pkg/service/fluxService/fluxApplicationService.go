@@ -54,8 +54,8 @@ func (impl *FluxApplicationServiceImpl) GetFluxApplicationListForCluster(config 
 		deployedApp.ErrorMsg = err.Error()
 		return deployedApp
 	}
-	restConf := *restConfig
-	kustomizationListResp, helmReleaseListResp, err := impl.fetchFluxK8sResponseLists(restConf)
+	//restConf := *restConfig
+	kustomizationListResp, helmReleaseListResp, err := impl.fetchFluxK8sResponseLists(restConfig)
 	if err != nil && kustomizationListResp == nil {
 		impl.logger.Errorw("Error in fetching flux app k8s listResponse ", "clusterId", config.ClusterId, "err", err)
 		deployedApp.Errored = true
@@ -115,12 +115,14 @@ func (impl *FluxApplicationServiceImpl) BuildFluxAppDetail(request *client.FluxA
 }
 
 // get the k8sResponseList of the flux apps
-func (impl *FluxApplicationServiceImpl) fetchFluxK8sResponseLists(restConfig rest.Config) (*k8sUtils.ResourceListResponse, *k8sUtils.ResourceListResponse, error) {
+func (impl *FluxApplicationServiceImpl) fetchFluxK8sResponseLists(restConfig *rest.Config) (*k8sUtils.ResourceListResponse, *k8sUtils.ResourceListResponse, error) {
+	var restConf rest.Config
+	restConf = *restConfig
 	kustomizationList, err := impl.getK8sResponseList(restConfig, GvkForKustomizationFluxApp)
 	if err != nil {
 		return nil, nil, err
 	}
-	helmReleaseList, err := impl.getK8sResponseList(restConfig, GvkForHelmreleaseFluxApp)
+	helmReleaseList, err := impl.getK8sResponseList(&restConf, GvkForHelmreleaseFluxApp)
 	if err != nil {
 		return kustomizationList, nil, err
 	}
@@ -207,7 +209,8 @@ func (impl *FluxApplicationServiceImpl) GetApplicationListDtos(resources unstruc
 		if !ok {
 			continue
 		}
-		appDetail := fetchFluxAppFields(rowDataMap, columnDefinitionMap, clusterId, clusterName, FluxAppType)
+		var appDetail *FluxApplicationDto
+		appDetail = fetchFluxAppFields(rowDataMap, columnDefinitionMap, clusterId, clusterName, FluxAppType)
 
 		if appDetail != nil && appDetail.FluxAppDeploymentType == FluxAppKustomizationKind {
 			if appDetail.Name == "flux-system" && appDetail.EnvironmentDetails.Namespace == "flux-system" {
@@ -251,8 +254,8 @@ func (impl *FluxApplicationServiceImpl) GetApplicationListDtos(resources unstruc
 }
 
 // getK8sResponseList fetch the k8s response List for flux apps according to its gvk types
-func (impl *FluxApplicationServiceImpl) getK8sResponseList(restConfig rest.Config, gvk schema.GroupVersionKind) (*k8sUtils.ResourceListResponse, error) {
-	resp, _, err := impl.k8sUtil.GetResourceList(context.Background(), &restConfig, gvk, AllNamespaces, true, nil)
+func (impl *FluxApplicationServiceImpl) getK8sResponseList(restConfig *rest.Config, gvk schema.GroupVersionKind) (*k8sUtils.ResourceListResponse, error) {
+	resp, _, err := impl.k8sUtil.GetResourceList(context.Background(), restConfig, gvk, AllNamespaces, true, nil)
 	if err != nil {
 		impl.logger.Errorw("Error in fetching fluxAppList response ", "err", err, "fluxAppType", gvk.Kind)
 		return nil, err

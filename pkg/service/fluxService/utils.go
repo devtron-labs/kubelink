@@ -51,7 +51,7 @@ func isKsChildHelmRelease(rowDataMap map[string]interface{}) bool {
 
 	nameLabel, _, errName := unstructured.NestedString(rowDataMap, ObjectField, MetaDataField, FluxLabel, KustomizeNameLabel)
 	namespaceLabel, _, errNamespace := unstructured.NestedString(rowDataMap, ObjectField, MetaDataField, FluxLabel, KustomizeNamespaceLabel)
-	if errName != nil || errNamespace != nil || nameLabel == "" || namespaceLabel == "" {
+	if errName != nil || errNamespace != nil || nameLabel == "" || namespaceLabel == "" || (namespaceLabel == "flux-system" && nameLabel == "flux-system") {
 		return false
 	}
 	return true
