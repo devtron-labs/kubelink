@@ -18,6 +18,16 @@ const (
 	KustomizeNameLabel         = "kustomize.toolkit.fluxcd.io/name"
 	KustomizeNamespaceLabel    = "kustomize.toolkit.fluxcd.io/namespace"
 )
+const (
+	StatusMissing         = "Missing"
+	Reason                = "StatusNotReady"
+	MessageForHelmRelease = "Status is missing for this helmRelease"
+)
+
+// &FluxAppStatusDetail{
+//Status:  status,
+//Reason:  "StatusNotReady",
+//Message: "Status is not true for this helmRelease",
 
 var GvkForKustomizationFluxApp = schema.GroupVersionKind{
 	Group:   FluxKustomizationGroup,
@@ -69,13 +79,18 @@ const (
 	NamespaceKey                       = "namespace"
 	MetaDataField                      = "metadata"
 	ObjectField                        = "object"
+	SpecField                          = "spec"
+	kubeConfigKey                      = "kubeConfig"
+	StorageNamespaceKey                = "storageNamespace"
+	ReleaseNameKey                     = "releaseName"
+	TargetNamespaceKey                 = "targetNamespace"
 )
 
 type FluxAppDetailRequest struct {
 	Config      *client.ClusterConfig
-	Name        string `json: "name"`
-	Namespace   string `json: "namespace"`
-	IsKustomize bool   `json: "isKustomize"`
+	Name        string `json:"name"`
+	Namespace   string `json:"namespace"`
+	IsKustomize bool   `json:"isKustomize"`
 }
 type FluxKsAppDetail struct {
 	*FluxApplicationDto
