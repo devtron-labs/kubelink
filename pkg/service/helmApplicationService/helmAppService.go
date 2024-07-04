@@ -675,11 +675,18 @@ func parseOCIChartName(registryUrl, repoName string) (string, error) {
 	if !strings.Contains(strings.ToLower(registryUrl), "https") && !strings.Contains(strings.ToLower(registryUrl), "http") {
 		registryUrl = fmt.Sprintf("//%s", registryUrl)
 	}
+	registryUrl = strings.TrimSpace(registryUrl)
 	parsedUrl, err := url.Parse(registryUrl)
 	if err != nil {
 		return registryUrl, err
 	}
-	chartName := fmt.Sprintf("%s://%s/%s", "oci", parsedUrl.Host, repoName)
+	var chartName string
+	parsedUrlPath := strings.TrimSpace(parsedUrl.Path)
+	parsedHost := strings.TrimSpace(parsedUrl.Host)
+	parsedRepoName := strings.TrimSpace(repoName)
+	// Join handles empty strings
+	uri := filepath.Join(parsedHost, parsedUrlPath, parsedRepoName)
+	chartName = fmt.Sprintf("%s://%s", "oci", uri)
 	return chartName, nil
 }
 
@@ -725,7 +732,6 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 	var chartName string
 	switch request.IsOCIRepo {
 	case true:
-
 		chartName, err = parseOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
 		if err != nil {
 			impl.logger.Errorw("error in parsing oci chart name", "registryUrl", request.RegistryCredential.RegistryUrl, "repoName", request.RegistryCredential.RepoName, "err", err)
@@ -837,18 +843,36 @@ func (impl HelmAppServiceImpl) installRelease(ctx context.Context, request *clie
 func (impl HelmAppServiceImpl) GetNotes(ctx context.Context, request *client.InstallReleaseRequest) (string, error) {
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
+
+	var chartName, repoURL, username, password string
+	var allowInsecureConnection bool
+	switch request.IsOCIRepo {
+	case true:
+		chartName, err = parseOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
+		if err != nil {
+			impl.logger.Errorw("error in parsing oci chart name", "registryUrl", request.RegistryCredential.RegistryUrl, "repoName", request.RegistryCredential.RepoName, "err", err)
+			return "", err
+		}
+	case false:
+		chartName = request.ChartName
+		repoURL = request.ChartRepository.Url
+		username = request.ChartRepository.Username
+		password = request.ChartRepository.Password
+		allowInsecureConnection = request.ChartRepository.AllowInsecureConnection
+	}
+
 	chartSpec := &helmClient.ChartSpec{
 		ReleaseName:             releaseIdentifier.ReleaseName,
 		Namespace:               releaseIdentifier.ReleaseNamespace,
-		ChartName:               request.ChartName,
+		ChartName:               chartName,
 		CleanupOnFail:           true, // allow deletion of new resources created in this rollback when rollback fails
 		MaxHistory:              0,    // limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
-		RepoURL:                 request.ChartRepository.Url,
+		RepoURL:                 repoURL,
 		Version:                 request.ChartVersion,
 		ValuesYaml:              request.ValuesYaml,
-		Username:                request.ChartRepository.Username,
-		Password:                request.ChartRepository.Password,
-		AllowInsecureConnection: request.ChartRepository.AllowInsecureConnection,
+		Username:                username,
+		Password:                password,
+		AllowInsecureConnection: allowInsecureConnection,
 	}
 	HelmTemplateOptions := &helmClient.HelmTemplateOptions{}
 	if request.K8SVersion != "" {
@@ -1114,7 +1138,8 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 		request.RegistryCredential.RegistryUrl = settings.RegistryHostURL
 	}
 
-	var chartName, repoURL string
+	var chartName, repoURL, username, password string
+	var allowInsecureConnection bool
 	switch request.IsOCIRepo {
 	case true:
 		chartName, err = parseOCIChartName(request.RegistryCredential.RegistryUrl, request.RegistryCredential.RepoName)
@@ -1125,6 +1150,9 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 	case false:
 		chartName = request.ChartName
 		repoURL = request.ChartRepository.Url
+		username = request.ChartRepository.Username
+		password = request.ChartRepository.Password
+		allowInsecureConnection = request.ChartRepository.AllowInsecureConnection
 	}
 
 	chartSpec := &helmClient.ChartSpec{
@@ -1137,9 +1165,9 @@ func (impl HelmAppServiceImpl) TemplateChart(ctx context.Context, request *clien
 		Version:                 request.ChartVersion,
 		ValuesYaml:              request.ValuesYaml,
 		RegistryClient:          registryClient,
-		Username:                request.ChartRepository.Username,
-		Password:                request.ChartRepository.Password,
-		AllowInsecureConnection: request.ChartRepository.AllowInsecureConnection,
+		Username:                username,
+		Password:                password,
+		AllowInsecureConnection: allowInsecureConnection,
 	}
 
 	HelmTemplateOptions := &helmClient.HelmTemplateOptions{}
