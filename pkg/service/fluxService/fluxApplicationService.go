@@ -161,9 +161,13 @@ func (impl *FluxApplicationServiceImpl) fetchFluxAppList(kustomizationListRespon
 func (impl *FluxApplicationServiceImpl) getKsAppInventoryMap(app *FluxApplicationDto) (map[string]string, error) {
 	cluster, err := impl.clusterRepository.FindById(app.EnvironmentDetails.ClusterId)
 	if err != nil {
+		impl.logger.Debugw("error in getting cluster repository for ks", "err", err, "clusterId", app.EnvironmentDetails.ClusterId, "fluxKsName", app.Name, "namespace", app.EnvironmentDetails.Namespace)
 		impl.logger.Errorw("error in getting cluster repository", "err", err, "clusterId", app.EnvironmentDetails.ClusterId, "fluxKsName", app.Name, "namespace", app.EnvironmentDetails.Namespace)
 		return nil, err
 	}
+
+	impl.logger.Debugw("cluster details fetched from repo for inventory ", "clusterId", app.EnvironmentDetails.ClusterId, "fluxKsName", app.Name, "namespace", app.EnvironmentDetails.Namespace, "cluster", cluster)
+
 	clusterInfo := impl.converter.GetClusterInfo(cluster)
 	clusterConfig := impl.converter.GetClusterConfig(clusterInfo)
 	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(clusterConfig)
@@ -171,6 +175,8 @@ func (impl *FluxApplicationServiceImpl) getKsAppInventoryMap(app *FluxApplicatio
 		impl.logger.Errorw("error in getting cluster restConfig", "err", err, "clusterId", app.EnvironmentDetails.ClusterId, "fluxKsName", app.Name, "namespace", app.EnvironmentDetails.Namespace)
 		return nil, err
 	}
+
+	impl.logger.Debugw("successfully fetched cluster restConfig from cluster ", "clusterId", app.EnvironmentDetails.ClusterId, "fluxKsName", app.Name, "namespace", app.EnvironmentDetails.Namespace, "cluster", cluster)
 
 	resp, err := impl.k8sUtil.GetResource(context.Background(), app.EnvironmentDetails.Namespace, app.Name, GvkForKustomizationFluxApp, restConfig)
 	if err != nil || resp == nil {
@@ -219,14 +225,17 @@ func (impl *FluxApplicationServiceImpl) GetApplicationListDtos(resources unstruc
 			if appDetail.Name == "flux-system" && appDetail.EnvironmentDetails.Namespace == "flux-system" {
 				continue
 			}
+			fluxAppDetailArray = append(fluxAppDetailArray, appDetail)
+			impl.logger.Debugw("app healthStatus received as  ", "HealthStatus", appDetail.HealthStatus, "appDetail", appDetail)
 
-			if appDetail.HealthStatus != "False" {
+			if appDetail.HealthStatus == "True" {
 
 				childInventoryMap, err := impl.getKsAppInventoryMap(appDetail)
 				if err != nil {
-					impl.logger.Errorw("issue in decoding object metadata", "err", err)
+					impl.logger.Errorw("issue in getting childInventory Map", "err", err, "appDetail", appDetail)
 					continue
 				}
+				impl.logger.Debugw("childInventory Map fetched here ", "childInventoryMap", childInventoryMap, "appDetail", appDetail)
 
 				for id, version := range childInventoryMap {
 					fluxResource, err := decodeObjMetadata(id, version)
@@ -238,8 +247,10 @@ func (impl *FluxApplicationServiceImpl) GetApplicationListDtos(resources unstruc
 						childParentMap[fluxResource.Name] = true
 					}
 				}
+				impl.logger.Debugw("child inventory resources successfully parsed", "childParentMap", childParentMap, "appDetail", appDetail)
+
 			}
-			fluxAppDetailArray = append(fluxAppDetailArray, appDetail)
+
 		} else if appDetail != nil && appDetail.FluxAppDeploymentType == FluxAppHelmreleaseKind {
 			fluxAppDetailArray = append(fluxAppDetailArray, appDetail)
 		}
@@ -252,6 +263,7 @@ func (impl *FluxApplicationServiceImpl) GetApplicationListDtos(resources unstruc
 			childFilteredAppList = append(childFilteredAppList, app)
 		}
 	}
+	impl.logger.Debugw("child filtered List parsed", "fluxAppDetailArray", fluxAppDetailArray, "childFilteredAppList", childFilteredAppList)
 
 	return childFilteredAppList, err
 }
