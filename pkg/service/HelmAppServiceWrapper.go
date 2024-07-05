@@ -596,6 +596,8 @@ func (impl *ApplicationServiceServerImpl) PushHelmChartToOCIRegistry(ctx context
 
 func (impl *ApplicationServiceServerImpl) ListFluxApplications(req *client.AppListRequest, res client.ApplicationService_ListFluxApplicationsServer) error {
 	impl.Logger.Infow("List Flux Application Request", "req", req)
+	impl.Logger.Debugw("List Flux Application Request received in kubelink ", "req", req)
+
 	clusterConfigs := req.GetClusters()
 	eg := new(errgroup.Group)
 	for _, config := range clusterConfigs {
@@ -603,14 +605,18 @@ func (impl *ApplicationServiceServerImpl) ListFluxApplications(req *client.AppLi
 		eg.Go(func() error {
 			apps := impl.FluxAppService.GetFluxApplicationListForCluster(&clusterConfig)
 			err := res.Send(apps)
+			impl.Logger.Debugw("List Flux Application Request served having the list", "apps", apps)
 			return err
 		})
 	}
 	if err := eg.Wait(); err != nil {
+		impl.Logger.Debugw("Error in fetching application list", "err", err)
 		impl.Logger.Errorw("Error in fetching application list", "err", err)
 		return err
 	}
 	impl.Logger.Info("List Flux Application Request served")
+	impl.Logger.Debugw("List Flux Application Request served")
+
 	return nil
 }
 

@@ -50,10 +50,13 @@ func (impl *FluxApplicationServiceImpl) GetFluxApplicationListForCluster(config 
 	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
 		impl.logger.Errorw("Error in building rest config ", "clusterId", config.ClusterId, "err", err)
+		impl.logger.Debugw("Error in building rest config ", "clusterId", config.ClusterId, "err", err)
+
 		deployedApp.Errored = true
 		deployedApp.ErrorMsg = err.Error()
 		return deployedApp
 	}
+
 	//restConf := *restConfig
 	kustomizationListResp, helmReleaseListResp, err := impl.fetchFluxK8sResponseLists(restConfig)
 	if err != nil && kustomizationListResp == nil {
