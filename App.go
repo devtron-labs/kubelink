@@ -22,6 +22,7 @@ import (
 	"github.com/devtron-labs/common-lib/constants"
 	"github.com/devtron-labs/common-lib/middlewares"
 	"github.com/devtron-labs/common-lib/pubsub-lib/metrics"
+	grpcUtil "github.com/devtron-labs/common-lib/utils/grpc"
 	"github.com/devtron-labs/kubelink/api/router"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/internals/middleware"
@@ -29,7 +30,7 @@ import (
 	"github.com/devtron-labs/kubelink/pkg/service"
 	"github.com/go-pg/pg"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpcPrometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -50,16 +51,21 @@ type App struct {
 	db          *pg.DB
 	server      *http.Server
 	grpcServer  *grpc.Server
+	cfg         *grpcUtil.Configuration
 }
 
-func NewApp(Logger *zap.SugaredLogger, ServerImpl *service.ApplicationServiceServerImpl,
-	router *router.RouterImpl, k8sInformer k8sInformer.K8sInformer, db *pg.DB) *App {
+func NewApp(Logger *zap.SugaredLogger,
+	ServerImpl *service.ApplicationServiceServerImpl,
+	router *router.RouterImpl,
+	k8sInformer k8sInformer.K8sInformer,
+	db *pg.DB, cfg *grpcUtil.Configuration) *App {
 	return &App{
 		Logger:      Logger,
 		ServerImpl:  ServerImpl,
 		router:      router,
 		k8sInformer: k8sInformer,
 		db:          db,
+		cfg:         cfg,
 	}
 }
 
@@ -81,22 +87,24 @@ func (app *App) Start() {
 	}
 	recoveryOption := recovery.WithRecoveryHandler(grpcPanicRecoveryHandler)
 	opts := []grpc.ServerOption{
+		grpc.MaxRecvMsgSize(app.cfg.KubelinkMaxRecvMsgSize * 1024 * 1024), // GRPC Request size
+		grpc.MaxSendMsgSize(app.cfg.KubelinkMaxSendMsgSize * 1024 * 1024), // GRPC Response size
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionAge: 10 * time.Second,
 		}),
 		grpc.ChainStreamInterceptor(
-			grpc_prometheus.StreamServerInterceptor,
+			grpcPrometheus.StreamServerInterceptor,
 			recovery.StreamServerInterceptor(recoveryOption)), // panic interceptor, should be at last
 		grpc.ChainUnaryInterceptor(
-			grpc_prometheus.UnaryServerInterceptor,
+			grpcPrometheus.UnaryServerInterceptor,
 			recovery.UnaryServerInterceptor(recoveryOption)), // panic interceptor, should be at last
 	}
 	app.router.Router.Use(middleware.PrometheusMiddleware)
 	app.router.InitRouter()
 	app.grpcServer = grpc.NewServer(opts...)
 	client.RegisterApplicationServiceServer(app.grpcServer, app.ServerImpl)
-	grpc_prometheus.EnableHandlingTimeHistogram()
-	grpc_prometheus.Register(app.grpcServer)
+	grpcPrometheus.EnableHandlingTimeHistogram()
+	grpcPrometheus.Register(app.grpcServer)
 	go func() {
 		app.server = &http.Server{Addr: fmt.Sprintf(":%d", httpPort), Handler: app.router.Router}
 		app.router.Router.Use(middlewares.Recovery)

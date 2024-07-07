@@ -150,6 +150,7 @@ github.com/devtron-labs/common-lib/pubsub-lib/metrics
 github.com/devtron-labs/common-lib/pubsub-lib/model
 github.com/devtron-labs/common-lib/utils
 github.com/devtron-labs/common-lib/utils/bean
+github.com/devtron-labs/common-lib/utils/grpc
 github.com/devtron-labs/common-lib/utils/http
 github.com/devtron-labs/common-lib/utils/k8s
 github.com/devtron-labs/common-lib/utils/k8s/commonBean
