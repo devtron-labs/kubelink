@@ -13,6 +13,7 @@ import (
 	"github.com/devtron-labs/common-lib/utils/grpc"
 	"github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/kubelink/api/router"
+	"github.com/devtron-labs/kubelink/config"
 	"github.com/devtron-labs/kubelink/converter"
 	"github.com/devtron-labs/kubelink/internals/lock"
 	"github.com/devtron-labs/kubelink/internals/logger"
@@ -27,7 +28,7 @@ import (
 func InitializeApp() (*App, error) {
 	sugaredLogger := logger.NewSugaredLogger()
 	chartRepositoryLocker := lock.NewChartRepositoryLocker(sugaredLogger)
-	helmReleaseConfig, err := service.GetHelmReleaseConfig()
+	helmReleaseConfig, err := config.GetHelmReleaseConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -35,26 +36,22 @@ func InitializeApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	config, err := sql.GetConfig()
+	sqlConfig, err := sql.GetConfig()
 	if err != nil {
 		return nil, err
 	}
-	db, err := sql.NewDbConnection(config, sugaredLogger)
+	db, err := sql.NewDbConnection(sqlConfig, sugaredLogger)
 	if err != nil {
 		return nil, err
 	}
 	clusterRepositoryImpl := repository.NewClusterRepositoryImpl(db, sugaredLogger)
-	k8sInformerHelmReleaseConfig, err := k8sInformer.GetHelmReleaseConfig()
-	if err != nil {
-		return nil, err
-	}
 	runtimeConfig, err := client.GetRuntimeConfig()
 	if err != nil {
 		return nil, err
 	}
 	k8sK8sServiceImpl := k8s.NewK8sUtil(sugaredLogger, runtimeConfig)
 	clusterBeanConverterImpl := converter.NewConverterImpl()
-	k8sInformerImpl := k8sInformer.Newk8sInformerImpl(sugaredLogger, clusterRepositoryImpl, k8sInformerHelmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl)
+	k8sInformerImpl := k8sInformer.Newk8sInformerImpl(sugaredLogger, clusterRepositoryImpl, helmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl)
 	defaultSettingsGetterImpl := registry.NewDefaultSettingsGetter(sugaredLogger)
 	settingsFactoryImpl := registry.NewSettingsFactoryImpl(defaultSettingsGetterImpl)
 	helmAppServiceImpl, err := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, helmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl, clusterRepositoryImpl, settingsFactoryImpl)

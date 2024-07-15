@@ -23,9 +23,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/caarlos0/env"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/kubelink/bean"
+	globalConfig "github.com/devtron-labs/kubelink/config"
 	"github.com/devtron-labs/kubelink/converter"
 	client "github.com/devtron-labs/kubelink/grpc"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
@@ -40,6 +40,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"log"
 	"reflect"
 	"strconv"
 	"sync"
@@ -71,30 +72,20 @@ type ClusterSecretUpdateListener interface {
 	OnStateChange(clusterId int, action string)
 }
 
-type HelmReleaseConfig struct {
-	EnableHelmReleaseCache bool `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
-}
-
-func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
-	cfg := &HelmReleaseConfig{}
-	err := env.Parse(cfg)
-	return cfg, err
-}
-
 type K8sInformerImpl struct {
 	logger             *zap.SugaredLogger
 	HelmListClusterMap map[int]map[string]*client.DeployedAppDetail
 	mutex              sync.Mutex
 	informerStopper    map[int]chan struct{}
 	clusterRepository  repository.ClusterRepository
-	helmReleaseConfig  *HelmReleaseConfig
+	helmReleaseConfig  *globalConfig.HelmReleaseConfig
 	k8sUtil            k8sUtils.K8sService
 	listeners          []ClusterSecretUpdateListener
 	converter          converter.ClusterBeanConverter
 }
 
 func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.ClusterRepository,
-	helmReleaseConfig *HelmReleaseConfig, k8sUtil k8sUtils.K8sService, converter converter.ClusterBeanConverter) *K8sInformerImpl {
+	helmReleaseConfig *globalConfig.HelmReleaseConfig, k8sUtil k8sUtils.K8sService, converter converter.ClusterBeanConverter) *K8sInformerImpl {
 	informerFactory := &K8sInformerImpl{
 		logger:            logger,
 		clusterRepository: clusterRepository,
@@ -105,7 +96,13 @@ func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.
 	informerFactory.HelmListClusterMap = make(map[int]map[string]*client.DeployedAppDetail)
 	informerFactory.informerStopper = make(map[int]chan struct{})
 	if helmReleaseConfig.EnableHelmReleaseCache {
-		go informerFactory.BuildInformerForAllClusters()
+		go func() {
+			err := informerFactory.BuildInformerForAllClusters()
+			if err != nil {
+				// restarting kubelink service
+				log.Panic(err)
+			}
+		}()
 	}
 	return informerFactory
 }

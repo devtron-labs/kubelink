@@ -20,10 +20,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/caarlos0/env"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/kubelink/bean"
+	globalConfig "github.com/devtron-labs/kubelink/config"
 	error2 "github.com/devtron-labs/kubelink/error"
 	"go.uber.org/zap"
 	coreV1 "k8s.io/api/core/v1"
@@ -53,28 +53,13 @@ type K8sService interface {
 	PatchResource(ctx context.Context, restConfig *rest.Config, r *bean.KubernetesResourcePatchRequest) error
 }
 
-type HelmReleaseConfig struct {
-	EnableHelmReleaseCache    bool   `env:"ENABLE_HELM_RELEASE_CACHE" envDefault:"true"`
-	MaxCountForHelmRelease    int    `env:"MAX_COUNT_FOR_HELM_RELEASE" envDefault:"20"`
-	ManifestFetchBatchSize    int    `env:"MANIFEST_FETCH_BATCH_SIZE" envDefault:"2"`
-	RunHelmInstallInAsyncMode bool   `env:"RUN_HELM_INSTALL_IN_ASYNC_MODE" envDefault:"false"`
-	ParentChildGvkMapping     string `env:"PARENT_CHILD_GVK_MAPPING" envDefault:""`
-	ChartWorkingDirectory     string `env:"CHART_WORKING_DIRECTORY" envDefault:"/home/devtron/devtroncd/charts/"`
-}
-
-func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
-	cfg := &HelmReleaseConfig{}
-	err := env.Parse(cfg)
-	return cfg, err
-}
-
 type K8sServiceImpl struct {
 	logger                *zap.SugaredLogger
-	helmReleaseConfig     *HelmReleaseConfig
+	helmReleaseConfig     *globalConfig.HelmReleaseConfig
 	gvkVsChildGvrAndScope map[schema.GroupVersionKind][]*k8sCommonBean.GvrAndScope
 }
 
-func NewK8sServiceImpl(logger *zap.SugaredLogger, helmReleaseConfig *HelmReleaseConfig) (*K8sServiceImpl, error) {
+func NewK8sServiceImpl(logger *zap.SugaredLogger, helmReleaseConfig *globalConfig.HelmReleaseConfig) (*K8sServiceImpl, error) {
 
 	gvkVsChildGvrAndScope := make(map[schema.GroupVersionKind][]*k8sCommonBean.GvrAndScope)
 	k8sServiceImpl := &K8sServiceImpl{
