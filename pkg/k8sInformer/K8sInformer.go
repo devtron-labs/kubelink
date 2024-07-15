@@ -100,7 +100,7 @@ func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.
 			err := informerFactory.BuildInformerForAllClusters()
 			if err != nil {
 				// restarting kubelink service
-				log.Panic(err)
+				log.Fatal(err)
 			}
 		}()
 	}
