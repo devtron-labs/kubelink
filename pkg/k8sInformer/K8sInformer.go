@@ -23,6 +23,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/devtron-labs/common-lib/async"
+	_ "github.com/devtron-labs/common-lib/async"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/kubelink/bean"
 	globalConfig "github.com/devtron-labs/kubelink/config"
@@ -40,7 +42,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"log"
 	"reflect"
 	"strconv"
 	"sync"
@@ -82,29 +83,38 @@ type K8sInformerImpl struct {
 	k8sUtil            k8sUtils.K8sService
 	listeners          []ClusterSecretUpdateListener
 	converter          converter.ClusterBeanConverter
+	runnable           *async.Runnable
 }
 
 func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.ClusterRepository,
-	helmReleaseConfig *globalConfig.HelmReleaseConfig, k8sUtil k8sUtils.K8sService, converter converter.ClusterBeanConverter) *K8sInformerImpl {
+	helmReleaseConfig *globalConfig.HelmReleaseConfig, k8sUtil k8sUtils.K8sService,
+	converter converter.ClusterBeanConverter, runnable *async.Runnable) (*K8sInformerImpl, error) {
 	informerFactory := &K8sInformerImpl{
 		logger:            logger,
 		clusterRepository: clusterRepository,
 		helmReleaseConfig: helmReleaseConfig,
 		k8sUtil:           k8sUtil,
 		converter:         converter,
+		runnable:          runnable,
 	}
 	informerFactory.HelmListClusterMap = make(map[int]map[string]*client.DeployedAppDetail)
 	informerFactory.informerStopper = make(map[int]chan struct{})
 	if helmReleaseConfig.EnableHelmReleaseCache {
-		go func() {
-			err := informerFactory.BuildInformerForAllClusters()
-			if err != nil {
-				// restarting kubelink service
-				log.Fatal(err)
-			}
-		}()
+		// for oss installation, there is race condition in starting informer,
+		// where migration is not completed. So getting all active clusters prior
+		// to ensure informer is started for all clusters
+		models, err := informerFactory.clusterRepository.FindAllActive()
+		if err != nil {
+			informerFactory.logger.Errorw("error in fetching clusters", "err", err)
+			return nil, err
+		}
+		clusterInfos := informerFactory.converter.GetAllClusterInfo(models...)
+		runnableFunc := func() {
+			_ = informerFactory.BuildInformerForAllClusters(clusterInfos)
+		}
+		runnable.Execute(runnableFunc)
 	}
-	return informerFactory
+	return informerFactory, nil
 }
 
 func (impl *K8sInformerImpl) OnStateChange(clusterId int, action string) {
@@ -169,14 +179,8 @@ func decodeRelease(data string) (*release.Release, error) {
 	return &rls, nil
 }
 
-func (impl *K8sInformerImpl) BuildInformerForAllClusters() error {
-	models, err := impl.clusterRepository.FindAllActive()
-	if err != nil {
-		impl.logger.Error("error in fetching clusters", "err", err)
-		return err
-	}
-
-	if len(models) == 0 {
+func (impl *K8sInformerImpl) BuildInformerForAllClusters(clusterInfos []*bean.ClusterInfo) error {
+	if len(clusterInfos) == 0 {
 		clusterInfo := &bean.ClusterInfo{
 			ClusterId:             1,
 			ClusterName:           DEFAULT_CLUSTER,
@@ -190,14 +194,16 @@ func (impl *K8sInformerImpl) BuildInformerForAllClusters() error {
 		return nil
 	}
 
-	for _, model := range models {
-		clusterInfo := impl.converter.GetClusterInfo(model)
+	for _, clusterInfo := range clusterInfos {
+		if clusterInfo == nil {
+			// safety check
+			continue
+		}
 		err := impl.startInformer(*clusterInfo)
 		if err != nil {
 			impl.logger.Error("error in starting informer for cluster ", "cluster-name ", clusterInfo.ClusterName, "err", err)
-			return err
+			// error state could be due to unreachable cluster, so continue with other clusters
 		}
-
 	}
 
 	return nil

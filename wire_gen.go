@@ -17,6 +17,7 @@ import (
 	"github.com/devtron-labs/kubelink/converter"
 	"github.com/devtron-labs/kubelink/internals/lock"
 	"github.com/devtron-labs/kubelink/internals/logger"
+	"github.com/devtron-labs/kubelink/pkg/asyncProvider"
 	"github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
@@ -51,7 +52,11 @@ func InitializeApp() (*App, error) {
 	}
 	k8sK8sServiceImpl := k8s.NewK8sUtil(sugaredLogger, runtimeConfig)
 	clusterBeanConverterImpl := converter.NewConverterImpl()
-	k8sInformerImpl := k8sInformer.Newk8sInformerImpl(sugaredLogger, clusterRepositoryImpl, helmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl)
+	runnable := asyncProvider.NewAsyncRunnable(sugaredLogger)
+	k8sInformerImpl, err := k8sInformer.Newk8sInformerImpl(sugaredLogger, clusterRepositoryImpl, helmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl, runnable)
+	if err != nil {
+		return nil, err
+	}
 	defaultSettingsGetterImpl := registry.NewDefaultSettingsGetter(sugaredLogger)
 	settingsFactoryImpl := registry.NewSettingsFactoryImpl(defaultSettingsGetterImpl)
 	helmAppServiceImpl, err := service.NewHelmAppServiceImpl(sugaredLogger, k8sServiceImpl, k8sInformerImpl, helmReleaseConfig, k8sK8sServiceImpl, clusterBeanConverterImpl, clusterRepositoryImpl, settingsFactoryImpl)
