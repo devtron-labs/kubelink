@@ -4,6 +4,9 @@ import (
 	"github.com/devtron-labs/common-lib/helmLib/registry"
 	"github.com/devtron-labs/common-lib/utils/remoteConnection/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
+	"github.com/devtron-labs/kubelink/pkg/util"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"helm.sh/helm/v3/pkg/release"
 )
 
 func NewRegistryConfig(credential *client.RegistryCredential) (*registry.Configuration, error) {
@@ -70,4 +73,19 @@ func ConvertConfigToSSHTunnelConfig(config *client.RemoteConnectionConfig) *bean
 		}
 	}
 	return sshConfig
+}
+
+func NewDeployedAppDetail(config *client.ClusterConfig, release *release.Release) *client.DeployedAppDetail {
+	return &client.DeployedAppDetail{
+		AppId:        util.GetAppId(config.ClusterId, release),
+		AppName:      release.Name,
+		ChartName:    release.Chart.Name(),
+		ChartAvatar:  release.Chart.Metadata.Icon,
+		LastDeployed: timestamppb.New(release.Info.LastDeployed.Time),
+		EnvironmentDetail: &client.EnvironmentDetails{
+			ClusterName: config.ClusterName,
+			ClusterId:   config.ClusterId,
+			Namespace:   release.Namespace,
+		},
+	}
 }

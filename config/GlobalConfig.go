@@ -32,3 +32,7 @@ func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
 	err := env.Parse(cfg)
 	return cfg, err
 }
+
+func (c *HelmReleaseConfig) IsHelmReleaseCachingEnabled() bool {
+	return c.EnableHelmReleaseCache
+}

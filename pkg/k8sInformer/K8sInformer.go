@@ -90,31 +90,39 @@ func Newk8sInformerImpl(logger *zap.SugaredLogger, clusterRepository repository.
 	helmReleaseConfig *globalConfig.HelmReleaseConfig, k8sUtil k8sUtils.K8sService,
 	converter converter.ClusterBeanConverter, runnable *async.Runnable) (*K8sInformerImpl, error) {
 	informerFactory := &K8sInformerImpl{
-		logger:            logger,
-		clusterRepository: clusterRepository,
-		helmReleaseConfig: helmReleaseConfig,
-		k8sUtil:           k8sUtil,
-		converter:         converter,
-		runnable:          runnable,
+		logger:             logger,
+		clusterRepository:  clusterRepository,
+		helmReleaseConfig:  helmReleaseConfig,
+		k8sUtil:            k8sUtil,
+		converter:          converter,
+		runnable:           runnable,
+		HelmListClusterMap: make(map[int]map[string]*client.DeployedAppDetail),
+		informerStopper:    make(map[int]chan struct{}),
 	}
-	informerFactory.HelmListClusterMap = make(map[int]map[string]*client.DeployedAppDetail)
-	informerFactory.informerStopper = make(map[int]chan struct{})
-	if helmReleaseConfig.EnableHelmReleaseCache {
-		// for oss installation, there is race condition in starting informer,
-		// where migration is not completed. So getting all active clusters prior
-		// to ensure informer is started for all clusters
-		models, err := informerFactory.clusterRepository.FindAllActive()
+	if informerFactory.helmReleaseConfig.IsHelmReleaseCachingEnabled() {
+		err := informerFactory.registerInformersForAllClusters()
 		if err != nil {
-			informerFactory.logger.Errorw("error in fetching clusters", "err", err)
 			return nil, err
 		}
-		clusterInfos := informerFactory.converter.GetAllClusterInfo(models...)
-		runnableFunc := func() {
-			_ = informerFactory.BuildInformerForAllClusters(clusterInfos)
-		}
-		runnable.Execute(runnableFunc)
 	}
 	return informerFactory, nil
+}
+
+func (impl *K8sInformerImpl) registerInformersForAllClusters() error {
+	// for oss installation, there is race condition in starting informer,
+	// where migration is not completed. So getting all active clusters prior
+	// to ensure informer is started for all clusters
+	models, err := impl.clusterRepository.FindAllActive()
+	if err != nil {
+		impl.logger.Errorw("error in fetching clusters", "err", err)
+		return err
+	}
+	clusterInfos := impl.converter.GetAllClusterInfo(models...)
+	runnableFunc := func() {
+		_ = impl.BuildInformerForAllClusters(clusterInfos)
+	}
+	impl.runnable.Execute(runnableFunc)
+	return nil
 }
 
 func (impl *K8sInformerImpl) OnStateChange(clusterId int, action string) {
