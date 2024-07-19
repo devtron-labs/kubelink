@@ -20,6 +20,7 @@ import (
 	"github.com/devtron-labs/kubelink/pkg/remoteConnection"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 	"github.com/go-pg/pg"
+	"github.com/go-pg/pg/orm"
 	"go.uber.org/zap"
 )
 
@@ -40,6 +41,7 @@ type Cluster struct {
 	AgentInstallationStage   int               `sql:"agent_installation_stage"`
 	K8sVersion               string            `sql:"k8s_version"`
 	ErrorInConnecting        string            `sql:"error_in_connecting"`
+	IsVirtualCluster         bool              `sql:"is_virtual_cluster"`
 	InsecureSkipTlsVerify    bool              `sql:"insecure_skip_tls_verify"`
 	ProxyUrl                 string            `sql:"proxy_url"`
 	ToConnectWithSSHTunnel   bool              `sql:"to_connect_with_ssh_tunnel"`
@@ -74,7 +76,12 @@ func (impl ClusterRepositoryImpl) FindAllActive() ([]*Cluster, error) {
 	err := impl.dbConnection.
 		Model(&clusters).
 		Column("cluster.*", "RemoteConnectionConfig").
-		Where("cluster.active=?", true).
+		Where("cluster.active = ?", true).
+		WhereGroup(func(q *orm.Query) (*orm.Query, error) {
+			q = q.WhereOr("cluster.is_virtual_cluster = ?", false).
+				WhereOr("cluster.is_virtual_cluster IS NULL")
+			return q, nil
+		}).
 		Select()
 	return clusters, err
 }

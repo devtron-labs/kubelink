@@ -27,6 +27,7 @@ type ClusterBeanConverter interface {
 	GetClusterConfigFromClientBean(config *client.ClusterConfig) *k8sUtils.ClusterConfig
 	GetClusterConfig(cluster *bean.ClusterInfo) *k8sUtils.ClusterConfig
 	GetClusterInfo(c *repository.Cluster) *bean.ClusterInfo
+	GetAllClusterInfo(clusters ...*repository.Cluster) []*bean.ClusterInfo
 }
 
 type ClusterBeanConverterImpl struct {
@@ -89,4 +90,12 @@ func (impl *ClusterBeanConverterImpl) GetClusterInfo(c *repository.Cluster) *bea
 		}
 	}
 	return clusterInfo
+}
+
+func (impl *ClusterBeanConverterImpl) GetAllClusterInfo(clusters ...*repository.Cluster) []*bean.ClusterInfo {
+	clusterInfos := make([]*bean.ClusterInfo, 0, len(clusters))
+	for _, c := range clusters {
+		clusterInfos = append(clusterInfos, impl.GetClusterInfo(c))
+	}
+	return clusterInfos
 }

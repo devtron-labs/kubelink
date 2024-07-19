@@ -26,9 +26,11 @@ import (
 	"github.com/devtron-labs/common-lib/utils/grpc"
 	"github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/kubelink/api/router"
+	globalConfig "github.com/devtron-labs/kubelink/config"
 	"github.com/devtron-labs/kubelink/converter"
 	"github.com/devtron-labs/kubelink/internals/lock"
 	"github.com/devtron-labs/kubelink/internals/logger"
+	"github.com/devtron-labs/kubelink/pkg/asyncProvider"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
@@ -53,12 +55,12 @@ func InitializeApp() (*App, error) {
 		wire.Bind(new(converter.ClusterBeanConverter), new(*converter.ClusterBeanConverterImpl)),
 		service.NewApplicationServiceServerImpl,
 		router.NewRouter,
+		asyncProvider.NewAsyncRunnable,
 		k8sInformer.Newk8sInformerImpl,
 		wire.Bind(new(k8sInformer.K8sInformer), new(*k8sInformer.K8sInformerImpl)),
 		repository.NewClusterRepositoryImpl,
 		wire.Bind(new(repository.ClusterRepository), new(*repository.ClusterRepositoryImpl)),
-		service.GetHelmReleaseConfig,
-		k8sInformer.GetHelmReleaseConfig,
+		globalConfig.GetHelmReleaseConfig,
 		grpc.GetConfiguration,
 		//pubsub_lib.NewPubSubClientServiceImpl,
 		//cache.NewClusterCacheImpl,
