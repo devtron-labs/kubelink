@@ -6,6 +6,7 @@ import (
 	k8sObjectUtils "github.com/devtron-labs/common-lib/utils/k8sObjectsUtil"
 	yamlUtil "github.com/devtron-labs/common-lib/utils/yaml"
 	"github.com/devtron-labs/kubelink/bean"
+	globalConfig "github.com/devtron-labs/kubelink/config"
 	"github.com/devtron-labs/kubelink/converter"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/pkg/cache"
@@ -36,12 +37,12 @@ type CommonHelmServiceImpl struct {
 	logger            *zap.SugaredLogger
 	k8sUtil           k8sUtils.K8sService
 	converter         converter.ClusterBeanConverter
-	helmReleaseConfig *HelmReleaseConfig
+	helmReleaseConfig *globalConfig.HelmReleaseConfig
 }
 
 func NewCommonHelmServiceImpl(logger *zap.SugaredLogger,
 	k8sUtil k8sUtils.K8sService, converter converter.ClusterBeanConverter,
-	k8sService K8sService, helmReleaseConfig *HelmReleaseConfig) *CommonHelmServiceImpl {
+	k8sService K8sService, helmReleaseConfig *globalConfig.HelmReleaseConfig) *CommonHelmServiceImpl {
 	return &CommonHelmServiceImpl{
 		logger:            logger,
 		k8sUtil:           k8sUtil,

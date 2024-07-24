@@ -23,8 +23,8 @@ import (
 	"errors"
 	"fmt"
 	registry2 "github.com/devtron-labs/common-lib/helmLib/registry"
-	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
-	k8sObjectUtils "github.com/devtron-labs/common-lib/utils/k8sObjectsUtil"
+	//k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
+	//k8sObjectUtils "github.com/devtron-labs/common-lib/utils/k8sObjectsUtil"
 	"github.com/devtron-labs/kubelink/converter"
 	error2 "github.com/devtron-labs/kubelink/error"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
@@ -43,6 +43,7 @@ import (
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/common-lib/utils/yaml"
 	"github.com/devtron-labs/kubelink/bean"
+	globalConfig "github.com/devtron-labs/kubelink/config"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/pkg/helmClient"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
@@ -109,7 +110,7 @@ type HelmAppServiceImpl struct {
 	k8sService        commonHelmService.K8sService
 	randSource        rand.Source
 	K8sInformer       k8sInformer.K8sInformer
-	helmReleaseConfig *commonHelmService.HelmReleaseConfig
+	helmReleaseConfig *globalConfig.HelmReleaseConfig
 	k8sUtil           k8sUtils.K8sService
 	pubsubClient      *pubsub_lib.PubSubClientServiceImpl
 	clusterRepository repository.ClusterRepository
@@ -119,7 +120,7 @@ type HelmAppServiceImpl struct {
 }
 
 func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService commonHelmService.K8sService,
-	k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *commonHelmService.HelmReleaseConfig,
+	k8sInformer k8sInformer.K8sInformer, helmReleaseConfig *globalConfig.HelmReleaseConfig,
 	k8sUtil k8sUtils.K8sService, converter converter.ClusterBeanConverter,
 	clusterRepository repository.ClusterRepository, common commonHelmService.CommonHelmService, registrySettings registry2.SettingsFactory) (*HelmAppServiceImpl, error) {
 
