@@ -72,10 +72,8 @@ func (wp *WorkerPool[T]) updateResponse(res T) {
 	wp.Lock()
 	defer wp.Unlock()
 	val := reflect.ValueOf(res)
-	if reflectUtils.IsNullableValue(val) {
-		if val.IsNil() {
-			return
-		}
+	if reflectUtils.IsNullableValue(val) && val.IsNil() {
+		return
 	} else if !wp.includeZeroValue && val.IsZero() {
 		return
 	} else {
