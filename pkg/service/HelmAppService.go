@@ -1703,24 +1703,30 @@ func (impl *HelmAppServiceImpl) buildChildNodes(buildChildNodesRequests []*Build
 }
 
 func (impl *HelmAppServiceImpl) buildChildNodesInBatch(wp *workerPool.WorkerPool[*BuildNodeResponse], buildChildNodesRequests []*BuildNodesRequest) (*BuildNodeResponse, error) {
-	//if wp == nil {
-	return impl.buildChildNodes(buildChildNodesRequests)
-	//}
-	//response := NewBuildNodeResponse()
-	//for _, req := range buildChildNodesRequests {
-	//	wp.Submit(func() (*BuildNodeResponse, error) {
-	//		// build child nodes
-	//		return impl.buildNodes(req)
-	//	})
-	//}
-	//wp.StopWait()
-	//if err := wp.Error(); err != nil {
-	//	return response, err
-	//}
-	//for _, childNode := range wp.GetResponse() {
-	//	response.WithNodes(childNode.nodes).WithHealthStatusArray(childNode.healthStatusArray)
-	//}
-	//return response, nil
+	if wp == nil {
+		return impl.buildChildNodes(buildChildNodesRequests)
+	}
+	response := NewBuildNodeResponse()
+	var wg sync.WaitGroup
+	for _, req := range buildChildNodesRequests {
+		wg.Add(1)
+		wp.Submit(func() (*BuildNodeResponse, error) {
+			defer wg.Done()
+			// build child nodes
+			return impl.buildNodes(req)
+		})
+	}
+	wp.StopWait()
+	impl.logger.Infow("time 1 :- ", time.Now())
+	wg.Wait()
+	impl.logger.Infow("time 2 :- ", time.Now())
+	if err := wp.Error(); err != nil {
+		return response, err
+	}
+	for _, childNode := range wp.GetResponse() {
+		response.WithNodes(childNode.nodes).WithHealthStatusArray(childNode.healthStatusArray)
+	}
+	return response, nil
 }
 
 func buildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstructured, namespace string) *bean.ResourceRef {
