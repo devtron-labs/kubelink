@@ -116,7 +116,7 @@ func (req *BuildNodesRequest) WithBatchWorker(buildNodesBatchSize int, logger *z
 	if buildNodesBatchSize <= 0 {
 		buildNodesBatchSize = 1
 	}
-	// for parallel processing of nodes
+	// for parallel processing of Nodes
 	req.batchWorker = asyncProvider.NewBatchWorker[*BuildNodeResponse](buildNodesBatchSize, logger)
 	return req
 }
@@ -152,14 +152,14 @@ func (req *BuildNodesConfig) WithParentResourceRef(parentResourceRef *bean.Resou
 }
 
 type BuildNodeResponse struct {
-	nodes             []*bean.ResourceNode
-	healthStatusArray []*bean.HealthStatus
+	Nodes             []*bean.ResourceNode
+	HealthStatusArray []*bean.HealthStatus
 }
 
 type GetNodeFromManifestResponse struct {
-	buildChildNodesRequests []*BuildNodesRequest
-	node                    *bean.ResourceNode
-	healthStatus            *bean.HealthStatus
+	BuildChildNodesRequests []*BuildNodesRequest
+	Node                    *bean.ResourceNode
+	HealthStatus            *bean.HealthStatus
 }
 
 func NewGetNodesFromManifestResponse() *GetNodeFromManifestResponse {
@@ -174,7 +174,7 @@ func (resp *BuildNodeResponse) WithNodes(nodes []*bean.ResourceNode) *BuildNodeR
 	if len(nodes) == 0 {
 		return resp
 	}
-	resp.nodes = append(resp.nodes, nodes...)
+	resp.Nodes = append(resp.Nodes, nodes...)
 	return resp
 }
 
@@ -182,6 +182,6 @@ func (resp *BuildNodeResponse) WithHealthStatusArray(healthStatusArray []*bean.H
 	if len(healthStatusArray) == 0 {
 		return resp
 	}
-	resp.healthStatusArray = append(resp.healthStatusArray, healthStatusArray...)
+	resp.HealthStatusArray = append(resp.HealthStatusArray, healthStatusArray...)
 	return resp
 }
