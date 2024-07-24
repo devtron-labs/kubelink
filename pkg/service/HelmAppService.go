@@ -1679,8 +1679,12 @@ func (impl *HelmAppServiceImpl) buildNodes(request *BuildNodesRequest) (*BuildNo
 			buildChildNodesRequests = append(buildChildNodesRequests, getNodesFromManifestResponse.buildChildNodesRequests...)
 		}
 	}
-
-	return impl.buildChildNodesInBatch(request.batchWorker, buildChildNodesRequests)
+	childNodeResponse, err := impl.buildChildNodesInBatch(request.batchWorker, buildChildNodesRequests)
+	if err != nil {
+		return response, err
+	}
+	response.WithNodes(childNodeResponse.nodes).WithHealthStatusArray(childNodeResponse.healthStatusArray)
+	return response, nil
 }
 
 func (impl *HelmAppServiceImpl) buildChildNodes(buildChildNodesRequests []*BuildNodesRequest) (*BuildNodeResponse, error) {
