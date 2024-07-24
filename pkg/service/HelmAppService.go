@@ -228,7 +228,7 @@ func (impl *HelmAppServiceImpl) GetResourceTreeForExternalResources(req *client.
 	k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(req.ClusterConfig)
 	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
-		impl.logger.Errorw("error in getting restConfig", "err", err)
+		impl.logger.Errorw("error in getting RestConfig", "err", err)
 		return nil, err
 	}
 
@@ -1568,17 +1568,17 @@ func (impl *HelmAppServiceImpl) getManifestData(restConfig *rest.Config, release
 
 func (impl *HelmAppServiceImpl) getNodeFromDesiredOrLiveManifest(request *GetNodeFromManifest) (*GetNodeFromManifestResponse, error) {
 	response := NewGetNodesFromManifestResponse()
-	manifest := request.desiredOrLiveManifest.Manifest
+	manifest := request.DesiredOrLiveManifest.Manifest
 	gvk := manifest.GroupVersionKind()
 	_namespace := manifest.GetNamespace()
 	if _namespace == "" {
-		_namespace = request.releaseNamespace
+		_namespace = request.ReleaseNamespace
 	}
 	ports := util.GetPorts(manifest, gvk)
 	resourceRef := buildResourceRef(gvk, *manifest, _namespace)
 
 	if impl.k8sService.CanHaveChild(gvk) {
-		children, err := impl.k8sService.GetChildObjects(request.restConfig, _namespace, gvk, manifest.GetName(), manifest.GetAPIVersion())
+		children, err := impl.k8sService.GetChildObjects(request.RestConfig, _namespace, gvk, manifest.GetName(), manifest.GetAPIVersion())
 		if err != nil {
 			return response, err
 		}
@@ -1588,8 +1588,8 @@ func (impl *HelmAppServiceImpl) getNodeFromDesiredOrLiveManifest(request *GetNod
 				Manifest: child,
 			})
 		}
-		req := NewBuildNodesRequest(NewBuildNodesConfig(request.restConfig).
-			WithReleaseNamespace(request.releaseNamespace).
+		req := NewBuildNodesRequest(NewBuildNodesConfig(request.RestConfig).
+			WithReleaseNamespace(request.ReleaseNamespace).
 			WithParentResourceRef(resourceRef)).
 			WithDesiredOrLiveManifests(desiredOrLiveManifestsChildren...)
 		// NOTE:  Do not use batch worker for child nodes as it will create batch worker recursively
@@ -1612,13 +1612,13 @@ func (impl *HelmAppServiceImpl) getNodeFromDesiredOrLiveManifest(request *GetNod
 	}
 	node.IsHook, node.HookType = util.GetHookMetadata(manifest)
 
-	if request.parentResourceRef != nil {
-		node.ParentRefs = append(make([]*bean.ResourceRef, 0), request.parentResourceRef)
+	if request.ParentResourceRef != nil {
+		node.ParentRefs = append(make([]*bean.ResourceRef, 0), request.ParentResourceRef)
 	}
 
 	// set health of node
-	if request.desiredOrLiveManifest.IsLiveManifestFetchError {
-		if request.desiredOrLiveManifest.LiveManifestFetchErrorCode == http.StatusNotFound {
+	if request.DesiredOrLiveManifest.IsLiveManifestFetchError {
+		if request.DesiredOrLiveManifest.LiveManifestFetchErrorCode == http.StatusNotFound {
 			node.Health = &bean.HealthStatus{
 				Status:  bean.HealthStatusMissing,
 				Message: "Resource missing as live manifest not found",
@@ -1634,7 +1634,7 @@ func (impl *HelmAppServiceImpl) getNodeFromDesiredOrLiveManifest(request *GetNod
 	}
 
 	// hibernate set starts
-	if request.parentResourceRef == nil {
+	if request.ParentResourceRef == nil {
 
 		// set CanBeHibernated
 		cache.SetHibernationRules(node, &node.Manifest)
@@ -1655,12 +1655,12 @@ func (impl *HelmAppServiceImpl) getNodeFromDesiredOrLiveManifest(request *GetNod
 func (impl *HelmAppServiceImpl) buildNodes(request *BuildNodesRequest) (*BuildNodeResponse, error) {
 	var buildChildNodesRequests []*BuildNodesRequest
 	response := NewBuildNodeResponse()
-	for _, desiredOrLiveManifest := range request.desiredOrLiveManifests {
+	for _, desiredOrLiveManifest := range request.DesiredOrLiveManifests {
 
 		// build request to get nodes from desired or live manifest
-		getNodesFromManifest := NewGetNodesFromManifest(NewBuildNodesConfig(request.restConfig).
-			WithParentResourceRef(request.parentResourceRef).
-			WithReleaseNamespace(request.releaseNamespace)).
+		getNodesFromManifest := NewGetNodesFromManifest(NewBuildNodesConfig(request.RestConfig).
+			WithParentResourceRef(request.ParentResourceRef).
+			WithReleaseNamespace(request.ReleaseNamespace)).
 			WithDesiredOrLiveManifest(desiredOrLiveManifest)
 
 		// get node from desired or live manifest
@@ -1694,7 +1694,7 @@ func (impl *HelmAppServiceImpl) buildChildNodes(buildChildNodesRequests []*Build
 		// build child nodes
 		childNodesResponse, err := impl.buildNodes(req)
 		if err != nil {
-			impl.logger.Errorw("error in building child nodes", "releaseNamespace", req.releaseNamespace, "parentResourceRef", req.parentResourceRef, "err", err)
+			impl.logger.Errorw("error in building child nodes", "ReleaseNamespace", req.ReleaseNamespace, "ParentResourceRef", req.ParentResourceRef, "err", err)
 			return response, err
 		}
 		response.WithNodes(childNodesResponse.nodes).WithHealthStatusArray(childNodesResponse.healthStatusArray)
@@ -1707,19 +1707,13 @@ func (impl *HelmAppServiceImpl) buildChildNodesInBatch(wp *workerPool.WorkerPool
 		return impl.buildChildNodes(buildChildNodesRequests)
 	}
 	response := NewBuildNodeResponse()
-	var wg sync.WaitGroup
 	for _, req := range buildChildNodesRequests {
-		wg.Add(1)
 		wp.Submit(func() (*BuildNodeResponse, error) {
-			defer wg.Done()
 			// build child nodes
 			return impl.buildNodes(req)
 		})
 	}
 	wp.StopWait()
-	impl.logger.Infow("time 1 :- ", time.Now())
-	wg.Wait()
-	impl.logger.Infow("time 2 :- ", time.Now())
 	if err := wp.Error(); err != nil {
 		return response, err
 	}

@@ -68,20 +68,20 @@ func (r ChildObjects) GetGvrAndScopeForChildObject() *commonBean.GvrAndScope {
 }
 
 type BuildNodesRequest struct {
-	desiredOrLiveManifests []*bean.DesiredOrLiveManifest
+	DesiredOrLiveManifests []*bean.DesiredOrLiveManifest
 	batchWorker            *workerPool.WorkerPool[*BuildNodeResponse]
 	BuildNodesConfig
 }
 
 type GetNodeFromManifest struct {
-	desiredOrLiveManifest *bean.DesiredOrLiveManifest
+	DesiredOrLiveManifest *bean.DesiredOrLiveManifest
 	BuildNodesConfig
 }
 
 type BuildNodesConfig struct {
-	restConfig        *rest.Config
-	releaseNamespace  string
-	parentResourceRef *bean.ResourceRef
+	RestConfig        *rest.Config
+	ReleaseNamespace  string
+	ParentResourceRef *bean.ResourceRef
 }
 
 func NewBuildNodesRequest(buildNodesConfig *BuildNodesConfig) *BuildNodesRequest {
@@ -108,7 +108,7 @@ func (req *BuildNodesRequest) WithDesiredOrLiveManifests(desiredOrLiveManifests 
 	if len(desiredOrLiveManifests) == 0 {
 		return req
 	}
-	req.desiredOrLiveManifests = append(req.desiredOrLiveManifests, desiredOrLiveManifests...)
+	req.DesiredOrLiveManifests = append(req.DesiredOrLiveManifests, desiredOrLiveManifests...)
 	return req
 }
 
@@ -125,13 +125,13 @@ func (req *GetNodeFromManifest) WithDesiredOrLiveManifest(desiredOrLiveManifest 
 	if desiredOrLiveManifest == nil {
 		return req
 	}
-	req.desiredOrLiveManifest = desiredOrLiveManifest
+	req.DesiredOrLiveManifest = desiredOrLiveManifest
 	return req
 }
 
 func NewBuildNodesConfig(restConfig *rest.Config) *BuildNodesConfig {
 	return &BuildNodesConfig{
-		restConfig: restConfig,
+		RestConfig: restConfig,
 	}
 }
 
@@ -139,7 +139,7 @@ func (req *BuildNodesConfig) WithReleaseNamespace(releaseNamespace string) *Buil
 	if releaseNamespace == "" {
 		return req
 	}
-	req.releaseNamespace = releaseNamespace
+	req.ReleaseNamespace = releaseNamespace
 	return req
 }
 
@@ -147,7 +147,7 @@ func (req *BuildNodesConfig) WithParentResourceRef(parentResourceRef *bean.Resou
 	if parentResourceRef == nil {
 		return req
 	}
-	req.parentResourceRef = parentResourceRef
+	req.ParentResourceRef = parentResourceRef
 	return req
 }
 
