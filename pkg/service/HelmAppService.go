@@ -1653,9 +1653,7 @@ func (impl *HelmAppServiceImpl) getNodeFromDesiredOrLiveManifest(request *GetNod
 }
 
 func (impl *HelmAppServiceImpl) buildNodes(request *BuildNodesRequest) (*BuildNodeResponse, error) {
-	var nodes []*bean.ResourceNode
 	var buildChildNodesRequests []*BuildNodesRequest
-	var healthStatusArray []*bean.HealthStatus
 	response := NewBuildNodeResponse()
 	for _, desiredOrLiveManifest := range request.desiredOrLiveManifests {
 
@@ -1672,8 +1670,8 @@ func (impl *HelmAppServiceImpl) buildNodes(request *BuildNodesRequest) (*BuildNo
 		}
 		// add node and health status
 		if getNodesFromManifestResponse.node != nil {
-			nodes = append(nodes, getNodesFromManifestResponse.node)
-			healthStatusArray = append(healthStatusArray, getNodesFromManifestResponse.node.Health)
+			response.nodes = append(response.nodes, getNodesFromManifestResponse.node)
+			response.healthStatusArray = append(response.healthStatusArray, getNodesFromManifestResponse.node.Health)
 		}
 
 		// add child nodes request
