@@ -147,7 +147,7 @@ func NewHelmAppServiceImpl(logger *zap.SugaredLogger, k8sService commonHelmServi
 	}
 	err = os.MkdirAll(helmReleaseConfig.ChartWorkingDirectory, os.ModePerm)
 	if err != nil {
-		helmAppServiceImpl.logger.Errorw("err in creating dir", "err", err)
+		helmAppServiceImpl.logger.Errorw(DirCreatingError, "err", err)
 		return nil, err
 	}
 
@@ -1370,7 +1370,7 @@ func (impl *HelmAppServiceImpl) InstallReleaseWithCustomChart(ctx context.Contex
 	if _, err := os.Stat(impl.helmReleaseConfig.ChartWorkingDirectory); os.IsNotExist(err) {
 		err := os.MkdirAll(impl.helmReleaseConfig.ChartWorkingDirectory, os.ModePerm)
 		if err != nil {
-			impl.logger.Errorw("err in creating dir", "err", err)
+			impl.logger.Errorw(DirCreatingError, "err", err)
 			return false, err
 		}
 	}
@@ -1432,7 +1432,7 @@ func (impl *HelmAppServiceImpl) UpgradeReleaseWithCustomChart(ctx context.Contex
 	if _, err := os.Stat(impl.helmReleaseConfig.ChartWorkingDirectory); os.IsNotExist(err) {
 		err := os.MkdirAll(impl.helmReleaseConfig.ChartWorkingDirectory, os.ModePerm)
 		if err != nil {
-			impl.logger.Errorw("err in creating dir", "err", err)
+			impl.logger.Errorw(DirCreatingError, "err", err)
 			return false, err
 		}
 	}
