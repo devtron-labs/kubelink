@@ -1721,11 +1721,13 @@ func (impl *HelmAppServiceImpl) buildChildNodesInBatch(wp *workerPool.WorkerPool
 	}
 	response := NewBuildNodeResponse()
 	for index := range buildChildNodesRequests {
-		// submit child Nodes build request to workerPool
-		wp.Submit(func() (*BuildNodeResponse, error) {
-			// build child Nodes
-			return impl.buildNodes(buildChildNodesRequests[index])
-		})
+		func(req *BuildNodesConfig) {
+			// submit child Nodes build request to workerPool
+			wp.Submit(func() (*BuildNodeResponse, error) {
+				// build child Nodes
+				return impl.buildNodes(req)
+			})
+		}(buildChildNodesRequests[index])
 	}
 	// wait for all child Nodes build requests to complete
 	wp.StopWait()
