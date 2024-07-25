@@ -139,11 +139,12 @@ func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace st
 
 	gvrAndScopes, ok := impl.GetChildGvrFromParentGvk(parentGvk)
 	if !ok {
+		impl.logger.Errorw("gvr not found for given kind", "parentGvk", parentGvk)
 		return nil, errors.New("grv not found for given kind")
 	}
 	client, err := dynamicClient.NewForConfig(restConfig)
-
 	if err != nil {
+		impl.logger.Errorw("error in creating dynamic client", "host", restConfig.Host, "namespace", namespace, "err", err)
 		return nil, err
 	}
 	var pvcs []unstructured.Unstructured
@@ -166,6 +167,7 @@ func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace st
 				if internalErr != nil {
 					err = internalErr
 				}
+				impl.logger.Errorw("error in getting child objects", "namespace", namespace, "gvr", gvr, "parentGvk", parentGvk, "err", err)
 				return nil, err
 			}
 		}
@@ -177,12 +179,13 @@ func (impl K8sServiceImpl) GetChildObjects(restConfig *rest.Config, namespace st
 					pvcs = append(pvcs, item)
 					continue
 				}
-				//special handling for pvcs created via statefulsets
+				// special handling for pvcs created via statefulsets
 				if gvr.Resource == k8sCommonBean.StatefulSetsResourceType && isInferredParentOf != nil {
 					for _, pvc := range pvcs {
 						var pvcClaim coreV1.PersistentVolumeClaim
 						err := runtime.DefaultUnstructuredConverter.FromUnstructured(pvc.Object, &pvcClaim)
 						if err != nil {
+							impl.logger.Errorw("error in converting unstructured to pvc", "namespace", namespace, "gvr", gvr, "err", err)
 							return manifests, err
 						}
 						isCurrentStsParentOfPvc := isInferredParentOf(k8sUtils.ResourceKey{

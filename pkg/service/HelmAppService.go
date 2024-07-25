@@ -1588,12 +1588,8 @@ func (impl *HelmAppServiceImpl) getNodeFromDesiredOrLiveManifest(request *GetNod
 				Manifest: child,
 			})
 		}
-		req := NewBuildNodesRequest(NewBuildNodesConfig(request.RestConfig).
-			WithReleaseNamespace(request.ReleaseNamespace).
-			WithParentResourceRef(resourceRef)).
+		response.WithParentResourceRef(resourceRef).
 			WithDesiredOrLiveManifests(desiredOrLiveManifestsChildren...)
-		// NOTE:  Do not use batch worker for child Nodes as it will create batch worker recursively
-		response.BuildChildNodesRequests = append(response.BuildChildNodesRequests, req)
 	}
 
 	creationTimeStamp := ""
@@ -1647,13 +1643,17 @@ func (impl *HelmAppServiceImpl) getNodeFromDesiredOrLiveManifest(request *GetNod
 	}
 	util.AddSelectiveInfoInResourceNode(node, gvk, manifest.Object)
 
-	response.Node = node
-	response.HealthStatus = node.Health
+	response.WithNode(node).WithHealthStatus(node.Health)
 	return response, nil
 }
 
-func (impl *HelmAppServiceImpl) buildNodes(request *BuildNodesRequest) (*BuildNodeResponse, error) {
-	var buildChildNodesRequests []*BuildNodesRequest
+// buildNodes builds Nodes from desired or live manifest.
+//   - It uses recursive approach to build child Nodes.
+//   - It uses batch worker to build child Nodes in parallel.
+//   - Batch workers configuration is provided in BuildNodesConfig.
+//   - NOTE: To avoid creating batch worker recursively, it does not use batch worker for child Nodes.
+func (impl *HelmAppServiceImpl) buildNodes(request *BuildNodesConfig) (*BuildNodeResponse, error) {
+	var buildChildNodesRequests []*BuildNodesConfig
 	response := NewBuildNodeResponse()
 	for _, desiredOrLiveManifest := range request.DesiredOrLiveManifests {
 
@@ -1675,26 +1675,35 @@ func (impl *HelmAppServiceImpl) buildNodes(request *BuildNodesRequest) (*BuildNo
 		}
 
 		// add child Nodes request
-		if len(getNodesFromManifestResponse.BuildChildNodesRequests) > 0 {
-			buildChildNodesRequests = append(buildChildNodesRequests, getNodesFromManifestResponse.BuildChildNodesRequests...)
+		if len(getNodesFromManifestResponse.DesiredOrLiveManifests) > 0 {
+			req := NewBuildNodesRequest(NewBuildNodesConfig(request.RestConfig).
+				WithReleaseNamespace(request.ReleaseNamespace).
+				WithParentResourceRef(getNodesFromManifestResponse.ResourceRef)).
+				WithDesiredOrLiveManifests(getNodesFromManifestResponse.DesiredOrLiveManifests...)
+			// NOTE:  Do not use batch worker for child Nodes as it will create batch worker recursively
+			buildChildNodesRequests = append(buildChildNodesRequests, req)
 		}
 	}
+	// build child Nodes, if any.
+	// NOTE: build child Nodes calls buildNodes recursively
 	childNodeResponse, err := impl.buildChildNodesInBatch(request.batchWorker, buildChildNodesRequests)
 	if err != nil {
 		return response, err
 	}
+	// add child Nodes and health status to response
 	response.WithNodes(childNodeResponse.Nodes).WithHealthStatusArray(childNodeResponse.HealthStatusArray)
 	return response, nil
 }
 
-func (impl *HelmAppServiceImpl) buildChildNodes(buildChildNodesRequests []*BuildNodesRequest) (*BuildNodeResponse, error) {
+// buildChildNodes builds child Nodes sequentially from desired or live manifest.
+func (impl *HelmAppServiceImpl) buildChildNodes(buildChildNodesRequests []*BuildNodesConfig) (*BuildNodeResponse, error) {
 	response := NewBuildNodeResponse()
 	// for recursive calls, build child Nodes sequentially
 	for _, req := range buildChildNodesRequests {
 		// build child Nodes
 		childNodesResponse, err := impl.buildNodes(req)
 		if err != nil {
-			impl.logger.Errorw("error in building child Nodes", "ReleaseNamespace", req.ReleaseNamespace, "ParentResourceRef", req.ParentResourceRef, "err", err)
+			impl.logger.Errorw("error in building child Nodes", "ReleaseNamespace", req.ReleaseNamespace, "parentResource", req.ParentResourceRef.GetGvk(), "err", err)
 			return response, err
 		}
 		response.WithNodes(childNodesResponse.Nodes).WithHealthStatusArray(childNodesResponse.HealthStatusArray)
@@ -1702,21 +1711,29 @@ func (impl *HelmAppServiceImpl) buildChildNodes(buildChildNodesRequests []*Build
 	return response, nil
 }
 
-func (impl *HelmAppServiceImpl) buildChildNodesInBatch(wp *workerPool.WorkerPool[*BuildNodeResponse], buildChildNodesRequests []*BuildNodesRequest) (*BuildNodeResponse, error) {
+// buildChildNodesInBatch builds child Nodes in parallel from desired or live manifest.
+//   - It uses batch workers workerPool.WorkerPool[*BuildNodeResponse] to build child Nodes in parallel.
+//   - If workerPool is not defined, it builds child Nodes sequentially.
+func (impl *HelmAppServiceImpl) buildChildNodesInBatch(wp *workerPool.WorkerPool[*BuildNodeResponse], buildChildNodesRequests []*BuildNodesConfig) (*BuildNodeResponse, error) {
 	if wp == nil {
+		// build child Nodes sequentially
 		return impl.buildChildNodes(buildChildNodesRequests)
 	}
 	response := NewBuildNodeResponse()
-	for _, req := range buildChildNodesRequests {
+	for index := range buildChildNodesRequests {
+		// submit child Nodes build request to workerPool
 		wp.Submit(func() (*BuildNodeResponse, error) {
 			// build child Nodes
-			return impl.buildNodes(req)
+			return impl.buildNodes(buildChildNodesRequests[index])
 		})
 	}
+	// wait for all child Nodes build requests to complete
 	wp.StopWait()
+	// return error from workerPool error channel
 	if err := wp.Error(); err != nil {
 		return response, err
 	}
+	// extract the children nodes from workerPool response
 	for _, childNode := range wp.GetResponse() {
 		response.WithNodes(childNode.Nodes).WithHealthStatusArray(childNode.HealthStatusArray)
 	}

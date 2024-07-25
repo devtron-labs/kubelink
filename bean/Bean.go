@@ -145,6 +145,17 @@ type ResourceRef struct {
 	Manifest  unstructured.Unstructured `json:"-"`
 }
 
+func (r *ResourceRef) GetGvk() schema.GroupVersionKind {
+	if r == nil {
+		return schema.GroupVersionKind{}
+	}
+	return schema.GroupVersionKind{
+		Group:   r.Group,
+		Version: r.Version,
+		Kind:    r.Kind,
+	}
+}
+
 // ResourceNetworkingInfo holds networking resource related information
 type ResourceNetworkingInfo struct {
 	Labels map[string]string `json:"labels,omitempty" protobuf:"bytes,3,opt,name=labels"`
