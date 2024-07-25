@@ -25,7 +25,7 @@ type HelmReleaseConfig struct {
 	RunHelmInstallInAsyncMode bool   `env:"RUN_HELM_INSTALL_IN_ASYNC_MODE" envDefault:"false"`
 	ParentChildGvkMapping     string `env:"PARENT_CHILD_GVK_MAPPING" envDefault:""`
 	ChartWorkingDirectory     string `env:"CHART_WORKING_DIRECTORY" envDefault:"/home/devtron/devtroncd/charts/"`
-	BuildNodesBatchSize       int    `env:"BUILD_NODES_BATCH_SIZE" envDefault:"5"`
+	BuildNodesBatchSize       int    `env:"BUILD_NODES_BATCH_SIZE" envDefault:"2"`
 }
 
 func GetHelmReleaseConfig() (*HelmReleaseConfig, error) {
