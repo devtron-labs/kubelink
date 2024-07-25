@@ -1721,6 +1721,7 @@ func (impl *HelmAppServiceImpl) buildChildNodesInBatch(wp *workerPool.WorkerPool
 	}
 	response := NewBuildNodeResponse()
 	for index := range buildChildNodesRequests {
+		// passing buildChildNodesRequests[index] to closure as it will be updated in next iteration and the func call is async
 		func(req *BuildNodesConfig) {
 			// submit child Nodes build request to workerPool
 			wp.Submit(func() (*BuildNodeResponse, error) {
