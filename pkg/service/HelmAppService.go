@@ -1675,11 +1675,11 @@ func (impl *HelmAppServiceImpl) buildNodes(request *BuildNodesConfig) (*BuildNod
 		}
 
 		// add child Nodes request
-		if len(getNodesFromManifestResponse.DesiredOrLiveManifests) > 0 {
+		if len(getNodesFromManifestResponse.DesiredOrLiveChildrenManifests) > 0 {
 			req := NewBuildNodesRequest(NewBuildNodesConfig(request.RestConfig).
 				WithReleaseNamespace(request.ReleaseNamespace).
 				WithParentResourceRef(getNodesFromManifestResponse.ResourceRef)).
-				WithDesiredOrLiveManifests(getNodesFromManifestResponse.DesiredOrLiveManifests...)
+				WithDesiredOrLiveManifests(getNodesFromManifestResponse.DesiredOrLiveChildrenManifests...)
 			// NOTE:  Do not use batch worker for child Nodes as it will create batch worker recursively
 			buildChildNodesRequests = append(buildChildNodesRequests, req)
 		}

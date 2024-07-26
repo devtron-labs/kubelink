@@ -157,10 +157,10 @@ type BuildNodeResponse struct {
 }
 
 type GetNodeFromManifestResponse struct {
-	Node                   *bean.ResourceNode
-	HealthStatus           *bean.HealthStatus
-	ResourceRef            *bean.ResourceRef
-	DesiredOrLiveManifests []*bean.DesiredOrLiveManifest
+	Node                           *bean.ResourceNode
+	HealthStatus                   *bean.HealthStatus
+	ResourceRef                    *bean.ResourceRef
+	DesiredOrLiveChildrenManifests []*bean.DesiredOrLiveManifest
 }
 
 func NewGetNodesFromManifestResponse() *GetNodeFromManifestResponse {
@@ -195,7 +195,7 @@ func (resp *GetNodeFromManifestResponse) WithDesiredOrLiveManifests(desiredOrLiv
 	if len(desiredOrLiveManifests) == 0 {
 		return resp
 	}
-	resp.DesiredOrLiveManifests = append(resp.DesiredOrLiveManifests, desiredOrLiveManifests...)
+	resp.DesiredOrLiveChildrenManifests = append(resp.DesiredOrLiveChildrenManifests, desiredOrLiveManifests...)
 	return resp
 }
 
