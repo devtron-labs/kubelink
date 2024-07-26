@@ -73,7 +73,7 @@ type BuildNodesConfig struct {
 	BuildNodesRequest
 }
 
-type GetNodeFromManifest struct {
+type GetNodeFromManifestRequest struct {
 	DesiredOrLiveManifest *bean.DesiredOrLiveManifest
 	BuildNodesRequest
 }
@@ -94,11 +94,11 @@ func NewBuildNodesRequest(buildNodesConfig *BuildNodesRequest) *BuildNodesConfig
 	return req
 }
 
-func NewGetNodesFromManifest(buildNodesConfig *BuildNodesRequest) *GetNodeFromManifest {
+func NewGetNodesFromManifest(buildNodesConfig *BuildNodesRequest) *GetNodeFromManifestRequest {
 	if buildNodesConfig == nil {
-		return &GetNodeFromManifest{}
+		return &GetNodeFromManifestRequest{}
 	}
-	req := &GetNodeFromManifest{
+	req := &GetNodeFromManifestRequest{
 		BuildNodesRequest: *buildNodesConfig,
 	}
 	return req
@@ -121,7 +121,7 @@ func (req *BuildNodesConfig) WithBatchWorker(buildNodesBatchSize int, logger *za
 	return req
 }
 
-func (req *GetNodeFromManifest) WithDesiredOrLiveManifest(desiredOrLiveManifest *bean.DesiredOrLiveManifest) *GetNodeFromManifest {
+func (req *GetNodeFromManifestRequest) WithDesiredOrLiveManifest(desiredOrLiveManifest *bean.DesiredOrLiveManifest) *GetNodeFromManifestRequest {
 	if desiredOrLiveManifest == nil {
 		return req
 	}

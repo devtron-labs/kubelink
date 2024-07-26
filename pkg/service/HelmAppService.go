@@ -1566,7 +1566,7 @@ func (impl *HelmAppServiceImpl) getManifestData(restConfig *rest.Config, release
 	return desiredOrLiveManifest
 }
 
-func (impl *HelmAppServiceImpl) getNodeFromDesiredOrLiveManifest(request *GetNodeFromManifest) (*GetNodeFromManifestResponse, error) {
+func (impl *HelmAppServiceImpl) getNodeFromDesiredOrLiveManifest(request *GetNodeFromManifestRequest) (*GetNodeFromManifestResponse, error) {
 	response := NewGetNodesFromManifestResponse()
 	manifest := request.DesiredOrLiveManifest.Manifest
 	gvk := manifest.GroupVersionKind()
