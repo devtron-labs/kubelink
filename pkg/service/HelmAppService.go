@@ -1730,10 +1730,9 @@ func (impl *HelmAppServiceImpl) buildChildNodesInBatch(wp *workerPool.WorkerPool
 			})
 		}(buildChildNodesRequests[index])
 	}
-	// wait for all child Nodes build requests to complete
-	wp.StopWait()
-	// return error from workerPool error channel
-	if err := wp.Error(); err != nil {
+	// wait for all child Nodes build requests to complete and return error from workerPool error channel
+	err := wp.StopWait()
+	if err != nil {
 		return response, err
 	}
 	// extract the children nodes from workerPool response

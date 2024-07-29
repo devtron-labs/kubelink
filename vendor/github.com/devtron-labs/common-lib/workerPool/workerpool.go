@@ -61,7 +61,7 @@ func (wp *WorkerPool[T]) Submit(task func() (T, error)) {
 		res, err := task()
 		if err != nil {
 			wp.logger.Errorw("error in worker pool task", "err", err)
-			wp.SetError(err)
+			wp.setError(err)
 			return
 		}
 		wp.updateResponse(res)
@@ -69,8 +69,8 @@ func (wp *WorkerPool[T]) Submit(task func() (T, error)) {
 }
 
 func (wp *WorkerPool[T]) updateResponse(res T) {
-	wp.Lock()
-	defer wp.Unlock()
+	wp.lock()
+	defer wp.unlock()
 	val := reflect.ValueOf(res)
 	if reflectUtils.IsNullableValue(val) && val.IsNil() {
 		return
@@ -82,15 +82,17 @@ func (wp *WorkerPool[T]) updateResponse(res T) {
 	}
 }
 
-func (wp *WorkerPool[_]) StopWait() {
+func (wp *WorkerPool[_]) StopWait() error {
 	wp.wp.StopWait()
+	// return error from workerPool error channel
+	return wp.Error()
 }
 
-func (wp *WorkerPool[_]) Lock() {
+func (wp *WorkerPool[_]) lock() {
 	wp.mu.Lock()
 }
 
-func (wp *WorkerPool[_]) Unlock() {
+func (wp *WorkerPool[_]) unlock() {
 	wp.mu.Unlock()
 }
 
@@ -103,7 +105,7 @@ func (wp *WorkerPool[_]) Error() error {
 	}
 }
 
-func (wp *WorkerPool[_]) SetError(err error) {
+func (wp *WorkerPool[_]) setError(err error) {
 	if err != nil && wp.Error() == nil {
 		wp.err <- err
 	}
