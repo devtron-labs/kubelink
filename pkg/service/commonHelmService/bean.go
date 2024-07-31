@@ -17,8 +17,13 @@ package commonHelmService
 
 import (
 	"github.com/devtron-labs/common-lib/utils/k8s/commonBean"
+	"github.com/devtron-labs/common-lib/workerPool"
+	"github.com/devtron-labs/kubelink/bean"
+	"github.com/devtron-labs/kubelink/pkg/asyncProvider"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/rest"
 )
 
 type HelmReleaseStatusConfig struct {
@@ -59,4 +64,156 @@ func (r ChildObjects) GetGvrAndScopeForChildObject() *commonBean.GvrAndScope {
 		},
 		Scope: r.Scope,
 	}
+}
+
+type BuildNodesConfig struct {
+	DesiredOrLiveManifests []*bean.DesiredOrLiveManifest
+	batchWorker            *workerPool.WorkerPool[*BuildNodeResponse]
+	BuildNodesRequest
+}
+
+type GetNodeFromManifestRequest struct {
+	DesiredOrLiveManifest *bean.DesiredOrLiveManifest
+	BuildNodesRequest
+}
+
+type BuildNodesRequest struct {
+	RestConfig        *rest.Config
+	ReleaseNamespace  string
+	ParentResourceRef *bean.ResourceRef
+}
+
+func NewBuildNodesRequest(buildNodesConfig *BuildNodesRequest) *BuildNodesConfig {
+	if buildNodesConfig == nil {
+		return &BuildNodesConfig{}
+	}
+	req := &BuildNodesConfig{
+		BuildNodesRequest: *buildNodesConfig,
+	}
+	return req
+}
+
+func NewGetNodesFromManifest(buildNodesConfig *BuildNodesRequest) *GetNodeFromManifestRequest {
+	if buildNodesConfig == nil {
+		return &GetNodeFromManifestRequest{}
+	}
+	req := &GetNodeFromManifestRequest{
+		BuildNodesRequest: *buildNodesConfig,
+	}
+	return req
+}
+
+func (req *BuildNodesConfig) WithDesiredOrLiveManifests(desiredOrLiveManifests ...*bean.DesiredOrLiveManifest) *BuildNodesConfig {
+	if len(desiredOrLiveManifests) == 0 {
+		return req
+	}
+	req.DesiredOrLiveManifests = append(req.DesiredOrLiveManifests, desiredOrLiveManifests...)
+	return req
+}
+
+func (req *BuildNodesConfig) WithBatchWorker(buildNodesBatchSize int, logger *zap.SugaredLogger) *BuildNodesConfig {
+	if buildNodesBatchSize <= 0 {
+		buildNodesBatchSize = 1
+	}
+	// for parallel processing of Nodes
+	req.batchWorker = asyncProvider.NewBatchWorker[*BuildNodeResponse](buildNodesBatchSize, logger)
+	return req
+}
+
+func (req *GetNodeFromManifestRequest) WithDesiredOrLiveManifest(desiredOrLiveManifest *bean.DesiredOrLiveManifest) *GetNodeFromManifestRequest {
+	if desiredOrLiveManifest == nil {
+		return req
+	}
+	req.DesiredOrLiveManifest = desiredOrLiveManifest
+	return req
+}
+
+func NewBuildNodesConfig(restConfig *rest.Config) *BuildNodesRequest {
+	return &BuildNodesRequest{
+		RestConfig: restConfig,
+	}
+}
+
+func (req *BuildNodesRequest) WithReleaseNamespace(releaseNamespace string) *BuildNodesRequest {
+	if releaseNamespace == "" {
+		return req
+	}
+	req.ReleaseNamespace = releaseNamespace
+	return req
+}
+
+func (req *BuildNodesRequest) WithParentResourceRef(parentResourceRef *bean.ResourceRef) *BuildNodesRequest {
+	if parentResourceRef == nil {
+		return req
+	}
+	req.ParentResourceRef = parentResourceRef
+	return req
+}
+
+type BuildNodeResponse struct {
+	Nodes             []*bean.ResourceNode
+	HealthStatusArray []*bean.HealthStatus
+}
+
+type GetNodeFromManifestResponse struct {
+	Node                           *bean.ResourceNode
+	HealthStatus                   *bean.HealthStatus
+	ResourceRef                    *bean.ResourceRef
+	DesiredOrLiveChildrenManifests []*bean.DesiredOrLiveManifest
+}
+
+func NewGetNodesFromManifestResponse() *GetNodeFromManifestResponse {
+	return &GetNodeFromManifestResponse{}
+}
+
+func (resp *GetNodeFromManifestResponse) WithNode(node *bean.ResourceNode) *GetNodeFromManifestResponse {
+	if node == nil {
+		return resp
+	}
+	resp.Node = node
+	return resp
+}
+
+func (resp *GetNodeFromManifestResponse) WithHealthStatus(healthStatus *bean.HealthStatus) *GetNodeFromManifestResponse {
+	if healthStatus == nil {
+		return resp
+	}
+	resp.HealthStatus = healthStatus
+	return resp
+}
+
+func (resp *GetNodeFromManifestResponse) WithParentResourceRef(resourceRef *bean.ResourceRef) *GetNodeFromManifestResponse {
+	if resourceRef == nil {
+		return resp
+	}
+	resp.ResourceRef = resourceRef
+	return resp
+}
+
+func (resp *GetNodeFromManifestResponse) WithDesiredOrLiveManifests(desiredOrLiveManifests ...*bean.DesiredOrLiveManifest) *GetNodeFromManifestResponse {
+	if len(desiredOrLiveManifests) == 0 {
+		return resp
+	}
+	resp.DesiredOrLiveChildrenManifests = append(resp.DesiredOrLiveChildrenManifests, desiredOrLiveManifests...)
+	return resp
+}
+
+func NewBuildNodeResponse() *BuildNodeResponse {
+	return &BuildNodeResponse{}
+}
+
+func (resp *BuildNodeResponse) WithNodes(nodes []*bean.ResourceNode) *BuildNodeResponse {
+	if len(nodes) == 0 {
+		return resp
+	}
+	resp.Nodes = append(resp.Nodes, nodes...)
+	return resp
+}
+
+func (resp *BuildNodeResponse) WithHealthStatusArray(healthStatusArray []*bean.HealthStatus) *BuildNodeResponse {
+	if len(healthStatusArray) == 0 {
+		return resp
+	}
+	resp.HealthStatusArray = append(resp.HealthStatusArray, healthStatusArray...)
+	return resp
 }
