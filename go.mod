@@ -3,17 +3,16 @@ module github.com/devtron-labs/kubelink
 go 1.21
 
 require (
-	//github.com/argoproj/gitops-engine v0.7.1-0.20231013183858-f15cf615b814
-	github.com/aws/aws-sdk-go v1.44.285 // indirect
 	github.com/caarlos0/env v3.5.0+incompatible
+	github.com/davecgh/go-spew v1.1.1
+	github.com/devtron-labs/authenticator v0.4.35-0.20240731093814-ae0cb999d5d0
 	github.com/devtron-labs/common-lib v0.0.25-0.20240801095114-500b0df1bef3
-	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/evanphx/json-patch v5.7.0+incompatible
-	github.com/gammazero/workerpool v1.1.3 // indirect
 	github.com/go-pg/pg v6.15.1+incompatible
 	github.com/golang/protobuf v1.5.4
 	github.com/google/wire v0.6.0
 	github.com/gorilla/mux v1.8.0
+	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.1
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/prometheus/client_golang v1.16.0
 	github.com/stretchr/testify v1.8.4
@@ -26,15 +25,7 @@ require (
 	k8s.io/apimachinery v0.29.0
 	k8s.io/cli-runtime v0.29.0
 	k8s.io/client-go v0.29.0
-	k8s.io/kube-aggregator v0.26.4 // indirect
-	k8s.io/kubectl v0.29.0 // indirect
 	sigs.k8s.io/yaml v1.3.0
-)
-
-require (
-	github.com/davecgh/go-spew v1.1.1
-	github.com/devtron-labs/authenticator v0.4.35-0.20240731093814-ae0cb999d5d0
-	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.1
 )
 
 require (
@@ -49,6 +40,7 @@ require (
 	github.com/Microsoft/hcsshim v0.11.4 // indirect
 	github.com/arl/statsviz v0.6.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
+	github.com/aws/aws-sdk-go v1.44.285 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/caarlos0/env/v6 v6.7.2 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
@@ -60,6 +52,7 @@ require (
 	github.com/docker/cli v24.0.6+incompatible // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/docker/docker v24.0.9+incompatible // indirect
+	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
@@ -68,6 +61,7 @@ require (
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/gammazero/deque v0.2.0 // indirect
+	github.com/gammazero/workerpool v1.1.3 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.2 // indirect
@@ -168,7 +162,9 @@ require (
 	k8s.io/apiserver v0.29.0 // indirect
 	k8s.io/component-base v0.29.0 // indirect
 	k8s.io/klog/v2 v2.110.1 // indirect
+	k8s.io/kube-aggregator v0.26.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
+	k8s.io/kubectl v0.29.0 // indirect
 	k8s.io/kubernetes v1.27.13 // indirect
 	k8s.io/metrics v0.29.0 // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
