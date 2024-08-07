@@ -5,8 +5,7 @@ go 1.21
 require (
 	github.com/caarlos0/env v3.5.0+incompatible
 	github.com/davecgh/go-spew v1.1.1
-	github.com/devtron-labs/authenticator v0.4.35-0.20240731093814-ae0cb999d5d0
-	github.com/devtron-labs/common-lib v0.0.25-0.20240801095114-500b0df1bef3
+	github.com/devtron-labs/common-lib v0.0.25-0.20240807073255-b912ce72119f
 	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/go-pg/pg v6.15.1+incompatible
 	github.com/golang/protobuf v1.5.4
@@ -42,12 +41,10 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
 	github.com/aws/aws-sdk-go v1.44.285 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/caarlos0/env/v6 v6.7.2 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/containerd/containerd v1.7.12 // indirect
 	github.com/containerd/log v0.1.0 // indirect
-	github.com/coreos/go-oidc/v3 v3.11.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
 	github.com/docker/cli v24.0.6+incompatible // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
@@ -64,7 +61,6 @@ require (
 	github.com/gammazero/workerpool v1.1.3 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
-	github.com/go-jose/go-jose/v4 v4.0.2 // indirect
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
@@ -72,7 +68,6 @@ require (
 	github.com/go-openapi/swag v0.22.3 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect

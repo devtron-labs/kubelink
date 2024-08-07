@@ -7,7 +7,6 @@
 package main
 
 import (
-	"github.com/devtron-labs/authenticator/client"
 	"github.com/devtron-labs/common-lib/helmLib/registry"
 	"github.com/devtron-labs/common-lib/monitoring"
 	"github.com/devtron-labs/common-lib/utils/grpc"
@@ -46,7 +45,7 @@ func InitializeApp() (*App, error) {
 		return nil, err
 	}
 	clusterRepositoryImpl := repository.NewClusterRepositoryImpl(db, sugaredLogger)
-	runtimeConfig, err := client.GetRuntimeConfig()
+	runtimeConfig, err := k8s.GetRuntimeConfig()
 	if err != nil {
 		return nil, err
 	}
