@@ -4657,7 +4657,7 @@ var file_grpc_applist_proto_rawDesc = []byte{
 	0x6d, 0x6f, 0x74, 0x65, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x4d, 0x65,
 	0x74, 0x68, 0x6f, 0x64, 0x12, 0x09, 0x0a, 0x05, 0x50, 0x52, 0x4f, 0x58, 0x59, 0x10, 0x00, 0x12,
 	0x07, 0x0a, 0x03, 0x53, 0x53, 0x48, 0x10, 0x01, 0x12, 0x0a, 0x0a, 0x06, 0x44, 0x49, 0x52, 0x45,
-	0x43, 0x54, 0x10, 0x02, 0x32, 0x8e, 0x0d, 0x0a, 0x12, 0x41, 0x70, 0x70, 0x6c, 0x69, 0x63, 0x61,
+	0x43, 0x54, 0x10, 0x02, 0x32, 0xcd, 0x0d, 0x0a, 0x12, 0x41, 0x70, 0x70, 0x6c, 0x69, 0x63, 0x61,
 	0x74, 0x69, 0x6f, 0x6e, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x39, 0x0a, 0x10, 0x4c,
 	0x69, 0x73, 0x74, 0x41, 0x70, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12,
 	0x0f, 0x2e, 0x41, 0x70, 0x70, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
@@ -4762,11 +4762,15 @@ var file_grpc_applist_proto_rawDesc = []byte{
 	0x2e, 0x45, 0x78, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63,
 	0x65, 0x54, 0x72, 0x65, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x15, 0x2e, 0x52,
 	0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x54, 0x72, 0x65, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x22, 0x00, 0x42, 0x33, 0x5a, 0x31, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e,
-	0x63, 0x6f, 0x6d, 0x2f, 0x64, 0x65, 0x76, 0x74, 0x72, 0x6f, 0x6e, 0x2d, 0x6c, 0x61, 0x62, 0x73,
-	0x2f, 0x6b, 0x75, 0x62, 0x65, 0x6c, 0x69, 0x6e, 0x6b, 0x2f, 0x62, 0x65, 0x61, 0x6e, 0x2f, 0x67,
-	0x72, 0x70, 0x63, 0x2f, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x33,
+	0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x3d, 0x0a, 0x11, 0x47, 0x65, 0x74, 0x52, 0x65, 0x6c, 0x65,
+	0x61, 0x73, 0x65, 0x44, 0x65, 0x74, 0x61, 0x69, 0x6c, 0x73, 0x12, 0x12, 0x2e, 0x52, 0x65, 0x6c,
+	0x65, 0x61, 0x73, 0x65, 0x49, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x66, 0x69, 0x65, 0x72, 0x1a, 0x12,
+	0x2e, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x65, 0x64, 0x41, 0x70, 0x70, 0x44, 0x65, 0x74, 0x61,
+	0x69, 0x6c, 0x22, 0x00, 0x42, 0x33, 0x5a, 0x31, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63,
+	0x6f, 0x6d, 0x2f, 0x64, 0x65, 0x76, 0x74, 0x72, 0x6f, 0x6e, 0x2d, 0x6c, 0x61, 0x62, 0x73, 0x2f,
+	0x6b, 0x75, 0x62, 0x65, 0x6c, 0x69, 0x6e, 0x6b, 0x2f, 0x62, 0x65, 0x61, 0x6e, 0x2f, 0x67, 0x72,
+	0x70, 0x63, 0x2f, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x33,
 }
 
 var (
@@ -4932,32 +4936,34 @@ var file_grpc_applist_proto_depIdxs = []int32{
 	54, // 80: ApplicationService.ValidateOCIRegistry:input_type -> RegistryCredential
 	53, // 81: ApplicationService.PushHelmChartToOCIRegistry:input_type -> OCIRegistryRequest
 	3,  // 82: ApplicationService.GetResourceTreeForExternalResources:input_type -> ExternalResourceTreeRequest
-	5,  // 83: ApplicationService.ListApplications:output_type -> DeployedAppList
-	9,  // 84: ApplicationService.GetAppDetail:output_type -> AppDetail
-	10, // 85: ApplicationService.GetAppStatus:output_type -> AppStatus
-	24, // 86: ApplicationService.Hibernate:output_type -> HibernateResponse
-	24, // 87: ApplicationService.UnHibernate:output_type -> HibernateResponse
-	26, // 88: ApplicationService.GetDeploymentHistory:output_type -> HelmAppDeploymentHistory
-	27, // 89: ApplicationService.GetValuesYaml:output_type -> ReleaseInfo
-	29, // 90: ApplicationService.GetDesiredManifest:output_type -> DesiredManifestResponse
-	30, // 91: ApplicationService.UninstallRelease:output_type -> UninstallReleaseResponse
-	33, // 92: ApplicationService.UpgradeRelease:output_type -> UpgradeReleaseResponse
-	35, // 93: ApplicationService.GetDeploymentDetail:output_type -> DeploymentDetailResponse
-	39, // 94: ApplicationService.InstallRelease:output_type -> InstallReleaseResponse
-	33, // 95: ApplicationService.UpgradeReleaseWithChartInfo:output_type -> UpgradeReleaseResponse
-	40, // 96: ApplicationService.IsReleaseInstalled:output_type -> BooleanResponse
-	40, // 97: ApplicationService.RollbackRelease:output_type -> BooleanResponse
-	42, // 98: ApplicationService.TemplateChart:output_type -> TemplateChartResponse
-	43, // 99: ApplicationService.TemplateChartBulk:output_type -> BulkTemplateChartResponse
-	44, // 100: ApplicationService.TemplateChartAndRetrieveChart:output_type -> TemplateChartResponseWithChart
-	46, // 101: ApplicationService.InstallReleaseWithCustomChart:output_type -> HelmInstallCustomResponse
-	52, // 102: ApplicationService.GetNotes:output_type -> ChartNotesResponse
-	33, // 103: ApplicationService.UpgradeReleaseWithCustomChart:output_type -> UpgradeReleaseResponse
-	58, // 104: ApplicationService.ValidateOCIRegistry:output_type -> OCIRegistryResponse
-	58, // 105: ApplicationService.PushHelmChartToOCIRegistry:output_type -> OCIRegistryResponse
-	13, // 106: ApplicationService.GetResourceTreeForExternalResources:output_type -> ResourceTreeResponse
-	83, // [83:107] is the sub-list for method output_type
-	59, // [59:83] is the sub-list for method input_type
+	31, // 83: ApplicationService.GetReleaseDetails:input_type -> ReleaseIdentifier
+	5,  // 84: ApplicationService.ListApplications:output_type -> DeployedAppList
+	9,  // 85: ApplicationService.GetAppDetail:output_type -> AppDetail
+	10, // 86: ApplicationService.GetAppStatus:output_type -> AppStatus
+	24, // 87: ApplicationService.Hibernate:output_type -> HibernateResponse
+	24, // 88: ApplicationService.UnHibernate:output_type -> HibernateResponse
+	26, // 89: ApplicationService.GetDeploymentHistory:output_type -> HelmAppDeploymentHistory
+	27, // 90: ApplicationService.GetValuesYaml:output_type -> ReleaseInfo
+	29, // 91: ApplicationService.GetDesiredManifest:output_type -> DesiredManifestResponse
+	30, // 92: ApplicationService.UninstallRelease:output_type -> UninstallReleaseResponse
+	33, // 93: ApplicationService.UpgradeRelease:output_type -> UpgradeReleaseResponse
+	35, // 94: ApplicationService.GetDeploymentDetail:output_type -> DeploymentDetailResponse
+	39, // 95: ApplicationService.InstallRelease:output_type -> InstallReleaseResponse
+	33, // 96: ApplicationService.UpgradeReleaseWithChartInfo:output_type -> UpgradeReleaseResponse
+	40, // 97: ApplicationService.IsReleaseInstalled:output_type -> BooleanResponse
+	40, // 98: ApplicationService.RollbackRelease:output_type -> BooleanResponse
+	42, // 99: ApplicationService.TemplateChart:output_type -> TemplateChartResponse
+	43, // 100: ApplicationService.TemplateChartBulk:output_type -> BulkTemplateChartResponse
+	44, // 101: ApplicationService.TemplateChartAndRetrieveChart:output_type -> TemplateChartResponseWithChart
+	46, // 102: ApplicationService.InstallReleaseWithCustomChart:output_type -> HelmInstallCustomResponse
+	52, // 103: ApplicationService.GetNotes:output_type -> ChartNotesResponse
+	33, // 104: ApplicationService.UpgradeReleaseWithCustomChart:output_type -> UpgradeReleaseResponse
+	58, // 105: ApplicationService.ValidateOCIRegistry:output_type -> OCIRegistryResponse
+	58, // 106: ApplicationService.PushHelmChartToOCIRegistry:output_type -> OCIRegistryResponse
+	13, // 107: ApplicationService.GetResourceTreeForExternalResources:output_type -> ResourceTreeResponse
+	6,  // 108: ApplicationService.GetReleaseDetails:output_type -> DeployedAppDetail
+	84, // [84:109] is the sub-list for method output_type
+	59, // [59:84] is the sub-list for method input_type
 	59, // [59:59] is the sub-list for extension type_name
 	59, // [59:59] is the sub-list for extension extendee
 	0,  // [0:59] is the sub-list for field type_name

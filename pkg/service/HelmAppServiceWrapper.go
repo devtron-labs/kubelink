@@ -589,3 +589,12 @@ func (impl *ApplicationServiceServerImpl) PushHelmChartToOCIRegistry(ctx context
 	}
 	return registryPushResponse, nil
 }
+
+func (impl *ApplicationServiceServerImpl) GetReleaseDetails(ctx context.Context, releaseIdentifier *client.ReleaseIdentifier) (*client.DeployedAppDetail, error) {
+	deployAppDetail, err := impl.HelmAppService.GetReleaseDetails(ctx, releaseIdentifier)
+	if err != nil {
+		impl.Logger.Errorw("error in fetching release by releaseIdentifier", "releaseIdentifier", releaseIdentifier, "err", err)
+		return nil, err
+	}
+	return deployAppDetail, nil
+}

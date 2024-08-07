@@ -108,6 +108,7 @@ type HelmAppService interface {
 	// PushHelmChartToOCIRegistryRepo Pushes the helm chart to the OCI registry and returns the generated digest and pushedUrl
 	PushHelmChartToOCIRegistryRepo(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error)
 	GetResourceTreeForExternalResources(req *client.ExternalResourceTreeRequest) (*bean.ResourceTreeResponse, error)
+	GetReleaseDetails(ctx context.Context, releaseIdentifier *client.ReleaseIdentifier) (*client.DeployedAppDetail, error)
 }
 
 type HelmAppServiceImpl struct {
@@ -2236,4 +2237,15 @@ func (impl *HelmAppServiceImpl) GetNatsMessageForHelmInstallSuccess(helmInstallM
 		return string(data), err
 	}
 	return string(data), nil
+}
+
+func (impl *HelmAppServiceImpl) GetReleaseDetails(ctx context.Context, releaseIdentifier *client.ReleaseIdentifier) (*client.DeployedAppDetail, error) {
+
+	release, err := impl.K8sInformer.GetReleaseDetails(releaseIdentifier.ClusterConfig.GetClusterId(), getUniqueReleaseIdentifierName(releaseIdentifier))
+	if err != nil {
+		impl.logger.Errorw("error in fetching release details by id", "releaseIdentifier", releaseIdentifier, "err", err)
+		return nil, err
+	}
+
+	return release, nil
 }

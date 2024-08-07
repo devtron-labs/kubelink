@@ -43,6 +43,7 @@ const (
 	ApplicationService_ValidateOCIRegistry_FullMethodName                 = "/ApplicationService/ValidateOCIRegistry"
 	ApplicationService_PushHelmChartToOCIRegistry_FullMethodName          = "/ApplicationService/PushHelmChartToOCIRegistry"
 	ApplicationService_GetResourceTreeForExternalResources_FullMethodName = "/ApplicationService/GetResourceTreeForExternalResources"
+	ApplicationService_GetReleaseDetails_FullMethodName                   = "/ApplicationService/GetReleaseDetails"
 )
 
 // ApplicationServiceClient is the client API for ApplicationService service.
@@ -73,6 +74,7 @@ type ApplicationServiceClient interface {
 	ValidateOCIRegistry(ctx context.Context, in *RegistryCredential, opts ...grpc.CallOption) (*OCIRegistryResponse, error)
 	PushHelmChartToOCIRegistry(ctx context.Context, in *OCIRegistryRequest, opts ...grpc.CallOption) (*OCIRegistryResponse, error)
 	GetResourceTreeForExternalResources(ctx context.Context, in *ExternalResourceTreeRequest, opts ...grpc.CallOption) (*ResourceTreeResponse, error)
+	GetReleaseDetails(ctx context.Context, in *ReleaseIdentifier, opts ...grpc.CallOption) (*DeployedAppDetail, error)
 }
 
 type applicationServiceClient struct {
@@ -322,6 +324,15 @@ func (c *applicationServiceClient) GetResourceTreeForExternalResources(ctx conte
 	return out, nil
 }
 
+func (c *applicationServiceClient) GetReleaseDetails(ctx context.Context, in *ReleaseIdentifier, opts ...grpc.CallOption) (*DeployedAppDetail, error) {
+	out := new(DeployedAppDetail)
+	err := c.cc.Invoke(ctx, ApplicationService_GetReleaseDetails_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ApplicationServiceServer is the server API for ApplicationService service.
 // All implementations must embed UnimplementedApplicationServiceServer
 // for forward compatibility
@@ -350,6 +361,7 @@ type ApplicationServiceServer interface {
 	ValidateOCIRegistry(context.Context, *RegistryCredential) (*OCIRegistryResponse, error)
 	PushHelmChartToOCIRegistry(context.Context, *OCIRegistryRequest) (*OCIRegistryResponse, error)
 	GetResourceTreeForExternalResources(context.Context, *ExternalResourceTreeRequest) (*ResourceTreeResponse, error)
+	GetReleaseDetails(context.Context, *ReleaseIdentifier) (*DeployedAppDetail, error)
 	mustEmbedUnimplementedApplicationServiceServer()
 }
 
@@ -428,6 +440,9 @@ func (UnimplementedApplicationServiceServer) PushHelmChartToOCIRegistry(context.
 }
 func (UnimplementedApplicationServiceServer) GetResourceTreeForExternalResources(context.Context, *ExternalResourceTreeRequest) (*ResourceTreeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetResourceTreeForExternalResources not implemented")
+}
+func (UnimplementedApplicationServiceServer) GetReleaseDetails(context.Context, *ReleaseIdentifier) (*DeployedAppDetail, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetReleaseDetails not implemented")
 }
 func (UnimplementedApplicationServiceServer) mustEmbedUnimplementedApplicationServiceServer() {}
 
@@ -877,6 +892,24 @@ func _ApplicationService_GetResourceTreeForExternalResources_Handler(srv interfa
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ApplicationService_GetReleaseDetails_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReleaseIdentifier)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApplicationServiceServer).GetReleaseDetails(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ApplicationService_GetReleaseDetails_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApplicationServiceServer).GetReleaseDetails(ctx, req.(*ReleaseIdentifier))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ApplicationService_ServiceDesc is the grpc.ServiceDesc for ApplicationService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -975,6 +1008,10 @@ var ApplicationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetResourceTreeForExternalResources",
 			Handler:    _ApplicationService_GetResourceTreeForExternalResources_Handler,
+		},
+		{
+			MethodName: "GetReleaseDetails",
+			Handler:    _ApplicationService_GetReleaseDetails_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

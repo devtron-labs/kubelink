@@ -45,6 +45,7 @@ service ApplicationService {
   rpc ValidateOCIRegistry(RegistryCredential) returns(OCIRegistryResponse) {}
   rpc PushHelmChartToOCIRegistry(OCIRegistryRequest) returns(OCIRegistryResponse) {}
   rpc GetResourceTreeForExternalResources(ExternalResourceTreeRequest) returns(ResourceTreeResponse){}
+  rpc GetReleaseDetails(ReleaseIdentifier) returns(DeployedAppDetail){}
 }
 
 message ExternalResourceTreeRequest{
