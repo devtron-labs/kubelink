@@ -24,7 +24,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/devtron-labs/common-lib/async"
-	_ "github.com/devtron-labs/common-lib/async"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/kubelink/bean"
 	globalConfig "github.com/devtron-labs/kubelink/config"

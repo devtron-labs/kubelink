@@ -26,6 +26,7 @@ import (
 	registry2 "github.com/devtron-labs/common-lib/helmLib/registry"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	k8sObjectUtils "github.com/devtron-labs/common-lib/utils/k8sObjectsUtil"
+	"github.com/devtron-labs/common-lib/workerPool"
 	globalConfig "github.com/devtron-labs/kubelink/config"
 	"github.com/devtron-labs/kubelink/converter"
 	error2 "github.com/devtron-labs/kubelink/error"
@@ -53,6 +54,7 @@ import (
 	"github.com/devtron-labs/kubelink/pkg/util"
 	"github.com/devtron-labs/kubelink/pkg/util/argo"
 	jsonpatch "github.com/evanphx/json-patch"
+
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"helm.sh/helm/v3/pkg/chartutil"
@@ -227,25 +229,28 @@ func (impl *HelmAppServiceImpl) GetResourceTreeForExternalResources(req *client.
 	k8sClusterConfig := impl.converter.GetClusterConfigFromClientBean(req.ClusterConfig)
 	restConfig, err := impl.k8sUtil.GetRestConfigByCluster(k8sClusterConfig)
 	if err != nil {
-		impl.logger.Errorw("error in getting restConfig", "err", err)
+		impl.logger.Errorw("error in getting RestConfig", "err", err)
 		return nil, err
 	}
 
 	manifests := impl.getManifestsForExternalResources(restConfig, req.ExternalResourceDetail)
-	// build resource nodes
-	nodes, _, err := impl.buildNodes(restConfig, manifests, "", nil)
+	// build resource Nodes
+	buildNodesRequest := NewBuildNodesRequest(NewBuildNodesConfig(restConfig)).
+		WithDesiredOrLiveManifests(manifests...).
+		WithBatchWorker(impl.helmReleaseConfig.BuildNodesBatchSize, impl.logger)
+	buildNodesResponse, err := impl.buildNodes(buildNodesRequest)
 	if err != nil {
-		impl.logger.Errorw("error in building nodes", "err", err)
+		impl.logger.Errorw("error in building Nodes", "err", err)
 		return nil, err
 	}
 	// build pods metadata
-	podsMetadata, err := impl.buildPodMetadata(nodes, restConfig)
+	podsMetadata, err := impl.buildPodMetadata(buildNodesResponse.Nodes, restConfig)
 	if err != nil {
 		return nil, err
 	}
 	resourceTreeResponse := &bean.ResourceTreeResponse{
 		ApplicationTree: &bean.ApplicationTree{
-			Nodes: nodes,
+			Nodes: buildNodesResponse.Nodes,
 		},
 		PodMetadata: podsMetadata,
 	}
@@ -374,13 +379,13 @@ func (impl *HelmAppServiceImpl) getRestConfigForClusterConfig(clusterConfig *cli
 	return conf, nil
 }
 
-// func getNodeInfoFromHierarchy(node *clustercache.Resource, uidToResourceRefMapping map[string]*bean.ResourceRef) *bean.ResourceNode {
+// func getNodeInfoFromHierarchy(Node *clustercache.Resource, uidToResourceRefMapping map[string]*bean.ResourceRef) *bean.ResourceNode {
 //	resourceNode := &bean.ResourceNode{}
 //	var ok bool
-//	if resourceNode, ok = node.Info.(*bean.ResourceNode); ok {
-//		if node.OwnerRefs != nil {
+//	if resourceNode, ok = Node.Info.(*bean.ResourceNode); ok {
+//		if Node.OwnerRefs != nil {
 //			parentRefs := make([]*bean.ResourceRef, 0)
-//			for _, ownerRef := range node.OwnerRefs {
+//			for _, ownerRef := range Node.OwnerRefs {
 //				parentRefs = append(parentRefs, uidToResourceRefMapping[string(ownerRef.UID)])
 //			}
 //			resourceNode.ParentRefs = parentRefs
@@ -407,7 +412,7 @@ func (impl *HelmAppServiceImpl) FetchApplicationStatus(req *client.AppDetailRequ
 	}
 	_, healthStatusArray, err := impl.getNodes(req, helmRelease)
 	if err != nil {
-		impl.logger.Errorw("Error in getting nodes", "err", err, "req", req)
+		impl.logger.Errorw("Error in getting Nodes", "err", err, "req", req)
 		return helmAppStatus, err
 	}
 	// getting app status on basis of healthy/non-healthy as this api is used for deployment status
@@ -1389,12 +1394,16 @@ func (impl *HelmAppServiceImpl) getNodes(appDetailRequest *client.AppDetailReque
 	if err != nil {
 		return nil, nil, err
 	}
-	// build resource nodes
-	nodes, healthStatusArray, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
+	// build resource Nodes
+	req := NewBuildNodesRequest(NewBuildNodesConfig(conf).
+		WithReleaseNamespace(appDetailRequest.Namespace)).
+		WithDesiredOrLiveManifests(desiredOrLiveManifests...).
+		WithBatchWorker(impl.helmReleaseConfig.BuildNodesBatchSize, impl.logger)
+	buildNodesResponse, err := impl.buildNodes(req)
 	if err != nil {
 		return nil, nil, err
 	}
-	return nodes, healthStatusArray, nil
+	return buildNodesResponse.Nodes, buildNodesResponse.HealthStatusArray, nil
 }
 
 func (impl *HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDetailRequest, release *release.Release) (*bean.ResourceTreeResponse, error) {
@@ -1406,27 +1415,31 @@ func (impl *HelmAppServiceImpl) buildResourceTree(appDetailRequest *client.AppDe
 	if err != nil {
 		return nil, err
 	}
-	// build resource nodes
-	nodes, _, err := impl.buildNodes(conf, desiredOrLiveManifests, appDetailRequest.Namespace, nil)
+	// build resource Nodes
+	req := NewBuildNodesRequest(NewBuildNodesConfig(conf).
+		WithReleaseNamespace(appDetailRequest.Namespace)).
+		WithDesiredOrLiveManifests(desiredOrLiveManifests...).
+		WithBatchWorker(impl.helmReleaseConfig.BuildNodesBatchSize, impl.logger)
+	buildNodesResponse, err := impl.buildNodes(req)
 	if err != nil {
 		return nil, err
 	}
-	updateHookInfoForChildNodes(nodes)
+	updateHookInfoForChildNodes(buildNodesResponse.Nodes)
 
-	// filter nodes based on ResourceTreeFilter
+	// filter Nodes based on ResourceTreeFilter
 	resourceTreeFilter := appDetailRequest.ResourceTreeFilter
-	if resourceTreeFilter != nil && len(nodes) > 0 {
-		nodes = impl.filterNodes(resourceTreeFilter, nodes)
+	if resourceTreeFilter != nil && len(buildNodesResponse.Nodes) > 0 {
+		buildNodesResponse.Nodes = impl.filterNodes(resourceTreeFilter, buildNodesResponse.Nodes)
 	}
 
 	// build pods metadata
-	podsMetadata, err := impl.buildPodMetadata(nodes, conf)
+	podsMetadata, err := impl.buildPodMetadata(buildNodesResponse.Nodes, conf)
 	if err != nil {
 		return nil, err
 	}
 	resourceTreeResponse := &bean.ResourceTreeResponse{
 		ApplicationTree: &bean.ApplicationTree{
-			Nodes: nodes,
+			Nodes: buildNodesResponse.Nodes,
 		},
 		PodMetadata: podsMetadata,
 	}
@@ -1440,7 +1453,7 @@ func updateHookInfoForChildNodes(nodes []*bean.ResourceNode) {
 			hookUidToHookTypeMap[node.UID] = node.HookType
 		}
 	}
-	// if node's parentRef is a hook then add hook info in child node also
+	// if Node's parentRef is a hook then add hook info in child Node also
 	if len(hookUidToHookTypeMap) > 0 {
 		for _, node := range nodes {
 			if node.ParentRefs != nil && len(node.ParentRefs) > 0 {
@@ -1554,97 +1567,180 @@ func (impl *HelmAppServiceImpl) getManifestData(restConfig *rest.Config, release
 	return desiredOrLiveManifest
 }
 
-func (impl *HelmAppServiceImpl) buildNodes(restConfig *rest.Config, desiredOrLiveManifests []*bean.DesiredOrLiveManifest, releaseNamespace string, parentResourceRef *bean.ResourceRef) ([]*bean.ResourceNode, []*bean.HealthStatus, error) {
-	var nodes []*bean.ResourceNode
-	var healthStatusArray []*bean.HealthStatus
-	for _, desiredOrLiveManifest := range desiredOrLiveManifests {
-		manifest := desiredOrLiveManifest.Manifest
-		gvk := manifest.GroupVersionKind()
-		_namespace := manifest.GetNamespace()
-		if _namespace == "" {
-			_namespace = releaseNamespace
+func (impl *HelmAppServiceImpl) getNodeFromDesiredOrLiveManifest(request *GetNodeFromManifestRequest) (*GetNodeFromManifestResponse, error) {
+	response := NewGetNodesFromManifestResponse()
+	manifest := request.DesiredOrLiveManifest.Manifest
+	gvk := manifest.GroupVersionKind()
+	_namespace := manifest.GetNamespace()
+	if _namespace == "" {
+		_namespace = request.ReleaseNamespace
+	}
+	ports := util.GetPorts(manifest, gvk)
+	resourceRef := buildResourceRef(gvk, *manifest, _namespace)
+
+	if impl.k8sService.CanHaveChild(gvk) {
+		children, err := impl.k8sService.GetChildObjects(request.RestConfig, _namespace, gvk, manifest.GetName(), manifest.GetAPIVersion())
+		if err != nil {
+			return response, err
 		}
-		ports := util.GetPorts(manifest, gvk)
-		resourceRef := buildResourceRef(gvk, *manifest, _namespace)
-
-		if impl.k8sService.CanHaveChild(gvk) {
-			children, err := impl.k8sService.GetChildObjects(restConfig, _namespace, gvk, manifest.GetName(), manifest.GetAPIVersion())
-			if err != nil {
-				return nil, nil, err
-			}
-			desiredOrLiveManifestsChildren := make([]*bean.DesiredOrLiveManifest, 0, len(children))
-			for _, child := range children {
-				desiredOrLiveManifestsChildren = append(desiredOrLiveManifestsChildren, &bean.DesiredOrLiveManifest{
-					Manifest: child,
-				})
-			}
-			childNodes, _, err := impl.buildNodes(restConfig, desiredOrLiveManifestsChildren, releaseNamespace, resourceRef)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			for _, childNode := range childNodes {
-				nodes = append(nodes, childNode)
-				healthStatusArray = append(healthStatusArray, childNode.Health)
-			}
+		desiredOrLiveManifestsChildren := make([]*bean.DesiredOrLiveManifest, 0, len(children))
+		for _, child := range children {
+			desiredOrLiveManifestsChildren = append(desiredOrLiveManifestsChildren, &bean.DesiredOrLiveManifest{
+				Manifest: child,
+			})
 		}
-
-		creationTimeStamp := ""
-		val, found, err := unstructured.NestedString(manifest.Object, "metadata", "creationTimestamp")
-		if found && err == nil {
-			creationTimeStamp = val
-		}
-		node := &bean.ResourceNode{
-			ResourceRef:     resourceRef,
-			ResourceVersion: manifest.GetResourceVersion(),
-			NetworkingInfo: &bean.ResourceNetworkingInfo{
-				Labels: manifest.GetLabels(),
-			},
-			CreatedAt: creationTimeStamp,
-			Port:      ports,
-		}
-		node.IsHook, node.HookType = util.GetHookMetadata(manifest)
-
-		if parentResourceRef != nil {
-			node.ParentRefs = append(make([]*bean.ResourceRef, 0), parentResourceRef)
-		}
-
-		// set health of node
-		if desiredOrLiveManifest.IsLiveManifestFetchError {
-			if desiredOrLiveManifest.LiveManifestFetchErrorCode == http.StatusNotFound {
-				node.Health = &bean.HealthStatus{
-					Status:  bean.HealthStatusMissing,
-					Message: "Resource missing as live manifest not found",
-				}
-			} else {
-				node.Health = &bean.HealthStatus{
-					Status:  bean.HealthStatusUnknown,
-					Message: "Resource state unknown as error while fetching live manifest",
-				}
-			}
-		} else {
-			cache.SetHealthStatusForNode(node, manifest, gvk)
-		}
-
-		// hibernate set starts
-		if parentResourceRef == nil {
-
-			// set CanBeHibernated
-			cache.SetHibernationRules(node, &node.Manifest)
-		}
-		// hibernate set ends
-
-		if k8sUtils.IsPod(gvk) {
-			infoItems, _ := argo.PopulatePodInfo(manifest)
-			node.Info = infoItems
-		}
-		util.AddSelectiveInfoInResourceNode(node, gvk, manifest.Object)
-
-		nodes = append(nodes, node)
-		healthStatusArray = append(healthStatusArray, node.Health)
+		response.WithParentResourceRef(resourceRef).
+			WithDesiredOrLiveManifests(desiredOrLiveManifestsChildren...)
 	}
 
-	return nodes, healthStatusArray, nil
+	creationTimeStamp := ""
+	val, found, err := unstructured.NestedString(manifest.Object, "metadata", "creationTimestamp")
+	if found && err == nil {
+		creationTimeStamp = val
+	}
+	node := &bean.ResourceNode{
+		ResourceRef:     resourceRef,
+		ResourceVersion: manifest.GetResourceVersion(),
+		NetworkingInfo: &bean.ResourceNetworkingInfo{
+			Labels: manifest.GetLabels(),
+		},
+		CreatedAt: creationTimeStamp,
+		Port:      ports,
+	}
+	node.IsHook, node.HookType = util.GetHookMetadata(manifest)
+
+	if request.ParentResourceRef != nil {
+		node.ParentRefs = append(make([]*bean.ResourceRef, 0), request.ParentResourceRef)
+	}
+
+	// set health of Node
+	if request.DesiredOrLiveManifest.IsLiveManifestFetchError {
+		if request.DesiredOrLiveManifest.LiveManifestFetchErrorCode == http.StatusNotFound {
+			node.Health = &bean.HealthStatus{
+				Status:  bean.HealthStatusMissing,
+				Message: "Resource missing as live manifest not found",
+			}
+		} else {
+			node.Health = &bean.HealthStatus{
+				Status:  bean.HealthStatusUnknown,
+				Message: "Resource state unknown as error while fetching live manifest",
+			}
+		}
+	} else {
+		cache.SetHealthStatusForNode(node, manifest, gvk)
+	}
+
+	// hibernate set starts
+	if request.ParentResourceRef == nil {
+
+		// set CanBeHibernated
+		cache.SetHibernationRules(node, &node.Manifest)
+	}
+	// hibernate set ends
+
+	if k8sUtils.IsPod(gvk) {
+		infoItems, _ := argo.PopulatePodInfo(manifest)
+		node.Info = infoItems
+	}
+	util.AddSelectiveInfoInResourceNode(node, gvk, manifest.Object)
+
+	response.WithNode(node).WithHealthStatus(node.Health)
+	return response, nil
+}
+
+// buildNodes builds Nodes from desired or live manifest.
+//   - It uses recursive approach to build child Nodes.
+//   - It uses batch worker to build child Nodes in parallel.
+//   - Batch workers configuration is provided in BuildNodesConfig.
+//   - NOTE: To avoid creating batch worker recursively, it does not use batch worker for child Nodes.
+func (impl *HelmAppServiceImpl) buildNodes(request *BuildNodesConfig) (*BuildNodeResponse, error) {
+	var buildChildNodesRequests []*BuildNodesConfig
+	response := NewBuildNodeResponse()
+	for _, desiredOrLiveManifest := range request.DesiredOrLiveManifests {
+
+		// build request to get Nodes from desired or live manifest
+		getNodesFromManifest := NewGetNodesFromManifest(NewBuildNodesConfig(request.RestConfig).
+			WithParentResourceRef(request.ParentResourceRef).
+			WithReleaseNamespace(request.ReleaseNamespace)).
+			WithDesiredOrLiveManifest(desiredOrLiveManifest)
+
+		// get Node from desired or live manifest
+		getNodesFromManifestResponse, err := impl.getNodeFromDesiredOrLiveManifest(getNodesFromManifest)
+		if err != nil {
+			return response, err
+		}
+		// add Node and health status
+		if getNodesFromManifestResponse.Node != nil {
+			response.Nodes = append(response.Nodes, getNodesFromManifestResponse.Node)
+			response.HealthStatusArray = append(response.HealthStatusArray, getNodesFromManifestResponse.Node.Health)
+		}
+
+		// add child Nodes request
+		if len(getNodesFromManifestResponse.DesiredOrLiveChildrenManifests) > 0 {
+			req := NewBuildNodesRequest(NewBuildNodesConfig(request.RestConfig).
+				WithReleaseNamespace(request.ReleaseNamespace).
+				WithParentResourceRef(getNodesFromManifestResponse.ResourceRef)).
+				WithDesiredOrLiveManifests(getNodesFromManifestResponse.DesiredOrLiveChildrenManifests...)
+			// NOTE:  Do not use batch worker for child Nodes as it will create batch worker recursively
+			buildChildNodesRequests = append(buildChildNodesRequests, req)
+		}
+	}
+	// build child Nodes, if any.
+	// NOTE: build child Nodes calls buildNodes recursively
+	childNodeResponse, err := impl.buildChildNodesInBatch(request.batchWorker, buildChildNodesRequests)
+	if err != nil {
+		return response, err
+	}
+	// add child Nodes and health status to response
+	response.WithNodes(childNodeResponse.Nodes).WithHealthStatusArray(childNodeResponse.HealthStatusArray)
+	return response, nil
+}
+
+// buildChildNodes builds child Nodes sequentially from desired or live manifest.
+func (impl *HelmAppServiceImpl) buildChildNodes(buildChildNodesRequests []*BuildNodesConfig) (*BuildNodeResponse, error) {
+	response := NewBuildNodeResponse()
+	// for recursive calls, build child Nodes sequentially
+	for _, req := range buildChildNodesRequests {
+		// build child Nodes
+		childNodesResponse, err := impl.buildNodes(req)
+		if err != nil {
+			impl.logger.Errorw("error in building child Nodes", "ReleaseNamespace", req.ReleaseNamespace, "parentResource", req.ParentResourceRef.GetGvk(), "err", err)
+			return response, err
+		}
+		response.WithNodes(childNodesResponse.Nodes).WithHealthStatusArray(childNodesResponse.HealthStatusArray)
+	}
+	return response, nil
+}
+
+// buildChildNodesInBatch builds child Nodes in parallel from desired or live manifest.
+//   - It uses batch workers workerPool.WorkerPool[*BuildNodeResponse] to build child Nodes in parallel.
+//   - If workerPool is not defined, it builds child Nodes sequentially.
+func (impl *HelmAppServiceImpl) buildChildNodesInBatch(wp *workerPool.WorkerPool[*BuildNodeResponse], buildChildNodesRequests []*BuildNodesConfig) (*BuildNodeResponse, error) {
+	if wp == nil {
+		// build child Nodes sequentially
+		return impl.buildChildNodes(buildChildNodesRequests)
+	}
+	response := NewBuildNodeResponse()
+	for index := range buildChildNodesRequests {
+		// passing buildChildNodesRequests[index] to closure as it will be updated in next iteration and the func call is async
+		func(req *BuildNodesConfig) {
+			// submit child Nodes build request to workerPool
+			wp.Submit(func() (*BuildNodeResponse, error) {
+				// build child Nodes
+				return impl.buildNodes(req)
+			})
+		}(buildChildNodesRequests[index])
+	}
+	// wait for all child Nodes build requests to complete and return error from workerPool error channel
+	err := wp.StopWait()
+	if err != nil {
+		return response, err
+	}
+	// extract the children nodes from workerPool response
+	for _, childNode := range wp.GetResponse() {
+		response.WithNodes(childNode.Nodes).WithHealthStatusArray(childNode.HealthStatusArray)
+	}
+	return response, nil
 }
 
 func buildResourceRef(gvk schema.GroupVersionKind, manifest unstructured.Unstructured, namespace string) *bean.ResourceRef {
