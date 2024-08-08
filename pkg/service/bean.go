@@ -17,6 +17,7 @@
 package service
 
 import (
+	"errors"
 	"github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/common-lib/workerPool"
 	"github.com/devtron-labs/kubelink/bean"
@@ -219,6 +220,6 @@ func (resp *BuildNodeResponse) WithHealthStatusArray(healthStatusArray []*bean.H
 	return resp
 }
 
-const (
-	ReleaseNotFoundOnCluster = "release not found"
+var (
+	ErrorReleaseNotFoundOnCluster = errors.New("release not found")
 )
