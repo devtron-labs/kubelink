@@ -218,3 +218,7 @@ func (resp *BuildNodeResponse) WithHealthStatusArray(healthStatusArray []*bean.H
 	resp.HealthStatusArray = append(resp.HealthStatusArray, healthStatusArray...)
 	return resp
 }
+
+const (
+	ReleaseNotFoundOnCluster = "release not found"
+)

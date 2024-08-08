@@ -25,3 +25,7 @@ type ReleaseDto struct {
 func (r *ReleaseDto) getUniqueReleaseIdentifier() string {
 	return r.Namespace + "_" + r.Name
 }
+
+const (
+	ReleaseNotFoundCacheMissError = "release not found in cache"
+)

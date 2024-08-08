@@ -444,19 +444,7 @@ func (impl *HelmAppServiceImpl) GetHelmAppValues(req *client.AppDetailRequest) (
 		return nil, err
 	}
 
-	appDetail := &client.DeployedAppDetail{
-		AppId:        util.GetAppId(req.ClusterConfig.ClusterId, helmRelease),
-		AppName:      helmRelease.Name,
-		ChartName:    helmRelease.Chart.Name(),
-		ChartAvatar:  helmRelease.Chart.Metadata.Icon,
-		LastDeployed: timestamppb.New(helmRelease.Info.LastDeployed.Time),
-		ChartVersion: helmRelease.Chart.Metadata.Version,
-		EnvironmentDetail: &client.EnvironmentDetails{
-			ClusterName: req.ClusterConfig.ClusterName,
-			ClusterId:   req.ClusterConfig.ClusterId,
-			Namespace:   helmRelease.Namespace,
-		},
-	}
+	appDetail := parseDeployedAppDetail(req.ClusterConfig.ClusterId, req.ClusterConfig.ClusterName, helmRelease)
 	releaseInfo.DeployedAppDetail = appDetail
 	return releaseInfo, nil
 
@@ -2339,6 +2327,22 @@ func (impl *HelmAppServiceImpl) GetReleaseDetails(ctx context.Context, releaseId
 
 	release, err := impl.K8sInformer.GetReleaseDetails(releaseIdentifier.ClusterConfig.GetClusterId(), getUniqueReleaseIdentifierName(releaseIdentifier))
 	if err != nil {
+		if err.Error() == k8sInformer.ReleaseNotFoundCacheMissError {
+			helmRelease, err := impl.getHelmRelease(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace, releaseIdentifier.ReleaseName)
+			if err != nil {
+				impl.logger.Errorw("Error in getting helm release ", "err", err)
+				internalErr := error2.ConvertHelmErrorToInternalError(err)
+				if internalErr != nil {
+					err = internalErr
+				}
+				return nil, err
+			}
+			if helmRelease == nil {
+				impl.logger.Errorw("requested helm release does not exist")
+				return nil, errors.New(ReleaseNotFoundOnCluster)
+			}
+			return parseDeployedAppDetail(releaseIdentifier.ClusterConfig.ClusterId, releaseIdentifier.ClusterConfig.ClusterName, helmRelease), nil
+		}
 		impl.logger.Errorw("error in fetching release details by id", "releaseIdentifier", releaseIdentifier, "err", err)
 		return nil, err
 	}
