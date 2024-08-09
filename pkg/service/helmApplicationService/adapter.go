@@ -1,4 +1,4 @@
-package service
+package helmApplicationService
 
 import (
 	"github.com/devtron-labs/common-lib/helmLib/registry"

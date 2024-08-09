@@ -22,6 +22,8 @@ import (
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/internals/lock"
+	"github.com/devtron-labs/kubelink/pkg/service/fluxService"
+	"github.com/devtron-labs/kubelink/pkg/service/helmApplicationService"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
@@ -33,7 +35,8 @@ type ApplicationServiceServerImpl struct {
 	client.UnimplementedApplicationServiceServer
 	Logger                *zap.SugaredLogger
 	ChartRepositoryLocker *lock.ChartRepositoryLocker
-	HelmAppService        HelmAppService
+	HelmAppService        helmApplicationService.HelmAppService
+	FluxAppService        fluxService.FluxApplicationService
 }
 
 func (impl *ApplicationServiceServerImpl) MustEmbedUnimplementedApplicationServiceServer() {
@@ -41,11 +44,12 @@ func (impl *ApplicationServiceServerImpl) MustEmbedUnimplementedApplicationServi
 }
 
 func NewApplicationServiceServerImpl(logger *zap.SugaredLogger, chartRepositoryLocker *lock.ChartRepositoryLocker,
-	HelmAppService HelmAppService) *ApplicationServiceServerImpl {
+	HelmAppService helmApplicationService.HelmAppService, FluxAppService fluxService.FluxApplicationService) *ApplicationServiceServerImpl {
 	return &ApplicationServiceServerImpl{
 		Logger:                logger,
 		ChartRepositoryLocker: chartRepositoryLocker,
 		HelmAppService:        HelmAppService,
+		FluxAppService:        FluxAppService,
 	}
 }
 
@@ -588,4 +592,74 @@ func (impl *ApplicationServiceServerImpl) PushHelmChartToOCIRegistry(ctx context
 		return nil, err
 	}
 	return registryPushResponse, nil
+}
+
+func (impl *ApplicationServiceServerImpl) ListFluxApplications(req *client.AppListRequest, res client.ApplicationService_ListFluxApplicationsServer) error {
+	impl.Logger.Infow("List Flux Application Request", "req", req)
+	clusterConfigs := req.GetClusters()
+	eg := new(errgroup.Group)
+	for _, config := range clusterConfigs {
+		clusterConfig := *config
+		eg.Go(func() error {
+			apps := impl.FluxAppService.GetFluxApplicationListForCluster(&clusterConfig)
+			err := res.Send(apps)
+			return err
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		impl.Logger.Errorw("Error in fetching application list", "err", err)
+		return err
+	}
+	impl.Logger.Info("List Flux Application Request served")
+	return nil
+}
+
+func (impl *ApplicationServiceServerImpl) GetFluxAppDetail(ctx context.Context, req *client.FluxAppDetailRequest) (*client.FluxAppDetail, error) {
+	fluxAppDetail, err := impl.FluxAppService.BuildFluxAppDetail(req)
+	if err != nil {
+		impl.Logger.Errorw("error in getting resource tree for external resources", "err", err)
+		return nil, err
+	}
+	fluxAppDetailResponse := impl.FluxAppDetailAdapter(fluxAppDetail)
+	return fluxAppDetailResponse, nil
+}
+
+func (impl *ApplicationServiceServerImpl) FluxAppDetailAdapter(req *fluxService.FluxKsAppDetail) *client.FluxAppDetail {
+	resourceNodes := make([]*client.ResourceNode, 0)
+	podMetaData := make([]*client.PodMetadata, 0)
+	if len(req.TreeResponse) > 0 {
+		for _, reqTree := range req.TreeResponse {
+			resTreeResponse := impl.ResourceTreeAdapter(reqTree)
+			if resTreeResponse != nil {
+				resourceNodes = append(resourceNodes, resTreeResponse.Nodes...)
+				podMetaData = append(podMetaData, resTreeResponse.PodMetadata...)
+			}
+
+		}
+	}
+
+	treeResponse := &client.ResourceTreeResponse{
+		PodMetadata: podMetaData,
+		Nodes:       resourceNodes,
+	}
+
+	return &client.FluxAppDetail{
+		FluxApplication: &client.FluxApplication{
+			Name:         req.Name,
+			HealthStatus: req.HealthStatus,
+			SyncStatus:   req.SyncStatus,
+			EnvironmentDetail: &client.EnvironmentDetails{
+				ClusterId:   int32(req.EnvironmentDetails.ClusterId),
+				Namespace:   req.EnvironmentDetails.Namespace,
+				ClusterName: req.EnvironmentDetails.ClusterName,
+			},
+			FluxAppDeploymentType: string(req.FluxAppDeploymentType),
+		},
+		FluxAppStatusDetail: &client.FluxAppStatusDetail{
+			Status:  req.AppStatusDto.Status,
+			Message: req.AppStatusDto.Message,
+			Reason:  req.AppStatusDto.Reason,
+		},
+		ResourceTreeResponse: treeResponse,
+	}
 }

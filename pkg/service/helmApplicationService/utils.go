@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package service
+package helmApplicationService
 
 import (
 	client "github.com/devtron-labs/kubelink/grpc"
@@ -24,3 +23,7 @@ import (
 func getUniqueReleaseIdentifierName(releaseIdentifier *client.ReleaseIdentifier) string {
 	return releaseIdentifier.ReleaseNamespace + "_" + releaseIdentifier.ReleaseName + "_" + strconv.Itoa(int(releaseIdentifier.ClusterConfig.ClusterId))
 }
+
+const (
+	DirCreatingError = "err in creating dir"
+)
