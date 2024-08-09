@@ -2,7 +2,6 @@ package registry
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/base64"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
@@ -10,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
-	"github.com/pkg/errors"
+	http2 "github.com/devtron-labs/common-lib/utils/http"
 	"helm.sh/helm/v3/pkg/registry"
 	"log"
 	"math/rand"
@@ -170,7 +169,7 @@ func GetHttpClient(config *Configuration) (*http.Client, error) {
 
 func GetTlsConfig(config *Configuration) (*tls.Config, error) {
 	isInsecure := config.RegistryConnectionType == INSECURE_CONNECTION
-	tlsConfig, err := NewClientTLS("", "", config.RegistryCAFilePath, isInsecure)
+	tlsConfig, err := http2.NewClientTLS("", "", config.RegistryCAFilePath, isInsecure)
 	if err != nil {
 		return nil, err
 	}
@@ -178,46 +177,3 @@ func GetTlsConfig(config *Configuration) (*tls.Config, error) {
 }
 
 // TODO: add support for certFile, keyFile on UI?
-func NewClientTLS(certFile, keyFile, caFile string, insecureSkipTLSverify bool) (*tls.Config, error) {
-	config := tls.Config{
-		InsecureSkipVerify: insecureSkipTLSverify,
-	}
-
-	if certFile != "" && keyFile != "" {
-		cert, err := CertFromFilePair(certFile, keyFile)
-		if err != nil {
-			return nil, err
-		}
-		config.Certificates = []tls.Certificate{*cert}
-	}
-
-	if caFile != "" {
-		cp, err := CertPoolFromFile(caFile)
-		if err != nil {
-			return nil, err
-		}
-		config.RootCAs = cp
-	}
-
-	return &config, nil
-}
-
-func CertFromFilePair(certFile, keyFile string) (*tls.Certificate, error) {
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-	if err != nil {
-		return nil, errors.Wrapf(err, "can't load key pair from cert %s and key %s", certFile, keyFile)
-	}
-	return &cert, err
-}
-
-func CertPoolFromFile(filename string) (*x509.CertPool, error) {
-	b, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, errors.Errorf("can't read CA file: %v", filename)
-	}
-	cp := x509.NewCertPool()
-	if !cp.AppendCertsFromPEM(b) {
-		return nil, errors.Errorf("failed to append certificates from file: %s", filename)
-	}
-	return cp, nil
-}
