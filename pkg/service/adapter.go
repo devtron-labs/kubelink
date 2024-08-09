@@ -89,3 +89,20 @@ func NewDeployedAppDetail(config *client.ClusterConfig, release *release.Release
 		},
 	}
 }
+
+func parseDeployedAppDetail(clusterId int32, clusterName string, helmRelease *release.Release) *client.DeployedAppDetail {
+	appDetail := &client.DeployedAppDetail{
+		AppId:        util.GetAppId(clusterId, helmRelease),
+		AppName:      helmRelease.Name,
+		ChartName:    helmRelease.Chart.Name(),
+		ChartAvatar:  helmRelease.Chart.Metadata.Icon,
+		LastDeployed: timestamppb.New(helmRelease.Info.LastDeployed.Time),
+		ChartVersion: helmRelease.Chart.Metadata.Version,
+		EnvironmentDetail: &client.EnvironmentDetails{
+			ClusterName: clusterName,
+			ClusterId:   clusterId,
+			Namespace:   helmRelease.Namespace,
+		},
+	}
+	return appDetail
+}

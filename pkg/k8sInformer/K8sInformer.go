@@ -66,6 +66,7 @@ type K8sInformer interface {
 	CheckReleaseExists(clusterId int32, releaseIdentifier string) bool
 	GetClusterClientSet(clusterInfo bean.ClusterInfo) (*kubernetes.Clientset, error)
 	RegisterListener(listener ClusterSecretUpdateListener)
+	GetReleaseDetails(clusterId int32, releaseIdentifier string) (*client.DeployedAppDetail, error)
 }
 
 type ClusterSecretUpdateListener interface {
@@ -518,4 +519,13 @@ func (impl *K8sInformerImpl) CheckReleaseExists(clusterId int32, releaseIdentifi
 		return true
 	}
 	return false
+}
+
+func (impl *K8sInformerImpl) GetReleaseDetails(clusterId int32, releaseIdentifier string) (*client.DeployedAppDetail, error) {
+	releaseMap := impl.HelmListClusterMap[int(clusterId)]
+	deployDetail, ok := releaseMap[releaseIdentifier]
+	if !ok {
+		return nil, ErrorCacheMissReleaseNotFound
+	}
+	return deployDetail, nil
 }
