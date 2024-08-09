@@ -20,7 +20,6 @@
 package main
 
 import (
-	"github.com/devtron-labs/authenticator/client"
 	"github.com/devtron-labs/common-lib/helmLib/registry"
 	"github.com/devtron-labs/common-lib/monitoring"
 	"github.com/devtron-labs/common-lib/utils/grpc"
@@ -46,7 +45,7 @@ func InitializeApp() (*App, error) {
 		NewApp,
 		sql.PgSqlWireSet,
 		logger.NewSugaredLogger,
-		client.GetRuntimeConfig,
+		k8s.GetRuntimeConfig,
 		k8s.NewK8sUtil,
 		wire.Bind(new(k8s.K8sService), new(*k8s.K8sServiceImpl)),
 		lock.NewChartRepositoryLocker,
