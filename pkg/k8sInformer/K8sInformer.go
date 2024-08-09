@@ -525,7 +525,7 @@ func (impl *K8sInformerImpl) GetReleaseDetails(clusterId int32, releaseIdentifie
 	releaseMap := impl.HelmListClusterMap[int(clusterId)]
 	deployDetail, ok := releaseMap[releaseIdentifier]
 	if !ok {
-		return nil, errors.New(ReleaseNotFoundCacheMissError)
+		return nil, ErrorCacheMissReleaseNotFound
 	}
 	return deployDetail, nil
 }
