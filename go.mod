@@ -6,7 +6,7 @@ require (
 	github.com/caarlos0/env v3.5.0+incompatible
 	github.com/davecgh/go-spew v1.1.1
 	github.com/devtron-labs/authenticator v0.4.34
-	github.com/devtron-labs/common-lib v0.0.25-0.20240809073131-5cefb0e8a93a
+	github.com/devtron-labs/common-lib v0.0.25-0.20240812113340-f14be466613d
 	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/go-pg/pg v6.15.1+incompatible
 	github.com/golang/protobuf v1.5.4
