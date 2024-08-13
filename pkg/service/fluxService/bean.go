@@ -19,9 +19,10 @@ const (
 	KustomizeNamespaceLabel    = "kustomize.toolkit.fluxcd.io/namespace"
 )
 const (
-	StatusMissing         = "Missing"
-	Reason                = "StatusNotReady"
-	MessageForHelmRelease = "Status is missing for this helmRelease"
+	StatusMissing              = "Missing"
+	Reason                     = "StatusNotReady"
+	ErrMessageForHelmRelease   = "Status is missing for this helmRelease"
+	ErrMessageForKustomization = "Status is missing for this kustomization"
 )
 
 // &FluxAppStatusDetail{
