@@ -533,6 +533,7 @@ func copyRollbackOptions(chartSpec *ChartSpec, rollbackOptions *action.Rollback)
 	rollbackOptions.Wait = chartSpec.Wait
 }
 func (c *HelmClient) GetNotes(spec *ChartSpec, options *HelmTemplateOptions) ([]byte, error) {
+	c.ActionConfig.RegistryClient = spec.RegistryClient
 	client := action.NewInstall(c.ActionConfig)
 	mergeInstallOptions(spec, client)
 
@@ -558,15 +559,14 @@ func (c *HelmClient) GetNotes(spec *ChartSpec, options *HelmTemplateOptions) ([]
 	if client.Version == "" {
 		client.Version = ">0.0.0-0"
 	}
-	ChartPathOptions := action.ChartPathOptions{
-		RepoURL:               spec.RepoURL,
-		Username:              spec.Username,
-		Password:              spec.Password,
-		InsecureSkipTLSverify: spec.AllowInsecureConnection,
-		Version:               spec.Version,
-		PassCredentialsAll:    true,
-	}
-	client.ChartPathOptions = ChartPathOptions
+
+	client.ChartPathOptions.RepoURL = spec.RepoURL
+	client.ChartPathOptions.Username = spec.Username
+	client.ChartPathOptions.Password = spec.Password
+	client.ChartPathOptions.InsecureSkipTLSverify = spec.AllowInsecureConnection
+	client.Version = spec.Version
+	client.PassCredentialsAll = true
+
 	helmChart, chartPath, err := c.getChart(spec.ChartName, &client.ChartPathOptions)
 	if err != nil {
 		fmt.Errorf("error in getting helm chart and chart path for chart %q and repo Url %q",
