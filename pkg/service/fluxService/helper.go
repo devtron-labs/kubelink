@@ -118,7 +118,8 @@ func getReleaseNameNamespace(obj map[string]interface{}, name string) (string, s
 
 // getFluxAppStatus extracting the status, reason and message fields from condition field if exists
 func getFluxAppStatus(obj map[string]interface{}, gvk schema.GroupVersionKind) (*FluxAppStatusDetail, error) {
-	var status, reason, message string
+	var reason, message string
+	status := StatusMissing
 	if statusRawObj, ok := obj[STATUS]; ok {
 		statusObj := statusRawObj.(map[string]interface{})
 		conditions, found, err := unstructured.NestedSlice(statusObj, "conditions")
@@ -130,14 +131,20 @@ func getFluxAppStatus(obj map[string]interface{}, gvk schema.GroupVersionKind) (
 		   In HelmRelease, conditions field exhibits the negative polarity, So it has been handled here by default values as Missing Status and customReason with custom message.
 		*/
 		if !found && gvk.Kind == FluxAppHelmreleaseKind {
-			status = StatusMissing
 			return &FluxAppStatusDetail{
 				Status:  status,
 				Reason:  Reason,
-				Message: MessageForHelmRelease,
+				Message: ErrMessageForHelmRelease,
 			}, nil
-		} else if !found || len(conditions) == 0 {
-			return nil, fmt.Errorf("conditions not found for the requested  flux app")
+		} else if !found || len(conditions) == 0 && gvk.Kind == FluxAppKustomizationKind {
+			/* In case of Kustomization, Conditions are only present if that crd has been applied (means only available when it has been applied and its conditions field available)
+			   It handles the case when the conditions field are not available due to some unknown error but the object has been received.
+			*/
+			return &FluxAppStatusDetail{
+				Status:  status,
+				Reason:  Reason,
+				Message: ErrMessageForKustomization,
+			}, nil
 		}
 
 		lastIndex := len(conditions)
