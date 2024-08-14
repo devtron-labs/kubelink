@@ -833,6 +833,36 @@ func (impl *HelmAppServiceImpl) GetNotes(ctx context.Context, request *client.In
 	releaseIdentifier := request.ReleaseIdentifier
 	helmClientObj, err := impl.getHelmClient(releaseIdentifier.ClusterConfig, releaseIdentifier.ReleaseNamespace)
 
+	registryConfig, err := NewRegistryConfig(request.RegistryCredential)
+	defer func() {
+		if registryConfig != nil {
+			err := registry2.DeleteCertificateFolder(registryConfig.RegistryCAFilePath)
+			if err != nil {
+				impl.logger.Errorw("error in deleting certificate folder", "registryName", registryConfig.RegistryId, "err", err)
+			}
+		}
+	}()
+	if err != nil {
+		impl.logger.Errorw("error in getting registry config from registry proto", "registryName", request.RegistryCredential.RegistryName, "err", err)
+		return "", err
+	}
+
+	var registryClient *registry.Client
+	if registryConfig != nil {
+		settingsGetter, err := impl.registrySettings.GetSettings(registryConfig)
+		if err != nil {
+			impl.logger.Errorw("error in getting registry settings", "registryName", request.RegistryCredential.RegistryName, "err", err)
+			return "", err
+		}
+		settings, err := settingsGetter.GetRegistrySettings(registryConfig)
+		if err != nil {
+			impl.logger.Errorw(HELM_CLIENT_ERROR, "registryName", request.RegistryCredential.RegistryName, "err", err)
+			return "", err
+		}
+		registryClient = settings.RegistryClient
+		request.RegistryCredential.RegistryUrl = settings.RegistryHostURL
+	}
+
 	var chartName, repoURL, username, password string
 	var allowInsecureConnection bool
 	switch request.IsOCIRepo {
@@ -862,6 +892,7 @@ func (impl *HelmAppServiceImpl) GetNotes(ctx context.Context, request *client.In
 		Username:                username,
 		Password:                password,
 		AllowInsecureConnection: allowInsecureConnection,
+		RegistryClient:          registryClient,
 	}
 	HelmTemplateOptions := &helmClient.HelmTemplateOptions{}
 	if request.K8SVersion != "" {
