@@ -20,7 +20,6 @@
 package main
 
 import (
-	"github.com/devtron-labs/authenticator/client"
 	"github.com/devtron-labs/common-lib/helmLib/registry"
 	"github.com/devtron-labs/common-lib/monitoring"
 	"github.com/devtron-labs/common-lib/utils/grpc"
@@ -34,6 +33,9 @@ import (
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
 	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"github.com/devtron-labs/kubelink/pkg/service"
+	commonHelmService "github.com/devtron-labs/kubelink/pkg/service/commonHelmService"
+	fluxService "github.com/devtron-labs/kubelink/pkg/service/fluxService"
+	helmApplicationService "github.com/devtron-labs/kubelink/pkg/service/helmApplicationService"
 	"github.com/devtron-labs/kubelink/pkg/sql"
 	"github.com/google/wire"
 )
@@ -43,16 +45,20 @@ func InitializeApp() (*App, error) {
 		NewApp,
 		sql.PgSqlWireSet,
 		logger.NewSugaredLogger,
-		client.GetRuntimeConfig,
+		k8s.GetRuntimeConfig,
 		k8s.NewK8sUtil,
 		wire.Bind(new(k8s.K8sService), new(*k8s.K8sServiceImpl)),
 		lock.NewChartRepositoryLocker,
-		service.NewK8sServiceImpl,
-		wire.Bind(new(service.K8sService), new(*service.K8sServiceImpl)),
-		service.NewHelmAppServiceImpl,
-		wire.Bind(new(service.HelmAppService), new(*service.HelmAppServiceImpl)),
+		commonHelmService.NewK8sServiceImpl,
+		wire.Bind(new(commonHelmService.K8sService), new(*commonHelmService.K8sServiceImpl)),
+		commonHelmService.NewCommonHelmServiceImpl,
+		wire.Bind(new(commonHelmService.CommonHelmService), new(*commonHelmService.CommonHelmServiceImpl)),
+		helmApplicationService.NewHelmAppServiceImpl,
+		wire.Bind(new(helmApplicationService.HelmAppService), new(*helmApplicationService.HelmAppServiceImpl)),
 		converter.NewConverterImpl,
 		wire.Bind(new(converter.ClusterBeanConverter), new(*converter.ClusterBeanConverterImpl)),
+		fluxService.NewFluxApplicationServiceImpl,
+		wire.Bind(new(fluxService.FluxApplicationService), new(*fluxService.FluxApplicationServiceImpl)),
 		service.NewApplicationServiceServerImpl,
 		router.NewRouter,
 		asyncProvider.NewAsyncRunnable,
@@ -61,6 +67,7 @@ func InitializeApp() (*App, error) {
 		repository.NewClusterRepositoryImpl,
 		wire.Bind(new(repository.ClusterRepository), new(*repository.ClusterRepositoryImpl)),
 		globalConfig.GetHelmReleaseConfig,
+		//k8sInformer.GetHelmReleaseConfig,
 		grpc.GetConfiguration,
 		//pubsub_lib.NewPubSubClientServiceImpl,
 		//cache.NewClusterCacheImpl,
