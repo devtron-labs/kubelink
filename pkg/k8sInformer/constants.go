@@ -16,7 +16,10 @@
 
 package k8sInformer
 
-import "helm.sh/helm/v3/pkg/release"
+import (
+	"errors"
+	"helm.sh/helm/v3/pkg/release"
+)
 
 type ReleaseDto struct {
 	*release.Release
@@ -25,3 +28,7 @@ type ReleaseDto struct {
 func (r *ReleaseDto) getUniqueReleaseIdentifier() string {
 	return r.Namespace + "_" + r.Name
 }
+
+var (
+	ErrorCacheMissReleaseNotFound = errors.New("release not found in cache")
+)
