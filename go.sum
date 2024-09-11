@@ -716,8 +716,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/devtron-labs/authenticator v0.4.34 h1:U/2oy6v1j3Lzb0JkfLm/yaTAG0rkQ3pzGhfrNuGnC8U=
 github.com/devtron-labs/authenticator v0.4.34/go.mod h1:ozNfT8WcruiSgnUbyp48WVfc41++W6xYXhKFp67lNTU=
-github.com/devtron-labs/common-lib v0.16.1-0.20240909135009-9ab705e1a141 h1:Fj4FhBUEu6igP8jmipcSC2CG0iudRhbviNSeg02kEvk=
-github.com/devtron-labs/common-lib v0.16.1-0.20240909135009-9ab705e1a141/go.mod h1:rAY9Xd6iz+OqNQ3nO3reVHapAVr1N6Osf4Irdc0A08Q=
+github.com/devtron-labs/common-lib v0.16.1-0.20240911071031-2625327bc7b4 h1:OWhV5B2SQRWZges8cltVsyUrdA/8EByBjjRxX95qN7o=
+github.com/devtron-labs/common-lib v0.16.1-0.20240911071031-2625327bc7b4/go.mod h1:rAY9Xd6iz+OqNQ3nO3reVHapAVr1N6Osf4Irdc0A08Q=
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f h1:lO4WD4F/rVNCu3HqELle0jiPLLBs70cWOduZpkS1E78=
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f/go.mod h1:cuUVRXasLTGF7a8hSLbxyZXjz+1KgoB3wDUb6vlszIc=
 github.com/distribution/distribution/v3 v3.0.0-beta.1 h1:X+ELTxPuZ1Xe5MsD3kp2wfGUhc8I+MPfRis8dZ818Ic=
