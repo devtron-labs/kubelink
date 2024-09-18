@@ -470,6 +470,10 @@ func (impl *HelmAppServiceImpl) GetDeploymentHistory(req *client.AppDetailReques
 		if helmRelease.Info != nil {
 			deploymentDetail.DeployedAt = timestamppb.New(helmRelease.Info.LastDeployed.Time)
 			deploymentDetail.Status = string(helmRelease.Info.Status)
+			if helmRelease.Info.Status == release.StatusFailed {
+				// for failed release, update message with description
+				deploymentDetail.Message = helmRelease.Info.Description
+			}
 		}
 		helmAppDeployments = append(helmAppDeployments, deploymentDetail)
 	}
