@@ -19,7 +19,6 @@ package tests
 import (
 	"compress/gzip"
 	"context"
-	client2 "github.com/devtron-labs/authenticator/client"
 	"github.com/devtron-labs/common-lib/utils"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/common-lib/utils/k8s/commonBean"
@@ -61,7 +60,6 @@ func TestGetAppDetailsByComparingWithCacheData(t *testing.T) {
 		ClusterCacheListPageSize:      50,
 		ClusterSyncBatchSize:          3,
 	}
-	runTimeConfig := &client2.RuntimeConfig{LocalDevMode: true}
 	k8sUtilLocal := k8sUtils.NewK8sUtil(logger, runTimeConfig)
 
 	clusterCacheImpl := cache.NewClusterCacheImpl(logger, clusterCacheConfig, clusterRepository, k8sUtilLocal, k8sInformer)
@@ -380,7 +378,6 @@ func getHelmAppServiceDependencies(t *testing.T) (*zap.SugaredLogger, *k8sInform
 	}
 	helmReleaseConfig2 := &k8sInformer2.HelmReleaseConfig{EnableHelmReleaseCache: true}
 	clusterRepository := repository.NewClusterRepositoryImpl(dbConnection, logger)
-	runTimeConfig := &client2.RuntimeConfig{LocalDevMode: false}
 	k8sUtil := k8sUtils.NewK8sUtil(logger, runTimeConfig)
 	k8sInformer := k8sInformer2.Newk8sInformerImpl(logger, clusterRepository, helmReleaseConfig2, k8sUtil)
 	k8sServiceImpl := service2.NewK8sServiceImpl(logger)
