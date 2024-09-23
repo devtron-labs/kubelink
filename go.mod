@@ -7,7 +7,7 @@ toolchain go1.22.6
 require (
 	github.com/caarlos0/env v3.5.0+incompatible
 	github.com/davecgh/go-spew v1.1.1
-	github.com/devtron-labs/common-lib v0.16.1-0.20240909135009-9ab705e1a141
+	github.com/devtron-labs/common-lib v0.16.1-0.20240923063129-ff2dc035435e
 	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/go-pg/pg v6.15.1+incompatible
 	github.com/golang/protobuf v1.5.4
@@ -22,10 +22,10 @@ require (
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.33.0
 	helm.sh/helm/v3 v3.14.3
-	k8s.io/api v0.29.0
-	k8s.io/apimachinery v0.29.0
+	k8s.io/api v0.29.7
+	k8s.io/apimachinery v0.29.7
 	k8s.io/cli-runtime v0.29.0
-	k8s.io/client-go v0.29.0
+	k8s.io/client-go v0.29.7
 	k8s.io/helm v2.17.0+incompatible
 	sigs.k8s.io/kustomize/kyaml v0.14.3-0.20230601165947-6ce0bf390ce3
 	sigs.k8s.io/yaml v1.3.0
@@ -166,8 +166,8 @@ require (
 	k8s.io/kube-aggregator v0.26.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
 	k8s.io/kubectl v0.29.0 // indirect
-	k8s.io/kubernetes v1.27.13 // indirect
-	k8s.io/metrics v0.29.0 // indirect
+	k8s.io/kubernetes v1.29.6 // indirect
+	k8s.io/metrics v0.29.7 // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
 	mellium.im/sasl v0.3.1 // indirect
 	oras.land/oras-go v1.2.6 // indirect
