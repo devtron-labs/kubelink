@@ -129,6 +129,7 @@ func (impl *CommonHelmServiceImpl) getLiveManifests(config *rest.Config, helmRel
 	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
 	manifests = impl.addHookResourcesInManifest(helmRelease, manifests)
 	// get live manifests from kubernetes
+	impl.logger.Infow("manifests added", "manifests", manifests, "helmRelease", helmRelease.Name)
 	desiredOrLiveManifests, err := impl.getDesiredOrLiveManifests(config, manifests, helmRelease.Namespace)
 	if err != nil {
 		impl.logger.Errorw("error in getting desired or live manifest", "host", config.Host, "helmReleaseName", helmRelease.Name, "err", err)
