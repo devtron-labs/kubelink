@@ -1,6 +1,8 @@
 package commonHelmService
 
 import (
+	"errors"
+	"fmt"
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	k8sObjectUtils "github.com/devtron-labs/common-lib/utils/k8sObjectsUtil"
@@ -31,6 +33,7 @@ type CommonHelmService interface {
 	BuildResourceTree(appDetailRequest *client.AppDetailRequest, release *release.Release) (*bean.ResourceTreeResponse, error)
 	BuildNodes(request *BuildNodesConfig) (*BuildNodeResponse, error)
 	GetResourceTreeForExternalResources(req *client.ExternalResourceTreeRequest) (*bean.ResourceTreeResponse, error)
+	GetParentGvkListForApp(appConfig *client.AppConfigRequest) ([]*client.Gvk, error)
 }
 
 type CommonHelmServiceImpl struct {
@@ -125,11 +128,51 @@ func (impl *CommonHelmServiceImpl) getRestConfigForClusterConfig(clusterConfig *
 	}
 	return conf, nil
 }
-func (impl *CommonHelmServiceImpl) getLiveManifests(config *rest.Config, helmRelease *release.Release) ([]*bean.DesiredOrLiveManifest, error) {
+
+func (impl *CommonHelmServiceImpl) GetParentGvkListForApp(appConfig *client.AppConfigRequest) ([]*client.Gvk, error) {
+	if appConfig == nil {
+		return nil, errors.New("appConfig is nil")
+	}
+	helmRelease, err := impl.GetHelmRelease(appConfig.ClusterConfig, appConfig.Namespace, appConfig.ReleaseName)
+	if err != nil {
+		impl.logger.Errorw("Error in getting helm release", "appConfig", appConfig, "err", err)
+		return nil, err
+	}
+	if helmRelease == nil {
+		return nil, errors.New(fmt.Sprintf("no helm release found for name=%s", appConfig.ReleaseName))
+	}
+	manifests, err := impl.getManifestsFromHelmRelease(helmRelease)
+	if err != nil {
+		impl.logger.Errorw("Error in getting helm release", "helmRelease", helmRelease, "err", err)
+		return nil, err
+	}
+
+	gvkList := make([]*client.Gvk, len(manifests))
+	for _, manifest := range manifests {
+		gvk := manifest.GroupVersionKind()
+		gvkList = append(gvkList, GetClientGVKFromSchemaGVK(gvk))
+	}
+
+	return gvkList, nil
+}
+
+func (impl *CommonHelmServiceImpl) getManifestsFromHelmRelease(helmRelease *release.Release) ([]unstructured.Unstructured, error) {
 	manifests, err := yamlUtil.SplitYAMLs([]byte(helmRelease.Manifest))
+	if err != nil {
+		return nil, err
+	}
 	manifests = impl.addHookResourcesInManifest(helmRelease, manifests)
+	return manifests, nil
+}
+
+func (impl *CommonHelmServiceImpl) getLiveManifests(config *rest.Config, helmRelease *release.Release) ([]*bean.DesiredOrLiveManifest, error) {
+	manifests, err := impl.getManifestsFromHelmRelease(helmRelease)
+	if err != nil {
+		impl.logger.Errorw("error in parsing manifests", "payload", helmRelease, "error", err)
+		return nil, err
+	}
 	// get live manifests from kubernetes
-	impl.logger.Infow("manifests added", "manifests", manifests, "helmRelease", helmRelease.Name)
+	//impl.logger.Infow("manifests added", "manifests", manifests, "helmRelease", helmRelease.Name)
 	desiredOrLiveManifests, err := impl.getDesiredOrLiveManifests(config, manifests, helmRelease.Namespace)
 	if err != nil {
 		impl.logger.Errorw("error in getting desired or live manifest", "host", config.Host, "helmReleaseName", helmRelease.Name, "err", err)

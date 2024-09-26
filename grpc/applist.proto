@@ -20,9 +20,11 @@ message AppListRequest {
   repeated ClusterConfig clusters = 1;
 }
 
+
 service ApplicationService {
   rpc ListApplications(AppListRequest) returns (stream DeployedAppList){}
   rpc ListFluxApplications(AppListRequest) returns (stream FluxApplicationList){}
+  rpc GetParentGvkListForApp(AppConfigRequest) returns (ParentGvkListResponse){}
   rpc GetAppDetail(AppDetailRequest) returns (AppDetail){}
   rpc GetAppStatus(AppDetailRequest) returns (AppStatus){}
   rpc Hibernate(HibernateRequest) returns (HibernateResponse){}
@@ -228,6 +230,18 @@ message EphemeralContainerData {
   string name = 1;
   bool isExternal = 2;
 }
+
+message AppConfigRequest {
+  ClusterConfig clusterConfig = 1;
+  string namespace = 2;
+  string ReleaseName = 3;
+}
+
+message ParentGvkListResponse{
+  repeated Gvk gvkList = 1;
+}
+
+
 //--------hibernate
 
 message HibernateRequest {
