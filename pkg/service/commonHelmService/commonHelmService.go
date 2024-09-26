@@ -150,7 +150,10 @@ func (impl *CommonHelmServiceImpl) GetParentGvkListForApp(appConfig *client.AppC
 	gvkList := make([]*client.Gvk, len(manifests))
 	for _, manifest := range manifests {
 		gvk := manifest.GroupVersionKind()
-		gvkList = append(gvkList, GetClientGVKFromSchemaGVK(gvk))
+		if len(gvk.Kind) > 0 && len(gvk.Group) > 0 {
+			gvkList = append(gvkList, GetClientGVKFromSchemaGVK(gvk))
+		}
+
 	}
 
 	return gvkList, nil
