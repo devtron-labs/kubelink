@@ -81,7 +81,7 @@ type GetNodeFromManifestRequest struct {
 type BuildNodesRequest struct {
 	RestConfig        *rest.Config
 	ReleaseNamespace  string
-	ParentResourceRef *bean.ResourceRef
+	ParentResourceRef *commonBean.ResourceRef
 }
 
 func NewBuildNodesRequest(buildNodesConfig *BuildNodesRequest) *BuildNodesConfig {
@@ -143,7 +143,7 @@ func (req *BuildNodesRequest) WithReleaseNamespace(releaseNamespace string) *Bui
 	return req
 }
 
-func (req *BuildNodesRequest) WithParentResourceRef(parentResourceRef *bean.ResourceRef) *BuildNodesRequest {
+func (req *BuildNodesRequest) WithParentResourceRef(parentResourceRef *commonBean.ResourceRef) *BuildNodesRequest {
 	if parentResourceRef == nil {
 		return req
 	}
@@ -152,14 +152,14 @@ func (req *BuildNodesRequest) WithParentResourceRef(parentResourceRef *bean.Reso
 }
 
 type BuildNodeResponse struct {
-	Nodes             []*bean.ResourceNode
-	HealthStatusArray []*bean.HealthStatus
+	Nodes             []*commonBean.ResourceNode
+	HealthStatusArray []*commonBean.HealthStatus
 }
 
 type GetNodeFromManifestResponse struct {
-	Node                           *bean.ResourceNode
-	HealthStatus                   *bean.HealthStatus
-	ResourceRef                    *bean.ResourceRef
+	Node                           *commonBean.ResourceNode
+	HealthStatus                   *commonBean.HealthStatus
+	ResourceRef                    *commonBean.ResourceRef
 	DesiredOrLiveChildrenManifests []*bean.DesiredOrLiveManifest
 }
 
@@ -167,7 +167,7 @@ func NewGetNodesFromManifestResponse() *GetNodeFromManifestResponse {
 	return &GetNodeFromManifestResponse{}
 }
 
-func (resp *GetNodeFromManifestResponse) WithNode(node *bean.ResourceNode) *GetNodeFromManifestResponse {
+func (resp *GetNodeFromManifestResponse) WithNode(node *commonBean.ResourceNode) *GetNodeFromManifestResponse {
 	if node == nil {
 		return resp
 	}
@@ -175,7 +175,7 @@ func (resp *GetNodeFromManifestResponse) WithNode(node *bean.ResourceNode) *GetN
 	return resp
 }
 
-func (resp *GetNodeFromManifestResponse) WithHealthStatus(healthStatus *bean.HealthStatus) *GetNodeFromManifestResponse {
+func (resp *GetNodeFromManifestResponse) WithHealthStatus(healthStatus *commonBean.HealthStatus) *GetNodeFromManifestResponse {
 	if healthStatus == nil {
 		return resp
 	}
@@ -183,7 +183,7 @@ func (resp *GetNodeFromManifestResponse) WithHealthStatus(healthStatus *bean.Hea
 	return resp
 }
 
-func (resp *GetNodeFromManifestResponse) WithParentResourceRef(resourceRef *bean.ResourceRef) *GetNodeFromManifestResponse {
+func (resp *GetNodeFromManifestResponse) WithParentResourceRef(resourceRef *commonBean.ResourceRef) *GetNodeFromManifestResponse {
 	if resourceRef == nil {
 		return resp
 	}
@@ -203,7 +203,7 @@ func NewBuildNodeResponse() *BuildNodeResponse {
 	return &BuildNodeResponse{}
 }
 
-func (resp *BuildNodeResponse) WithNodes(nodes []*bean.ResourceNode) *BuildNodeResponse {
+func (resp *BuildNodeResponse) WithNodes(nodes []*commonBean.ResourceNode) *BuildNodeResponse {
 	if len(nodes) == 0 {
 		return resp
 	}
@@ -211,7 +211,7 @@ func (resp *BuildNodeResponse) WithNodes(nodes []*bean.ResourceNode) *BuildNodeR
 	return resp
 }
 
-func (resp *BuildNodeResponse) WithHealthStatusArray(healthStatusArray []*bean.HealthStatus) *BuildNodeResponse {
+func (resp *BuildNodeResponse) WithHealthStatusArray(healthStatusArray []*commonBean.HealthStatus) *BuildNodeResponse {
 	if len(healthStatusArray) == 0 {
 		return resp
 	}

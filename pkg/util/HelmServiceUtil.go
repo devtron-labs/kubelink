@@ -17,31 +17,13 @@
 package util
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
-	k8sCommonBean "github.com/devtron-labs/common-lib/utils/k8s/commonBean"
+	"github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/common-lib/utils/k8s/health"
-	"github.com/devtron-labs/kubelink/bean"
-	"hash"
-	"hash/fnv"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage/driver"
-	coreV1 "k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/rand"
 )
-
-type ExtraNodeInfo struct {
-	// UpdateRevision is only used for StatefulSets, if not empty, indicates the version of the StatefulSet used to generate Pods in the sequence
-	UpdateRevision         string
-	ResourceNetworkingInfo *bean.ResourceNetworkingInfo
-	RolloutCurrentPodHash  string
-}
 
 // GetAppId returns AppID by logic  cluster_id|namespace|release_name
 func GetAppId(clusterId int32, release *release.Release) string {
@@ -77,8 +59,8 @@ func GetMessageFromReleaseStatus(releaseStatus release.Status) string {
 
 // app health is worst of the nodes health
 // or if app status is healthy then check for hibernation status
-func BuildAppHealthStatus(nodes []*bean.ResourceNode) *bean.HealthStatusCode {
-	appHealthStatus := bean.HealthStatusHealthy
+func BuildAppHealthStatus(nodes []*commonBean.ResourceNode) *commonBean.HealthStatusCode {
+	appHealthStatus := commonBean.HealthStatusHealthy
 	isAppFullyHibernated := true
 	var isAppPartiallyHibernated bool
 	var isAnyNodeCanByHibernated bool
@@ -105,19 +87,19 @@ func BuildAppHealthStatus(nodes []*bean.ResourceNode) *bean.HealthStatusCode {
 	}
 
 	// override hibernate status on app level if status is healthy and hibernation done
-	if appHealthStatus == bean.HealthStatusHealthy && isAnyNodeCanByHibernated {
+	if appHealthStatus == commonBean.HealthStatusHealthy && isAnyNodeCanByHibernated {
 		if isAppFullyHibernated {
-			appHealthStatus = bean.HealthStatusHibernated
+			appHealthStatus = commonBean.HealthStatusHibernated
 		} else if isAppPartiallyHibernated {
-			appHealthStatus = bean.HealthStatusPartiallyHibernated
+			appHealthStatus = commonBean.HealthStatusPartiallyHibernated
 		}
 	}
 
 	return &appHealthStatus
 }
 
-func GetAppStatusOnBasisOfHealthyNonHealthy(healthStatusArray []*bean.HealthStatus) *bean.HealthStatusCode {
-	appHealthStatus := bean.HealthStatusHealthy
+func GetAppStatusOnBasisOfHealthyNonHealthy(healthStatusArray []*commonBean.HealthStatus) *commonBean.HealthStatusCode {
+	appHealthStatus := commonBean.HealthStatusHealthy
 	for _, node := range healthStatusArray {
 		nodeHealth := node
 		if nodeHealth == nil {
@@ -130,128 +112,6 @@ func GetAppStatusOnBasisOfHealthyNonHealthy(healthStatusArray []*bean.HealthStat
 		}
 	}
 	return &appHealthStatus
-}
-
-// DeepHashObject writes specified object to hash using the spew library
-// which follows pointers and prints actual values of the nested objects
-// ensuring the hash does not change when a pointer changes.
-func DeepHashObject(hasher hash.Hash, objectToWrite interface{}) {
-	hasher.Reset()
-	printer := spew.ConfigState{
-		Indent:         " ",
-		SortKeys:       true,
-		DisableMethods: true,
-		SpewKeys:       true,
-	}
-	_, err := printer.Fprintf(hasher, "%#v", objectToWrite)
-	if err != nil {
-		fmt.Println(err)
-	}
-}
-
-func ComputePodHash(template *coreV1.PodTemplateSpec, collisionCount *int32) string {
-	podTemplateSpecHasher := fnv.New32a()
-	DeepHashObject(podTemplateSpecHasher, *template)
-
-	// Add collisionCount in the hash if it exists.
-	if collisionCount != nil {
-		collisionCountBytes := make([]byte, 8)
-		binary.LittleEndian.PutUint32(collisionCountBytes, uint32(*collisionCount))
-		_, err := podTemplateSpecHasher.Write(collisionCountBytes)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}
-	return rand.SafeEncodeString(fmt.Sprint(podTemplateSpecHasher.Sum32()))
-}
-
-func ConvertToV1Deployment(nodeObj map[string]interface{}) (*v1beta1.Deployment, error) {
-	deploymentObj := v1beta1.Deployment{}
-	err := runtime.DefaultUnstructuredConverter.FromUnstructured(nodeObj, &deploymentObj)
-	if err != nil {
-		return nil, err
-	}
-	return &deploymentObj, nil
-}
-
-func ConvertToV1ReplicaSet(nodeObj map[string]interface{}) (*v1beta1.ReplicaSet, error) {
-	replicaSetObj := v1beta1.ReplicaSet{}
-	err := runtime.DefaultUnstructuredConverter.FromUnstructured(nodeObj, &replicaSetObj)
-	if err != nil {
-		return nil, err
-	}
-	return &replicaSetObj, nil
-}
-
-func GetReplicaSetPodHash(replicasetObj *v1beta1.ReplicaSet, collisionCount *int32) string {
-	labels := make(map[string]string)
-	for k, v := range replicasetObj.Spec.Template.Labels {
-		if k != "pod-template-hash" {
-			labels[k] = v
-		}
-	}
-	replicasetObj.Spec.Template.Labels = labels
-	podHash := ComputePodHash(&replicasetObj.Spec.Template, collisionCount)
-	return podHash
-}
-
-func GetRolloutPodTemplateHash(replicasetNode *bean.ResourceNode) string {
-	if rolloutPodTemplateHash, ok := replicasetNode.NetworkingInfo.Labels["rollouts-pod-template-hash"]; ok {
-		return rolloutPodTemplateHash
-	}
-	return ""
-}
-
-func GetRolloutPodHash(rollout map[string]interface{}) string {
-	if s, ok := rollout["status"]; ok {
-		if sm, ok := s.(map[string]interface{}); ok {
-			if cph, ok := sm["currentPodHash"]; ok {
-				if cphs, ok := cph.(string); ok {
-					return cphs
-				}
-			}
-		}
-	}
-	return ""
-}
-
-func GetHookMetadata(manifest *unstructured.Unstructured) (bool, string) {
-	annotations, found, _ := unstructured.NestedStringMap(manifest.Object, "metadata", "annotations")
-	if found {
-		if hookType, ok := annotations[release.HookAnnotation]; ok {
-			return true, hookType
-		}
-	}
-	return false, ""
-}
-
-func AddSelectiveInfoInResourceNode(resourceNode *bean.ResourceNode, gvk schema.GroupVersionKind, obj map[string]interface{}) {
-	if gvk.Kind == k8sCommonBean.StatefulSetKind {
-		resourceNode.UpdateRevision = GetUpdateRevisionForStatefulSet(obj)
-	}
-	if gvk.Kind == k8sCommonBean.DeploymentKind {
-		deployment, _ := ConvertToV1Deployment(obj)
-		if deployment == nil {
-			return
-		}
-		deploymentPodHash := ComputePodHash(&deployment.Spec.Template, deployment.Status.CollisionCount)
-		resourceNode.DeploymentPodHash = deploymentPodHash
-		resourceNode.DeploymentCollisionCount = deployment.Status.CollisionCount
-	}
-	if gvk.Kind == k8sCommonBean.K8sClusterResourceRolloutKind {
-		rolloutPodHash, found, _ := unstructured.NestedString(obj, "status", "currentPodHash")
-		if found {
-			resourceNode.RolloutCurrentPodHash = rolloutPodHash
-		}
-	}
-}
-
-func GetUpdateRevisionForStatefulSet(obj map[string]interface{}) string {
-	updateRevisionFromManifest, found, _ := unstructured.NestedString(obj, "status", "updateRevision")
-	if found {
-		return updateRevisionFromManifest
-	}
-	return ""
 }
 
 func IsReleaseNotFoundError(err error) bool {

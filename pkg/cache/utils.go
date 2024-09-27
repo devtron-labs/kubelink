@@ -19,13 +19,7 @@ package cache
 import (
 	"errors"
 	"fmt"
-	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
-	"github.com/devtron-labs/common-lib/utils/k8s/health"
-	"github.com/devtron-labs/kubelink/bean"
-	"github.com/devtron-labs/kubelink/pkg/util"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"net"
 	"net/url"
 	"os/exec"
@@ -66,8 +60,7 @@ var (
 )
 
 const (
-	hibernateReplicaAnnotation = "hibernator.devtron.ai/replicas"
-	CacheNotSyncError          = "cluster cache not yet synced for this cluster id"
+	CacheNotSyncError = "cluster cache not yet synced for this cluster id"
 )
 
 // isRetryableError is a helper method to see whether an error
@@ -126,79 +119,6 @@ func isTransientNetworkErr(err error) bool {
 		strings.Contains(errorString, "connection timed out") ||
 		strings.Contains(errorString, "connection reset by peer") {
 		return true
-	}
-	return false
-}
-
-func getResourceNodeFromManifest(un *unstructured.Unstructured, gvk schema.GroupVersionKind) *bean.ResourceNode {
-	resourceNode := &bean.ResourceNode{
-		Port:            util.GetPorts(un, gvk),
-		ResourceVersion: un.GetResourceVersion(),
-		NetworkingInfo: &bean.ResourceNetworkingInfo{
-			Labels: un.GetLabels(),
-		},
-		CreatedAt: un.GetCreationTimestamp().String(),
-		ResourceRef: &bean.ResourceRef{
-			Group:     gvk.Group,
-			Version:   gvk.Version,
-			Kind:      gvk.Kind,
-			Namespace: un.GetNamespace(),
-			Name:      un.GetName(),
-			UID:       string(un.GetUID()),
-		},
-	}
-	resourceNode.IsHook, resourceNode.HookType = util.GetHookMetadata(un)
-	util.AddSelectiveInfoInResourceNode(resourceNode, gvk, un.UnstructuredContent())
-	return resourceNode
-}
-
-func SetHealthStatusForNode(res *bean.ResourceNode, un *unstructured.Unstructured, gvk schema.GroupVersionKind) {
-	if k8sUtils.IsService(gvk) && un.GetName() == k8sUtils.DEVTRON_SERVICE_NAME && k8sUtils.IsDevtronApp(res.NetworkingInfo.Labels) {
-		res.Health = &bean.HealthStatus{
-			Status: bean.HealthStatusHealthy,
-		}
-	} else {
-		if healthCheck := health.GetHealthCheckFunc(gvk); healthCheck != nil {
-			health, err := healthCheck(un)
-			if err != nil {
-				res.Health = &bean.HealthStatus{
-					Status:  bean.HealthStatusUnknown,
-					Message: err.Error(),
-				}
-			} else if health != nil {
-				res.Health = &bean.HealthStatus{
-					Status:  string(health.Status),
-					Message: health.Message,
-				}
-			}
-		}
-	}
-}
-func SetHibernationRules(res *bean.ResourceNode, un *unstructured.Unstructured) {
-	if un.GetOwnerReferences() == nil {
-		// set CanBeHibernated
-		replicas, found, _ := unstructured.NestedInt64(un.UnstructuredContent(), "spec", "replicas")
-		if found {
-			res.CanBeHibernated = true
-		}
-
-		// set IsHibernated
-		annotations := un.GetAnnotations()
-		if annotations != nil {
-			if val, ok := annotations[hibernateReplicaAnnotation]; ok {
-				if val != "0" && replicas == 0 {
-					res.IsHibernated = true
-				}
-			}
-		}
-	}
-}
-
-func isInClusterIdList(clusterId int, clusterIdList []int) bool {
-	for _, id := range clusterIdList {
-		if id == clusterId {
-			return true
-		}
 	}
 	return false
 }

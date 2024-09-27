@@ -18,6 +18,7 @@ package converter
 
 import (
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
+	"github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	repository "github.com/devtron-labs/kubelink/pkg/cluster"
@@ -84,9 +85,9 @@ func (impl *ClusterBeanConverterImpl) GetClusterInfo(c *repository.Cluster) *bea
 			InsecureSkipTLSVerify: c.InsecureSkipTlsVerify,
 		}
 		if c.InsecureSkipTlsVerify == false {
-			clusterInfo.KeyData = config[k8sUtils.TlsKey]
-			clusterInfo.CertData = config[k8sUtils.CertData]
-			clusterInfo.CAData = config[k8sUtils.CertificateAuthorityData]
+			clusterInfo.KeyData = config[commonBean.TlsKey]
+			clusterInfo.CertData = config[commonBean.CertData]
+			clusterInfo.CAData = config[commonBean.CertificateAuthorityData]
 		}
 	}
 	return clusterInfo

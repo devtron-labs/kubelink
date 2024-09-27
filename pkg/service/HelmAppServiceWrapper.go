@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
 	"github.com/devtron-labs/kubelink/internals/lock"
@@ -99,12 +100,12 @@ func (impl *ApplicationServiceServerImpl) ListApplications(req *client.AppListRe
 func (impl *ApplicationServiceServerImpl) GetParentGvkListForApp(ctx context.Context, req *client.AppConfigRequest) (*client.ParentGvkListResponse, error) {
 	impl.Logger.Infow("App detail request", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
 		"namespace", req.Namespace)
-	gvkList, err := impl.HelmAppService.GetParentGvkListForApp(req)
+	objectIdentifiers, err := impl.HelmAppService.GetParentGvkListForApp(req)
 	if err != nil {
 		impl.Logger.Errorw("Error in GetParentGvkListForApp request", "payload", req, "err", err)
 		return nil, err
 	}
-	return &client.ParentGvkListResponse{GvkList: gvkList}, nil
+	return &client.ParentGvkListResponse{ParentObjects: objectIdentifiers}, nil
 }
 
 func (impl *ApplicationServiceServerImpl) GetAppDetail(ctxt context.Context, req *client.AppDetailRequest) (*client.AppDetail, error) {
@@ -388,7 +389,7 @@ func (impl *ApplicationServiceServerImpl) TemplateChart(ctx context.Context, in 
 	return res, err
 }
 
-func resourceRefResult(resourceRefs []*bean.ResourceRef) (resourceRefResults []*client.ResourceRef) {
+func resourceRefResult(resourceRefs []*commonBean.ResourceRef) (resourceRefResults []*client.ResourceRef) {
 	for _, resourceRef := range resourceRefs {
 		resourceRefResult := &client.ResourceRef{
 			Group:     resourceRef.Group,
@@ -540,7 +541,7 @@ func (impl *ApplicationServiceServerImpl) AppDetailAdaptor(req *bean.AppDetail) 
 	return appDetail
 }
 
-func (impl *ApplicationServiceServerImpl) buildInfoItems(infoItemBeans []bean.InfoItem) []*client.InfoItem {
+func (impl *ApplicationServiceServerImpl) buildInfoItems(infoItemBeans []commonBean.InfoItem) []*client.InfoItem {
 	infoItems := make([]*client.InfoItem, 0, len(infoItemBeans))
 	for _, infoItemBean := range infoItemBeans {
 		switch infoItemBean.Value.(type) {

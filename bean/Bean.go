@@ -17,9 +17,9 @@
 package bean
 
 import (
+	"github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	remoteConnectionBean "github.com/devtron-labs/common-lib/utils/remoteConnection/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"time"
@@ -36,13 +36,13 @@ type HelmAppValues struct {
 }
 
 type AppDetail struct {
-	ApplicationStatus    *HealthStatusCode          `json:"applicationStatus"`
-	ReleaseStatus        *ReleaseStatus             `json:"releaseStatus"`
-	LastDeployed         time.Time                  `json:"lastDeployed"`
-	ChartMetadata        *ChartMetadata             `json:"chartMetadata"`
-	ResourceTreeResponse *ResourceTreeResponse      `json:"resourceTreeResponse"`
-	EnvironmentDetails   *client.EnvironmentDetails `json:"environmentDetails"`
-	ReleaseExists        bool                       `json:"releaseExists"`
+	ApplicationStatus    *commonBean.HealthStatusCode `json:"applicationStatus"`
+	ReleaseStatus        *ReleaseStatus               `json:"releaseStatus"`
+	LastDeployed         time.Time                    `json:"lastDeployed"`
+	ChartMetadata        *ChartMetadata               `json:"chartMetadata"`
+	ResourceTreeResponse *ResourceTreeResponse        `json:"resourceTreeResponse"`
+	EnvironmentDetails   *client.EnvironmentDetails   `json:"environmentDetails"`
+	ReleaseExists        bool                         `json:"releaseExists"`
 }
 
 type ReleaseStatus struct {
@@ -75,16 +75,6 @@ const (
 	// StatusPendingRollback indicates that an rollback operation is underway.
 	StatusPendingRollback HelmReleaseStatus = "pending-rollback"
 )
-const (
-	ContainersType                = "Containers"
-	ContainersNamesType           = "ContainerNames"
-	InitContainersNamesType       = "InitContainerNames"
-	EphemeralContainersInfoType   = "EphemeralContainerInfo"
-	EphemeralContainersStatusType = "EphemeralContainerStatuses"
-	StatusReason                  = "Status Reason"
-	Node                          = "Node"
-	RestartCount                  = "Restart Count"
-)
 
 type ChartMetadata struct {
 	// The name of the chart
@@ -103,94 +93,12 @@ type ChartMetadata struct {
 
 type ResourceTreeResponse struct {
 	*ApplicationTree
-	PodMetadata []*PodMetadata `json:"podMetadata"`
+	PodMetadata []*commonBean.PodMetadata `json:"podMetadata"`
 }
 
 // ApplicationTree holds nodes which belongs to the application
 type ApplicationTree struct {
-	Nodes []*ResourceNode `json:"nodes,omitempty" protobuf:"bytes,1,rep,name=nodes"`
-}
-
-// ResourceNode contains information about live resource and its children
-type ResourceNode struct {
-	*ResourceRef    `json:",inline" protobuf:"bytes,1,opt,name=resourceRef"`
-	ParentRefs      []*ResourceRef          `json:"parentRefs,omitempty" protobuf:"bytes,2,opt,name=parentRefs"`
-	NetworkingInfo  *ResourceNetworkingInfo `json:"networkingInfo,omitempty" protobuf:"bytes,4,opt,name=networkingInfo"`
-	ResourceVersion string                  `json:"resourceVersion,omitempty" protobuf:"bytes,5,opt,name=resourceVersion"`
-	Health          *HealthStatus           `json:"health,omitempty" protobuf:"bytes,7,opt,name=health"`
-	IsHibernated    bool                    `json:"isHibernated"`
-	CanBeHibernated bool                    `json:"canBeHibernated"`
-	Info            []InfoItem              `json:"info,omitempty"`
-	Port            []int64                 `json:"port,omitempty"`
-	CreatedAt       string                  `json:"createdAt,omitempty"`
-	IsHook          bool                    `json:"isHook,omitempty"`
-	HookType        string                  `json:"hookType,omitempty"`
-	// UpdateRevision is used when a pod's owner is a StatefulSet for identifying if the pod is new or old
-	UpdateRevision string `json:"updateRevision,omitempty"`
-	// DeploymentPodHash is the podHash in deployment manifest and is used to compare replicaSet's podHash for identifying new vs old pod
-	DeploymentPodHash        string `json:"deploymentPodHash,omitempty"`
-	DeploymentCollisionCount *int32 `json:"deploymentCollisionCount,omitempty"`
-	// RolloutCurrentPodHash is the podHash in rollout manifest and is used to compare replicaSet's podHash for identifying new vs old pod
-	RolloutCurrentPodHash string `json:"rolloutCurrentPodHash,omitempty"`
-}
-
-// ResourceRef includes fields which unique identify resource
-type ResourceRef struct {
-	Group     string                    `json:"group,omitempty" protobuf:"bytes,1,opt,name=group"`
-	Version   string                    `json:"version,omitempty" protobuf:"bytes,2,opt,name=version"`
-	Kind      string                    `json:"kind,omitempty" protobuf:"bytes,3,opt,name=kind"`
-	Namespace string                    `json:"namespace,omitempty" protobuf:"bytes,4,opt,name=namespace"`
-	Name      string                    `json:"name,omitempty" protobuf:"bytes,5,opt,name=name"`
-	UID       string                    `json:"uid,omitempty" protobuf:"bytes,6,opt,name=uid"`
-	Manifest  unstructured.Unstructured `json:"-"`
-}
-
-func (r *ResourceRef) GetGvk() schema.GroupVersionKind {
-	if r == nil {
-		return schema.GroupVersionKind{}
-	}
-	return schema.GroupVersionKind{
-		Group:   r.Group,
-		Version: r.Version,
-		Kind:    r.Kind,
-	}
-}
-
-// ResourceNetworkingInfo holds networking resource related information
-type ResourceNetworkingInfo struct {
-	Labels map[string]string `json:"labels,omitempty" protobuf:"bytes,3,opt,name=labels"`
-}
-
-type HealthStatus struct {
-	Status  HealthStatusCode `json:"status,omitempty" protobuf:"bytes,1,opt,name=status"`
-	Message string           `json:"message,omitempty" protobuf:"bytes,2,opt,name=message"`
-}
-
-type HealthStatusCode = string
-
-const (
-	HealthStatusUnknown             HealthStatusCode = "Unknown"
-	HealthStatusProgressing         HealthStatusCode = "Progressing"
-	HealthStatusHealthy             HealthStatusCode = "Healthy"
-	HealthStatusSuspended           HealthStatusCode = "Suspended"
-	HealthStatusDegraded            HealthStatusCode = "Degraded"
-	HealthStatusMissing             HealthStatusCode = "Missing"
-	HealthStatusHibernated          HealthStatusCode = "Hibernated"
-	HealthStatusPartiallyHibernated HealthStatusCode = "Partially Hibernated"
-)
-
-type PodMetadata struct {
-	Name                string                    `json:"name"`
-	UID                 string                    `json:"uid"`
-	Containers          []string                  `json:"containers"`
-	InitContainers      []string                  `json:"initContainers"`
-	IsNew               bool                      `json:"isNew"`
-	EphemeralContainers []*EphemeralContainerData `json:"ephemeralContainers"`
-}
-
-type EphemeralContainerData struct {
-	Name       string `json:"name"`
-	IsExternal bool   `json:"isExternal"`
+	Nodes []*commonBean.ResourceNode `json:"nodes,omitempty" protobuf:"bytes,1,rep,name=nodes"`
 }
 
 type HelmReleaseDetailRequest struct {
@@ -229,25 +137,6 @@ type DesiredOrLiveManifest struct {
 	Manifest                   *unstructured.Unstructured `json:"manifest"`
 	IsLiveManifestFetchError   bool                       `json:"isLiveManifestFetchError"`
 	LiveManifestFetchErrorCode int32                      `json:"liveManifestFetchErrorCode"`
-}
-
-// use value field as generic type
-// InfoItem contains arbitrary, human readable information about an application
-type InfoItem struct {
-	// Name is a human readable title for this piece of information.
-	Name string `json:"name,omitempty"`
-	// Value is human readable content.
-	Value interface{} `json:"value,omitempty"`
-}
-
-type EphemeralContainerInfo struct {
-	Name    string
-	Command []string
-}
-
-type EphemeralContainerStatusesInfo struct {
-	Name  string
-	State v1.ContainerState
 }
 
 type ClusterInfo struct {

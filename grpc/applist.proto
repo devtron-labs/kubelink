@@ -238,7 +238,7 @@ message AppConfigRequest {
 }
 
 message ParentGvkListResponse{
-  repeated Gvk gvkList = 1;
+  repeated ObjectIdentifier parentObjects = 1;
 }
 
 

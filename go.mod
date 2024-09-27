@@ -6,8 +6,7 @@ toolchain go1.22.6
 
 require (
 	github.com/caarlos0/env v3.5.0+incompatible
-	github.com/davecgh/go-spew v1.1.1
-	github.com/devtron-labs/common-lib v0.16.1-0.20240923063129-ff2dc035435e
+	github.com/devtron-labs/common-lib v0.16.1-0.20240927122559-5654ff99a9c1
 	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/go-pg/pg v6.15.1+incompatible
 	github.com/golang/protobuf v1.5.4
@@ -52,6 +51,7 @@ require (
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v0.2.1 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/cli v27.1.0+incompatible // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
