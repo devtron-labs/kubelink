@@ -248,7 +248,7 @@ func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*be
 
 	appDetail := &bean.AppDetail{
 		ResourceTreeResponse: resourceTreeResponse,
-		ApplicationStatus:    util.BuildAppHealthStatus(resourceTreeResponse.Nodes),
+		ApplicationStatus:    k8sObjectsUtil.BuildAppHealthStatus(resourceTreeResponse.Nodes),
 		LastDeployed:         helmRelease.Info.LastDeployed.Time,
 		ChartMetadata: &bean.ChartMetadata{
 			ChartName:    helmRelease.Chart.Name(),

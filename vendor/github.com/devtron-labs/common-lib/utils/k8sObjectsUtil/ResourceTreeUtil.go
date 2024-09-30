@@ -657,3 +657,44 @@ func GetMatchingPodMetadataForUID(podMetadatas []*commonBean.PodMetadata, uid st
 	}
 	return nil
 }
+
+// app health is worst of the nodes health
+// or if app status is healthy then check for hibernation status
+func BuildAppHealthStatus(nodes []*commonBean.ResourceNode) *commonBean.HealthStatusCode {
+	appHealthStatus := commonBean.HealthStatusHealthy
+	isAppFullyHibernated := true
+	var isAppPartiallyHibernated bool
+	var isAnyNodeCanByHibernated bool
+
+	for _, node := range nodes {
+		if node.IsHook {
+			continue
+		}
+		nodeHealth := node.Health
+		if node.CanBeHibernated {
+			isAnyNodeCanByHibernated = true
+			if !node.IsHibernated {
+				isAppFullyHibernated = false
+			} else {
+				isAppPartiallyHibernated = true
+			}
+		}
+		if nodeHealth == nil {
+			continue
+		}
+		if health.IsWorseStatus(health.HealthStatusCode(appHealthStatus), health.HealthStatusCode(nodeHealth.Status)) {
+			appHealthStatus = nodeHealth.Status
+		}
+	}
+
+	// override hibernate status on app level if status is healthy and hibernation done
+	if appHealthStatus == commonBean.HealthStatusHealthy && isAnyNodeCanByHibernated {
+		if isAppFullyHibernated {
+			appHealthStatus = commonBean.HealthStatusHibernated
+		} else if isAppPartiallyHibernated {
+			appHealthStatus = commonBean.HealthStatusPartiallyHibernated
+		}
+	}
+
+	return &appHealthStatus
+}
