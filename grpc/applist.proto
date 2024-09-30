@@ -24,7 +24,7 @@ message AppListRequest {
 service ApplicationService {
   rpc ListApplications(AppListRequest) returns (stream DeployedAppList){}
   rpc ListFluxApplications(AppListRequest) returns (stream FluxApplicationList){}
-  rpc GetParentGvkListForApp(AppConfigRequest) returns (ParentGvkListResponse){}
+  rpc GetHelmReleaseDetailWithDesiredManifest(AppConfigRequest) returns (GetReleaseDetailWithManifestResponse){}
   rpc GetAppDetail(AppDetailRequest) returns (AppDetail){}
   rpc GetAppStatus(AppDetailRequest) returns (AppStatus){}
   rpc Hibernate(HibernateRequest) returns (HibernateResponse){}
@@ -237,8 +237,13 @@ message AppConfigRequest {
   string ReleaseName = 3;
 }
 
-message ParentGvkListResponse{
+message GetReleaseDetailWithManifestResponse{
   repeated ObjectIdentifier parentObjects = 1;
+  ReleaseStatus releaseStatus = 2;
+  google.protobuf.Timestamp lastDeployed = 3;
+  ChartMetadata chartMetadata = 4;
+  EnvironmentDetails environmentDetails = 5;
+  bool ReleaseExist = 6;
 }
 
 

@@ -15,6 +15,7 @@ import (
 	"github.com/devtron-labs/kubelink/pkg/helmClient"
 	"github.com/devtron-labs/kubelink/pkg/util"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"helm.sh/helm/v3/pkg/release"
 	"k8s.io/api/extensions/v1beta1"
 	errors2 "k8s.io/apimachinery/pkg/api/errors"
@@ -31,7 +32,7 @@ type CommonHelmService interface {
 	BuildResourceTree(appDetailRequest *client.AppDetailRequest, release *release.Release) (*bean.ResourceTreeResponse, error)
 	BuildNodes(request *BuildNodesConfig) (*BuildNodeResponse, error)
 	GetResourceTreeForExternalResources(req *client.ExternalResourceTreeRequest) (*bean.ResourceTreeResponse, error)
-	GetParentGvkListForApp(appConfig *client.AppConfigRequest) ([]*client.ObjectIdentifier, error)
+	GetHelmReleaseDetailWithDesiredManifest(appConfig *client.AppConfigRequest) (*client.GetReleaseDetailWithManifestResponse, error)
 }
 
 type CommonHelmServiceImpl struct {
@@ -127,7 +128,7 @@ func (impl *CommonHelmServiceImpl) getRestConfigForClusterConfig(clusterConfig *
 	return conf, nil
 }
 
-func (impl *CommonHelmServiceImpl) GetParentGvkListForApp(appConfig *client.AppConfigRequest) ([]*client.ObjectIdentifier, error) {
+func (impl *CommonHelmServiceImpl) GetHelmReleaseDetailWithDesiredManifest(appConfig *client.AppConfigRequest) (*client.GetReleaseDetailWithManifestResponse, error) {
 	if appConfig == nil {
 		return nil, errors.New("appConfig is nil")
 	}
@@ -153,7 +154,28 @@ func (impl *CommonHelmServiceImpl) GetParentGvkListForApp(appConfig *client.AppC
 		}
 	}
 
-	return objectIdentifiers, nil
+	resp := &client.GetReleaseDetailWithManifestResponse{
+		ParentObjects: objectIdentifiers,
+		ReleaseStatus: &client.ReleaseStatus{
+			Status:      string(helmRelease.Info.Status),
+			Message:     helmRelease.Info.Description,
+			Description: util.GetMessageFromReleaseStatus(helmRelease.Info.Status),
+		},
+		LastDeployed: timestamppb.New(helmRelease.Info.LastDeployed.Time),
+		ChartMetadata: &client.ChartMetadata{
+			ChartName:    helmRelease.Chart.Name(),
+			ChartVersion: helmRelease.Chart.Metadata.Version,
+			Notes:        helmRelease.Info.Notes,
+		},
+		EnvironmentDetails: &client.EnvironmentDetails{
+			ClusterName: appConfig.ClusterConfig.ClusterName,
+			ClusterId:   appConfig.ClusterConfig.ClusterId,
+			Namespace:   helmRelease.Namespace,
+		},
+		ReleaseExist: true,
+	}
+
+	return resp, nil
 }
 
 func (impl *CommonHelmServiceImpl) getManifestsFromHelmRelease(helmRelease *release.Release) ([]unstructured.Unstructured, error) {
@@ -546,24 +568,12 @@ func (impl *CommonHelmServiceImpl) buildPodMetadata(nodes []*k8sCommonBean.Resou
 				return podMetadatas, err
 			}
 		}
-		podMetadata := getMatchingPodMetadataForUID(podMetadatas, node.UID)
+		podMetadata := k8sObjectsUtil.GetMatchingPodMetadataForUID(podMetadatas, node.UID)
 		podMetadata.IsNew = isNew
 	}
 
 	return podMetadatas, nil
 
-}
-
-func getMatchingPodMetadataForUID(podMetadatas []*k8sCommonBean.PodMetadata, uid string) *k8sCommonBean.PodMetadata {
-	if len(podMetadatas) == 0 {
-		return nil
-	}
-	for _, podMetadata := range podMetadatas {
-		if podMetadata.UID == uid {
-			return podMetadata
-		}
-	}
-	return nil
 }
 
 func (impl *CommonHelmServiceImpl) isPodNew(nodes []*k8sCommonBean.ResourceNode, node *k8sCommonBean.ResourceNode, deploymentPodHashMap map[string]string, rolloutMap map[string]*k8sCommonBean.ExtraNodeInfo,

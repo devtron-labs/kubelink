@@ -97,15 +97,15 @@ func (impl *ApplicationServiceServerImpl) ListApplications(req *client.AppListRe
 	return nil
 }
 
-func (impl *ApplicationServiceServerImpl) GetParentGvkListForApp(ctx context.Context, req *client.AppConfigRequest) (*client.ParentGvkListResponse, error) {
+func (impl *ApplicationServiceServerImpl) GetHelmReleaseDetailWithDesiredManifest(ctx context.Context, req *client.AppConfigRequest) (*client.GetReleaseDetailWithManifestResponse, error) {
 	impl.Logger.Infow("App detail request", "clusterName", req.ClusterConfig.ClusterName, "releaseName", req.ReleaseName,
 		"namespace", req.Namespace)
-	objectIdentifiers, err := impl.HelmAppService.GetParentGvkListForApp(req)
+	resp, err := impl.HelmAppService.GetHelmReleaseDetailWithDesiredManifest(req)
 	if err != nil {
-		impl.Logger.Errorw("Error in GetParentGvkListForApp request", "payload", req, "err", err)
+		impl.Logger.Errorw("Error in GetHelmReleaseDetailWithDesiredManifest request", "payload", req, "err", err)
 		return nil, err
 	}
-	return &client.ParentGvkListResponse{ParentObjects: objectIdentifiers}, nil
+	return resp, nil
 }
 
 func (impl *ApplicationServiceServerImpl) GetAppDetail(ctxt context.Context, req *client.AppDetailRequest) (*client.AppDetail, error) {

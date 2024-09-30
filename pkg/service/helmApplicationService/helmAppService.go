@@ -105,7 +105,7 @@ type HelmAppService interface {
 	PushHelmChartToOCIRegistryRepo(ctx context.Context, OCIRegistryRequest *client.OCIRegistryRequest) (*client.OCIRegistryResponse, error)
 	GetResourceTreeForExternalResources(req *client.ExternalResourceTreeRequest) (*bean.ResourceTreeResponse, error)
 	GetReleaseDetails(ctx context.Context, releaseIdentifier *client.ReleaseIdentifier) (*client.DeployedAppDetail, error)
-	GetParentGvkListForApp(appConfig *client.AppConfigRequest) ([]*client.ObjectIdentifier, error)
+	GetHelmReleaseDetailWithDesiredManifest(appConfig *client.AppConfigRequest) (*client.GetReleaseDetailWithManifestResponse, error)
 }
 
 type HelmAppServiceImpl struct {
@@ -223,8 +223,8 @@ func (impl *HelmAppServiceImpl) GetApplicationListForCluster(config *client.Clus
 func (impl HelmAppServiceImpl) GetResourceTreeForExternalResources(req *client.ExternalResourceTreeRequest) (*bean.ResourceTreeResponse, error) {
 	return impl.common.GetResourceTreeForExternalResources(req)
 }
-func (impl HelmAppServiceImpl) GetParentGvkListForApp(appConfig *client.AppConfigRequest) ([]*client.ObjectIdentifier, error) {
-	return impl.common.GetParentGvkListForApp(appConfig)
+func (impl HelmAppServiceImpl) GetHelmReleaseDetailWithDesiredManifest(appConfig *client.AppConfigRequest) (*client.GetReleaseDetailWithManifestResponse, error) {
+	return impl.common.GetHelmReleaseDetailWithDesiredManifest(appConfig)
 }
 
 func (impl HelmAppServiceImpl) BuildAppDetail(req *client.AppDetailRequest) (*bean.AppDetail, error) {

@@ -645,3 +645,15 @@ func IsService(gvk schema.GroupVersionKind) bool {
 func IsPod(kind string, group string) bool {
 	return kind == "Pod" && group == ""
 }
+
+func GetMatchingPodMetadataForUID(podMetadatas []*commonBean.PodMetadata, uid string) *commonBean.PodMetadata {
+	if len(podMetadatas) == 0 {
+		return nil
+	}
+	for _, podMetadata := range podMetadatas {
+		if podMetadata.UID == uid {
+			return podMetadata
+		}
+	}
+	return nil
+}
