@@ -148,7 +148,7 @@ func (impl *CommonHelmServiceImpl) GetHelmReleaseDetailWithDesiredManifest(appCo
 
 	objectIdentifiers := make([]*client.ObjectIdentifier, 0)
 	for _, manifest := range manifests {
-		objectIdentifier := GetObjectIdentifierFromHelmManifest(manifest)
+		objectIdentifier := GetObjectIdentifierFromHelmManifest(manifest, appConfig.Namespace)
 		if objectIdentifier != nil && len(objectIdentifier.Kind) > 0 && len(objectIdentifier.Name) > 0 {
 			objectIdentifiers = append(objectIdentifiers, objectIdentifier)
 		}
