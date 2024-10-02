@@ -473,16 +473,14 @@ func (impl *ApplicationServiceServerImpl) AppDetailAdaptor(req *bean.AppDetail) 
 			}
 		}
 		resourceNode := &client.ResourceNode{
-			Group:      node.Group,
-			Version:    node.Version,
-			Kind:       node.Kind,
-			Namespace:  node.Namespace,
-			Name:       node.Name,
-			Uid:        node.UID,
-			ParentRefs: resourceRefResult(node.ParentRefs),
-			NetworkingInfo: &client.ResourceNetworkingInfo{
-				Labels: node.NetworkingInfo.Labels,
-			},
+			Group:           node.Group,
+			Version:         node.Version,
+			Kind:            node.Kind,
+			Namespace:       node.Namespace,
+			Name:            node.Name,
+			Uid:             node.UID,
+			ParentRefs:      resourceRefResult(node.ParentRefs),
+			NetworkingInfo:  getNetworkingInfoFromNode(node.NetworkingInfo),
 			ResourceVersion: node.ResourceVersion,
 			Health:          healthStatus,
 			IsHibernated:    node.IsHibernated,
@@ -539,6 +537,15 @@ func (impl *ApplicationServiceServerImpl) AppDetailAdaptor(req *bean.AppDetail) 
 		ReleaseExist:       true,
 	}
 	return appDetail
+}
+
+func getNetworkingInfoFromNode(info *commonBean.ResourceNetworkingInfo) *client.ResourceNetworkingInfo {
+	if info == nil {
+		return &client.ResourceNetworkingInfo{}
+	}
+	return &client.ResourceNetworkingInfo{
+		Labels: info.Labels,
+	}
 }
 
 func (impl *ApplicationServiceServerImpl) buildInfoItems(infoItemBeans []commonBean.InfoItem) []*client.InfoItem {

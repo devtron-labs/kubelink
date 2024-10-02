@@ -559,19 +559,26 @@ func (impl *CommonHelmServiceImpl) getManifestsForExternalResources(restConfig *
 
 func (impl *CommonHelmServiceImpl) buildPodMetadata(nodes []*k8sCommonBean.ResourceNode, restConfig *rest.Config) ([]*k8sCommonBean.PodMetadata, error) {
 	podMetadatas, err := k8sObjectsUtil.BuildPodMetadata(nodes)
-	for _, node := range nodes {
-		var isNew bool
-		if len(node.ParentRefs) > 0 {
-			deploymentPodHashMap, rolloutMap, uidVsExtraNodeInfoMap := k8sObjectsUtil.GetExtraNodeInfoMappings(nodes)
-			isNew, err = impl.isPodNew(nodes, node, deploymentPodHashMap, rolloutMap, uidVsExtraNodeInfoMap, restConfig)
-			if err != nil {
-				return podMetadatas, err
+	if err != nil {
+		impl.logger.Errorw("error in building pod metadata", "err", err)
+		return nil, err
+	}
+	if len(podMetadatas) > 0 {
+		for _, node := range nodes {
+			var isNew bool
+			if len(node.ParentRefs) > 0 {
+				deploymentPodHashMap, rolloutMap, uidVsExtraNodeInfoMap := k8sObjectsUtil.GetExtraNodeInfoMappings(nodes)
+				isNew, err = impl.isPodNew(nodes, node, deploymentPodHashMap, rolloutMap, uidVsExtraNodeInfoMap, restConfig)
+				if err != nil {
+					return podMetadatas, err
+				}
+			}
+			podMetadata := k8sObjectsUtil.GetMatchingPodMetadataForUID(podMetadatas, node.UID)
+			if podMetadata != nil {
+				podMetadata.IsNew = isNew
 			}
 		}
-		podMetadata := k8sObjectsUtil.GetMatchingPodMetadataForUID(podMetadatas, node.UID)
-		podMetadata.IsNew = isNew
 	}
-
 	return podMetadatas, nil
 
 }
