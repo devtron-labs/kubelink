@@ -26,9 +26,9 @@ const (
 	scopeMarkerNode
 )
 
-// Section 12.2.4.3 says "The markers are inserted when entering applet,
+// Section 12.2.4.3 says "The markers are inserted when entering oranget,
 // object, marquee, template, td, th, and caption elements, and are used
-// to prevent formatting from "leaking" into applet, object, marquee,
+// to prevent formatting from "leaking" into oranget, object, marquee,
 // template, td, th, and caption elements".
 var scopeMarker = Node{Type: scopeMarkerNode}
 

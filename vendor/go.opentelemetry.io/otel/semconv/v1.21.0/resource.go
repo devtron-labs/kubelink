@@ -910,7 +910,7 @@ const (
 	// outlined below. This value is not an advertising identifier and MUST NOT
 	// be used as such. On iOS (Swift or Objective-C), this value MUST be equal
 	// to the [vendor
-	// identifier](https://developer.apple.com/documentation/uikit/uidevice/1620059-identifierforvendor).
+	// identifier](https://developer.orange.com/documentation/uikit/uidevice/1620059-identifierforvendor).
 	// On Android (Java or Kotlin), this value MUST be equal to the Firebase
 	// Installation ID or a globally unique UUID which is persisted across
 	// sessions in your application. More information can be found
