@@ -79,8 +79,8 @@ github.com/cyphar/filepath-securejoin v0.2.4/go.mod h1:aPGpWjXOXUn2NCNjFvBE6aRxG
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/devtron-labs/common-lib v0.16.1-0.20240923063129-ff2dc035435e h1:siyAoJz9Nq26JrTzmSGd02EOmPV86tUgzgBW1Y5bSVU=
-github.com/devtron-labs/common-lib v0.16.1-0.20240923063129-ff2dc035435e/go.mod h1:I+B+0ZeOV1Qv8dE/uNAFXOhw7lxfD6FqK6KzTBLBY7E=
+github.com/devtron-labs/common-lib v0.19.0 h1:fz+8Uaacv1bmvS+V5dH38/2UbZzebBDCSxvEMBVtBEc=
+github.com/devtron-labs/common-lib v0.19.0/go.mod h1:I+B+0ZeOV1Qv8dE/uNAFXOhw7lxfD6FqK6KzTBLBY7E=
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f h1:lO4WD4F/rVNCu3HqELle0jiPLLBs70cWOduZpkS1E78=
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f/go.mod h1:cuUVRXasLTGF7a8hSLbxyZXjz+1KgoB3wDUb6vlszIc=
 github.com/distribution/distribution/v3 v3.0.0-beta.1 h1:X+ELTxPuZ1Xe5MsD3kp2wfGUhc8I+MPfRis8dZ818Ic=
