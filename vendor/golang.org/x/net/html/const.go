@@ -9,7 +9,7 @@ package html
 // https://html.spec.whatwg.org/multipage/syntax.html#the-stack-of-open-elements
 var isSpecialElementMap = map[string]bool{
 	"address":    true,
-	"applet":     true,
+	"oranget":     true,
 	"area":       true,
 	"article":    true,
 	"aside":      true,

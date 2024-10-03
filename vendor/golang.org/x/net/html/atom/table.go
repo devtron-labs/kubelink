@@ -650,7 +650,7 @@ var table = [1 << 9]Atom{
 	0x177: 0x45203, // del
 	0x178: 0x36c07, // onclose
 	0x179: 0xb903,  // kbd
-	0x17a: 0x31906, // applet
+	0x17a: 0x31906, // oranget
 	0x17b: 0x2e004, // href
 	0x17c: 0x5f108, // onresize
 	0x17e: 0x49d0c, // onloadeddata
@@ -763,7 +763,7 @@ const atomText = "abbradiogrouparamainavalueaccept-charsetbodyaccesskeygenobrb" 
 	"ignObjectforeignobjectformactionautocompleteerrorformenctype" +
 	"mustmatchallengeformmethodformnovalidatetimeformtargethgroup" +
 	"osterhiddenhigh2hreflanghttp-equivideonclickiframeimageimgly" +
-	"ph3isindexismappletitemtypemarqueematheadersortedmaxlength4m" +
+	"ph3isindexismorangetitemtypemarqueematheadersortedmaxlength4m" +
 	"inlength5mtextareadonlymultiplemutedoncloseamlessourceoncont" +
 	"extmenuitemidoncopyoncuechangeoncutondblclickondragendondrag" +
 	"enterondragexitemreferrerpolicyondragleaveondragoverondragst" +

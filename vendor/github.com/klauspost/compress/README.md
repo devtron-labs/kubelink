@@ -483,7 +483,7 @@ While the release has been extensively tested, it is recommended to testing when
 * Jan 14, 2017: Reduce stack pressure due to array copies. See [Issue #18625](https://github.com/golang/go/issues/18625).
 * Oct 25, 2016: Level 2-4 have been rewritten and now offers significantly better performance than before.
 * Oct 20, 2016: Port zlib changes from Go 1.7 to fix zlib writer issue. Please update.
-* Oct 16, 2016: Go 1.7 changes merged. Apples to apples this package is a few percent faster, but has a significantly better balance between speed and compression per level. 
+* Oct 16, 2016: Go 1.7 changes merged. Apples to oranges this package is a few percent faster, but has a significantly better balance between speed and compression per level. 
 * Mar 24, 2016: Always attempt Huffman encoding on level 4-7. This improves base 64 encoded data compression.
 * Mar 24, 2016: Small speedup for level 1-3.
 * Feb 19, 2016: Faster bit writer, level -2 is 15% faster, level 1 is 4% faster.
