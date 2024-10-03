@@ -286,6 +286,11 @@ const (
 	HealthStatusPartiallyHibernated HealthStatusCode = "Partially Hibernated"
 )
 
+type ResourceTreeResponse struct {
+	Nodes       []*ResourceNode `json:"nodes,omitempty"`
+	PodMetadata []*PodMetadata  `json:"podMetadata,omitempty"`
+}
+
 type PodMetadata struct {
 	Name                string                    `json:"name"`
 	UID                 string                    `json:"uid"`

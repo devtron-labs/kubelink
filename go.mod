@@ -6,7 +6,7 @@ toolchain go1.22.6
 
 require (
 	github.com/caarlos0/env v3.5.0+incompatible
-	github.com/devtron-labs/common-lib v0.16.1-0.20240930081222-197f5049401e
+	github.com/devtron-labs/common-lib v0.18.1-0.20241001061923-eda545dc839e
 	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/go-pg/pg v6.15.1+incompatible
 	github.com/golang/protobuf v1.5.4
