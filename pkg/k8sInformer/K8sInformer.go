@@ -431,18 +431,7 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 				if err != nil {
 					impl.logger.Error("error in decoding release")
 				}
-				appDetail := &client.DeployedAppDetail{
-					AppId:        util.GetAppId(int32(clusterModel.Id), releaseDTO),
-					AppName:      releaseDTO.Name,
-					ChartName:    releaseDTO.Chart.Name(),
-					ChartAvatar:  releaseDTO.Chart.Metadata.Icon,
-					LastDeployed: timestamppb.New(releaseDTO.Info.LastDeployed.Time),
-					EnvironmentDetail: &client.EnvironmentDetails{
-						ClusterId:   int32(clusterModel.Id),
-						ClusterName: clusterModel.ClusterName,
-						Namespace:   releaseDTO.Namespace,
-					},
-				}
+				appDetail := parseDeployedAppDetail(clusterModel, releaseDTO)
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
 				impl.HelmListClusterMap[clusterId][impl.getUniqueReleaseKey(&ReleaseDto{releaseDTO}, clusterModel.Id)] = appDetail
@@ -458,18 +447,7 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 				if err != nil {
 					impl.logger.Error("error in decoding release")
 				}
-				appDetail := &client.DeployedAppDetail{
-					AppId:        util.GetAppId(int32(clusterModel.Id), releaseDTO),
-					AppName:      releaseDTO.Name,
-					ChartName:    releaseDTO.Chart.Name(),
-					ChartAvatar:  releaseDTO.Chart.Metadata.Icon,
-					LastDeployed: timestamppb.New(releaseDTO.Info.LastDeployed.Time),
-					EnvironmentDetail: &client.EnvironmentDetails{
-						ClusterId:   int32(clusterModel.Id),
-						ClusterName: clusterModel.ClusterName,
-						Namespace:   releaseDTO.Namespace,
-					},
-				}
+				appDetail := parseDeployedAppDetail(clusterModel, releaseDTO)
 				impl.mutex.Lock()
 				defer impl.mutex.Unlock()
 				// adding cluster id with release name and namespace because there can be case when two cluster or two namespaces have release with same name
@@ -496,6 +474,25 @@ func (impl *K8sInformerImpl) startInformerAndPopulateCache(clusterId int) error 
 	impl.logger.Infow("informer started for cluster: ", "cluster_id", clusterModel.Id, "cluster_name", clusterModel.ClusterName)
 	impl.informerStopper[clusterId] = stopper
 	return nil
+}
+
+func parseDeployedAppDetail(clusterModel *repository.Cluster, releaseDTO *release.Release) *client.DeployedAppDetail {
+	appDetail := &client.DeployedAppDetail{
+		AppId:       util.GetAppId(int32(clusterModel.Id), releaseDTO),
+		AppName:     releaseDTO.Name,
+		ChartName:   releaseDTO.Chart.Name(),
+		ChartAvatar: releaseDTO.Chart.Metadata.Icon,
+		EnvironmentDetail: &client.EnvironmentDetails{
+			ClusterId:   int32(clusterModel.Id),
+			ClusterName: clusterModel.ClusterName,
+			Namespace:   releaseDTO.Namespace,
+		},
+		LastDeployed:  timestamppb.New(releaseDTO.Info.LastDeployed.Time),
+		ChartVersion:  releaseDTO.Chart.Metadata.Version,
+		ReleaseStatus: releaseDTO.Info.Status.String(),
+		Home:          releaseDTO.Chart.Metadata.Home,
+	}
+	return appDetail
 }
 
 func (impl *K8sInformerImpl) getUniqueReleaseKey(release *ReleaseDto, clusterId int) string {
