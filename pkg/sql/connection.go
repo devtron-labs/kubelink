@@ -17,6 +17,8 @@
 package sql
 
 import (
+	"github.com/devtron-labs/kubelink/pkg/model"
+	"github.com/go-pg/pg/orm"
 	"go.uber.org/zap"
 	"reflect"
 	"time"
@@ -62,6 +64,19 @@ func NewDbConnection(cfg *Config, logger *zap.SugaredLogger) (*pg.DB, error) {
 		return nil, err
 	} else {
 		logger.Infow("connected with db", "db", obfuscateSecretTags(cfg))
+	}
+
+	// automatically create tables
+	tables := []interface{}{(*model.RemoteConnectionConfig)(nil), (*model.Cluster)(nil)}
+
+	for _, table := range tables {
+		err = dbConnection.Model(table).CreateTable(&orm.CreateTableOptions{
+			IfNotExists: true,
+		})
+		if err != nil {
+			logger.Errorw("error in creating table", "table", table, "err", err)
+			return nil, err
+		}
 	}
 
 	//--------------

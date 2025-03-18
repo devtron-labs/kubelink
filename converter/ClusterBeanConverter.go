@@ -20,7 +20,7 @@ import (
 	k8sUtils "github.com/devtron-labs/common-lib/utils/k8s"
 	"github.com/devtron-labs/kubelink/bean"
 	client "github.com/devtron-labs/kubelink/grpc"
-	repository "github.com/devtron-labs/kubelink/pkg/cluster"
+	repository "github.com/devtron-labs/kubelink/pkg/model"
 )
 
 type ClusterBeanConverter interface {
