@@ -27,3 +27,10 @@ func getUniqueReleaseIdentifierName(releaseIdentifier *client.ReleaseIdentifier)
 const (
 	DirCreatingError = "err in creating dir"
 )
+
+func runInstallInAsyncMode(installedAppVersionHistoryId int32, isAsyncEnabled bool) bool {
+	if installedAppVersionHistoryId == 0 {
+		return false
+	}
+	return isAsyncEnabled
+}
