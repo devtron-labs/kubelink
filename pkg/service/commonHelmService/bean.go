@@ -16,6 +16,7 @@
 package commonHelmService
 
 import (
+	"errors"
 	"github.com/devtron-labs/common-lib/utils/k8s/commonBean"
 	"github.com/devtron-labs/common-lib/workerPool"
 	"github.com/devtron-labs/kubelink/bean"
@@ -217,3 +218,7 @@ func (resp *BuildNodeResponse) WithHealthStatusArray(healthStatusArray []*bean.H
 	resp.HealthStatusArray = append(resp.HealthStatusArray, healthStatusArray...)
 	return resp
 }
+
+var (
+	ErrorReleaseNotFoundOnCluster = errors.New("release not found")
+)

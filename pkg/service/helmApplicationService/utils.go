@@ -16,7 +16,9 @@
 package helmApplicationService
 
 import (
+	"errors"
 	client "github.com/devtron-labs/kubelink/grpc"
+	"github.com/devtron-labs/kubelink/pkg/k8sInformer"
 	"strconv"
 )
 
@@ -27,6 +29,10 @@ func getUniqueReleaseIdentifierName(releaseIdentifier *client.ReleaseIdentifier)
 const (
 	DirCreatingError = "err in creating dir"
 )
+
+func IsReleaseNotFoundInCacheError(err error) bool {
+	return errors.Is(err, k8sInformer.ErrorCacheMissReleaseNotFound)
+}
 
 func runInstallInAsyncMode(installedAppVersionHistoryId int32, isAsyncEnabled bool) bool {
 	if installedAppVersionHistoryId == 0 {
